@@ -203,3 +203,38 @@ class EvolutionResult(BaseModel):
     topFiles: list[EvolutionTopFile] = []
     authors: list[EvolutionAuthor] = []
     hotspots: list[EvolutionHotspot] = []
+
+
+# ---- P6 RAG（06 §5.8）----
+
+
+class RagIndexRequest(BaseModel):
+    projectId: int
+    codeDir: str
+    languages: list[str] | None = None  # 默认 ["python", "java"]
+    analysisId: int | None = None  # backend 分析链路传入；手动索引可为空
+
+
+class RagIndexResponse(BaseModel):
+    chunks: int
+    embeddingModel: str | None
+    stored: bool
+    message: str | None = None
+
+
+class RagSearchRequest(BaseModel):
+    projectId: int
+    query: str = Field(min_length=1, max_length=500)
+    topK: int = Field(default=8, ge=1, le=20)
+
+
+class RagSearchChunk(BaseModel):
+    file: str
+    chunkIndex: int
+    content: str
+    meta: dict = {}
+    score: float
+
+
+class RagSearchResponse(BaseModel):
+    chunks: list[RagSearchChunk] = []

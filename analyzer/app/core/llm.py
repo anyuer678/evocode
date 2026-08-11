@@ -22,9 +22,16 @@ class LLMClient(Protocol):
     def chat_json(self, system: str, user: str) -> dict:
         """单轮对话并解析为 JSON 对象；失败抛异常（由调用方降级）。"""
 
+    def embed(self, texts: list[str]) -> list[list[float]]:
+        """文本向量化（/embeddings）；失败抛异常（由调用方降级关键词检索）。"""
+
 
 class OpenAICompatClient:
-    """OpenAI 兼容接口客户端（response_format=json_object + 超时 + 重试）。"""
+    """OpenAI 兼容接口客户端（response_format=json_object + 超时 + 重试）。
+
+    - chat_json：/chat/completions 结构化摘要
+    - embed：/embeddings（P6 RAG，模型默认 bge-m3，1024 维）
+    """
 
     def __init__(
         self,
@@ -33,48 +40,64 @@ class OpenAICompatClient:
         model: str,
         timeout_seconds: float = 60.0,
         max_retries: int = 2,
+        embedding_model: str = "bge-m3",
     ) -> None:
         self._base_url = base_url.rstrip("/")
         self._api_key = api_key
         self._model = model
         self._timeout = timeout_seconds
         self._max_retries = max(0, max_retries)
+        self._embedding_model = embedding_model
 
     def available(self) -> bool:
         return bool(self._api_key.strip())
 
-    def chat_json(self, system: str, user: str) -> dict:
-        if not self.available():
-            raise RuntimeError("LLM_API_KEY 未配置（LLM_NO_KEY）")
+    def _post(self, path: str, payload: dict) -> dict:
         last_exc: Exception | None = None
         for attempt in range(self._max_retries + 1):
             try:
-                payload = {
-                    "model": self._model,
-                    "messages": [
-                        {"role": "system", "content": system},
-                        {"role": "user", "content": user},
-                    ],
-                    "temperature": 0.3,
-                    "response_format": {"type": "json_object"},
-                }
                 with httpx.Client(timeout=self._timeout) as client:
                     resp = client.post(
-                        f"{self._base_url}/chat/completions",
+                        f"{self._base_url}{path}",
                         headers={"Authorization": f"Bearer {self._api_key}"},
                         json=payload,
                     )
                     resp.raise_for_status()
-                    data = resp.json()
-                content = data["choices"][0]["message"]["content"]
-                parsed = _parse_json_object(content)
-                if parsed is None:
-                    raise ValueError("LLM 返回非 JSON 内容")
-                return parsed
-            except Exception as exc:  # 网络/HTTP/解析错误统一重试
+                    return resp.json()
+            except Exception as exc:  # 网络/HTTP 错误统一重试
                 last_exc = exc
-                logger.warning("LLM 调用失败 attempt=%s: %s", attempt + 1, exc)
-        raise RuntimeError(f"LLM 调用失败：{last_exc}")
+                logger.warning("LLM 调用失败 %s attempt=%s: %s", path, attempt + 1, exc)
+        raise RuntimeError(f"LLM 调用失败（{path}）：{last_exc}")
+
+    def chat_json(self, system: str, user: str) -> dict:
+        if not self.available():
+            raise RuntimeError("LLM_API_KEY 未配置（LLM_NO_KEY）")
+        payload = {
+            "model": self._model,
+            "messages": [
+                {"role": "system", "content": system},
+                {"role": "user", "content": user},
+            ],
+            "temperature": 0.3,
+            "response_format": {"type": "json_object"},
+        }
+        data = self._post("/chat/completions", payload)
+        content = data["choices"][0]["message"]["content"]
+        parsed = _parse_json_object(content)
+        if parsed is None:
+            raise ValueError("LLM 返回非 JSON 内容")
+        return parsed
+
+    def embed(self, texts: list[str]) -> list[list[float]]:
+        """批量向量化；返回按输入顺序排列的向量（data 按 index 重排）。"""
+        if not self.available():
+            raise RuntimeError("LLM_API_KEY 未配置（LLM_NO_KEY）")
+        if not texts:
+            return []
+        payload = {"model": self._embedding_model, "input": texts}
+        data = self._post("/embeddings", payload)
+        items = sorted(data["data"], key=lambda d: d.get("index", 0))
+        return [item["embedding"] for item in items]
 
 
 def _parse_json_object(content: str) -> dict | None:

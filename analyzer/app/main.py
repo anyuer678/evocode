@@ -12,6 +12,8 @@ from .core.evolution import evolution_scan
 from .core.filescanner import scan_project
 from .core.llm import OpenAICompatClient
 from .core.prompts import REPORT_PROMPT_VERSION
+from .core.rag.service import RagService
+from .core.rag.vectorstore import KnowledgeStore
 from .core.reportgen import generate_report
 from .core.sonar import quality_scan
 from .schemas import (
@@ -26,6 +28,10 @@ from .schemas import (
     QualityMetrics,
     QualityRequest,
     QualityResult,
+    RagIndexRequest,
+    RagIndexResponse,
+    RagSearchRequest,
+    RagSearchResponse,
     ReportRequest,
     ReportResponse,
     ScanRequest,
@@ -50,7 +56,12 @@ _llm = OpenAICompatClient(
     model=settings.llm_model,
     timeout_seconds=settings.llm_timeout_seconds,
     max_retries=settings.llm_max_retries,
+    embedding_model=settings.llm_embedding_model,
 )
+
+# P6 RAG：直连 PG（AD-P6-2），只读写 knowledge_chunk；DSN 未配 → store.available()=False
+_rag_store = KnowledgeStore(settings.pg_dsn)
+_rag = RagService(settings, _rag_store, _llm)
 
 
 @app.get("/")
@@ -215,3 +226,32 @@ def evolution(req: EvolutionRequest) -> EvolutionResult:
         len(data["hotspots"]),
     )
     return EvolutionResult(**data)
+
+
+@app.post("/analyze/v1/rag/index")
+def rag_index(req: RagIndexRequest) -> RagIndexResponse:
+    """RAG 知识索引（06 §5.8）：切片 + embedding（失败降级 NULL）+ 入库。"""
+    code_dir = Path(req.codeDir)
+    if not code_dir.is_dir():
+        raise HTTPException(status_code=404, detail="codeDir not found")
+    result = _rag.index(req.projectId, str(code_dir), req.languages, req.analysisId)
+    logger.info(
+        "rag index project=%s chunks=%s model=%s stored=%s",
+        req.projectId,
+        result["chunks"],
+        result["embeddingModel"],
+        result["stored"],
+    )
+    return RagIndexResponse(**result)
+
+
+@app.post("/analyze/v1/rag/search")
+def rag_search(req: RagSearchRequest) -> RagSearchResponse:
+    """RAG 检索（06 §5.8）：向量 cosine + 关键词合并去重。"""
+    try:
+        chunks = _rag.search(req.projectId, req.query, req.topK)
+    except RuntimeError as exc:  # PG 未连接
+        logger.warning("rag search unavailable: %s", exc)
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    logger.info("rag search project=%s hits=%s", req.projectId, len(chunks))
+    return RagSearchResponse(chunks=chunks)
