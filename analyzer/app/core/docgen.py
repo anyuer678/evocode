@@ -138,7 +138,7 @@ def _extract_controllers(code_dir: str) -> list[str]:
             rel = os.path.relpath(path, code_dir).replace("\\", "/")
             lines_out.append(f"# {rel}")
             in_controller = False
-            class_path = ""
+            class_path = ""  # 每文件重置，防跨文件泄漏（审查 M5）
             for raw in text.splitlines():
                 line = raw.strip()
                 if "@RestController" in line or "@Controller" in line:

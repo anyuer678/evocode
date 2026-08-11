@@ -27,4 +27,7 @@ public interface ChatService {
      * 同步段只做校验与落库；流式透传由 ChatStreamer 在 chatExecutor 上执行。
      */
     void sendMessage(Long sessionId, String content, String fileRef, SseEmitter emitter);
+
+    /** 审查 M5：SSE 超时/前端断开时中断 analyzer 流，释放 chatExecutor 线程。 */
+    void cancelStream(Long sessionId);
 }

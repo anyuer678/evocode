@@ -69,7 +69,8 @@ public class ChatController {
      * 流式透传在 chatExecutor 上执行；连接保持至 done / error / 180s 超时。
      */
     @PostMapping(value = "/chats/{id}/messages", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public SseEmitter sendMessage(@PathVariable Long id, @RequestBody ChatSendReq req) {
+    public SseEmitter sendMessage(@PathVariable Long id, @RequestBody ChatSendReq req,
+                                  jakarta.servlet.http.HttpServletResponse response) {
         String content = req.content();
         if (content == null || content.isBlank()) {
             throw new BusinessException(ErrorCode.PARAM_MISSING, "消息内容不能为空");
@@ -77,8 +78,13 @@ public class ChatController {
         if (content.length() > 2000) {
             throw new BusinessException(ErrorCode.PARAM_INVALID, "消息过长（≤2000 字符）");
         }
+        response.setHeader("X-Accel-Buffering", "no"); // 契约 §4.3：禁用中间层缓冲
         SseEmitter emitter = new SseEmitter(SSE_TIMEOUT_MS);
-        emitter.onTimeout(emitter::complete);
+        emitter.onTimeout(() -> {
+            chatService.cancelStream(id); // 审查 M5：中断 analyzer 流释放线程
+            emitter.complete();
+        });
+        emitter.onCompletion(() -> chatService.cancelStream(id));
         chatService.sendMessage(id, content, req.fileRef(), emitter);
         return emitter;
     }

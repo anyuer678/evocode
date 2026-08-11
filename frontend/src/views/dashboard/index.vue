@@ -101,6 +101,14 @@ function renderCharts(): void {
   charts.forEach((c) => c.dispose())
   charts.length = 0
 
+  // 审查 M6：从 CSS 变量取主题色，深色下标题/图例可读
+  const cssVar = (name: string): string =>
+    getComputedStyle(document.documentElement).getPropertyValue(name).trim()
+  const textColor = cssVar('--text-primary') || '#1f2329'
+  const textSecondary = cssVar('--text-secondary') || '#6b7280'
+  const titleStyle = { fontSize: 13, color: textColor }
+  const legendStyle = { color: textSecondary }
+
   // 健康分分布（环形：<60 / 60-80 / ≥80）
   const buckets = { low: 0, mid: 0, high: 0, none: 0 }
   for (const p of projects.value) {
@@ -111,9 +119,9 @@ function renderCharts(): void {
   }
   charts.push(echarts.init(healthEl.value))
   charts[0].setOption({
-    title: { text: '健康分分布', left: 'center', textStyle: { fontSize: 13 } },
+    title: { text: '健康分分布', left: 'center', textStyle: titleStyle },
     tooltip: { trigger: 'item' },
-    legend: { bottom: 0 },
+    legend: { bottom: 0, textStyle: legendStyle },
     series: [
       {
         type: 'pie',
@@ -141,9 +149,9 @@ function renderCharts(): void {
     .map(([name, value]) => ({ name, value: Math.round(value) }))
   charts.push(echarts.init(langEl.value))
   charts[1].setOption({
-    title: { text: '语言构成', left: 'center', textStyle: { fontSize: 13 } },
+    title: { text: '语言构成', left: 'center', textStyle: titleStyle },
     tooltip: { trigger: 'item' },
-    legend: { bottom: 0, type: 'scroll' },
+    legend: { bottom: 0, type: 'scroll', textStyle: legendStyle },
     series: [{ type: 'pie', radius: ['40%', '68%'], data: langData }],
   })
 
@@ -155,9 +163,9 @@ function renderCharts(): void {
   const statusData = [...statusCount.entries()].map(([name, value]) => ({ name, value }))
   charts.push(echarts.init(statusEl.value))
   charts[2].setOption({
-    title: { text: '项目状态', left: 'center', textStyle: { fontSize: 13 } },
+    title: { text: '项目状态', left: 'center', textStyle: titleStyle },
     tooltip: { trigger: 'item' },
-    legend: { bottom: 0 },
+    legend: { bottom: 0, textStyle: legendStyle },
     series: [
       {
         type: 'pie',

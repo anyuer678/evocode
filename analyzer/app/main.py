@@ -255,9 +255,12 @@ def rag_search(req: RagSearchRequest) -> RagSearchResponse:
     """RAG 检索（06 §5.8）：向量 cosine + 关键词合并去重。"""
     try:
         chunks = _rag.search(req.projectId, req.query, req.topK)
-    except RuntimeError as exc:  # PG 未连接
+    except Exception as exc:  # PG 未配置或宕机（psycopg.Error）→ 503
         logger.warning("rag search unavailable: %s", exc)
-        raise HTTPException(status_code=503, detail=str(exc)) from exc
+        raise HTTPException(
+            status_code=503,
+            detail={"error": {"code": "RAG_UNAVAILABLE", "message": str(exc)}},
+        ) from exc
     logger.info("rag search project=%s hits=%s", req.projectId, len(chunks))
     return RagSearchResponse(chunks=chunks)
 
@@ -308,7 +311,7 @@ def analyze_doc(req: DocRequest) -> DocResponse:
         logger.warning("doc 生成失败 %s project=%s：%s", code, req.projectId, exc)
         raise HTTPException(
             status_code=400 if code == "LLM_NO_KEY" else 502,
-            detail={"code": code, "message": f"文档生成失败：{exc}"},
+            detail={"error": {"code": code, "message": f"文档生成失败：{exc}"}},
         ) from exc
     logger.info("doc done project=%s type=%s title=%s", req.projectId,
                 result["docType"], result["title"][:40])

@@ -10,8 +10,10 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientResponseException;
 
 import java.io.BufferedReader;
 import java.io.InputStream;
@@ -38,6 +40,7 @@ public class AnalyzerClient {
             .build();
 
     private final RestClient client;
+    private final RestClient docClient;
     private final String analyzerUrl;
     private final ObjectMapper objectMapper;
 
@@ -48,6 +51,16 @@ public class AnalyzerClient {
                 .baseUrl(analyzerUrl)
                 .build();
         this.objectMapper = objectMapper;
+        // 审查 M3：doc 生成是长耗时 LLM 调用，用独立带超时的 client（不覆盖共享 builder，
+        // 避免破坏 MockRestServiceServer 等注入的 requestFactory）
+        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+        int timeoutMs = Math.max(10_000, (int) props.getLlmTimeoutSeconds() * 1000);
+        factory.setConnectTimeout(timeoutMs);
+        factory.setReadTimeout(timeoutMs);
+        this.docClient = RestClient.builder()
+                .requestFactory(factory)
+                .baseUrl(analyzerUrl)
+                .build();
     }
 
     /**
@@ -228,15 +241,38 @@ public class AnalyzerClient {
                        Map<String, Object> arch, Map<String, Object> projectInfo,
                        String codeDir) {
         try {
-            return client.post()
+            return docClient.post()
                     .uri("/analyze/v1/doc")
                     .contentType(MediaType.APPLICATION_JSON)
                     .body(new DocRequest(projectId, docType, scan, arch, projectInfo, codeDir))
                     .retrieve()
                     .body(DocResp.class);
+        } catch (RestClientResponseException e) {
+            // 审查 M8：解析 analyzer 错误体 {"error":{"code":"LLM_NO_KEY","message":"…"}}
+            // 区分'未配置 key'与'服务故障'，避免统一抹平成 3001
+            String code = parseAnalyzerErrorCode(e.getResponseBodyAsString());
+            if ("LLM_NO_KEY".equals(code)) {
+                throw new BusinessException(ErrorCode.LLM_NO_KEY,
+                        "LLM 未配置，无法生成文档（文档无法规则降级）");
+            }
+            throw new BusinessException(ErrorCode.ANALYZER_UNREACHABLE,
+                    "文档服务不可达或内部错误：" + e.getMessage());
         } catch (Exception e) {
             throw new BusinessException(ErrorCode.ANALYZER_UNREACHABLE,
                     "文档服务不可达或内部错误：" + e.getMessage());
+        }
+    }
+
+    /** 从 analyzer 错误体提取 code；解析失败返回 null。 */
+    private String parseAnalyzerErrorCode(String body) {
+        if (body == null || body.isBlank()) {
+            return null;
+        }
+        try {
+            JsonNode node = objectMapper.readTree(body);
+            return node.path("error").path("code").asText(null);
+        } catch (Exception e) {
+            return null;
         }
     }
 }

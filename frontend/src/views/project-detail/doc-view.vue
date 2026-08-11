@@ -88,19 +88,32 @@ async function load() {
 
 function switchTab(t: DocType) {
   if (generating.value) return
+  if (editing.value && editContent.value !== doc.value?.content) {
+    const ok = window.confirm('当前有未保存的编辑，切换将丢弃编辑内容。继续？')
+    if (!ok) return
+  }
   activeType.value = t
   editing.value = false
 }
 
 async function onGenerate(isRegenerate: boolean) {
   if (generating.value) return
+  if (editing.value && editContent.value !== doc.value?.content) {
+    const ok = window.confirm('当前有未保存的编辑，重新生成将丢弃编辑内容。继续？')
+    if (!ok) return
+  }
+  editing.value = false
   if (isRegenerate && doc.value?.edited) {
     const ok = window.confirm('该文档已被人工编辑，重新生成将覆盖当前内容。继续？')
     if (!ok) return
   }
   generating.value = true
   try {
-    const updated = await generateDoc(props.projectId, activeType.value)
+    const updated = await generateDoc(
+      props.projectId,
+      activeType.value,
+      isRegenerate || !!doc.value?.edited, // 重新生成或已编辑 → force 覆盖
+    )
     docs.value = docs.value.filter((d) => d.docType !== activeType.value)
     docs.value.push(updated)
   } catch (err) {
@@ -150,11 +163,13 @@ function renderMarkdown(text: string): string {
   let tableBuf: string[] = []
   const flushTable = () => {
     if (!tableBuf.length) return
-    const rows = tableBuf.map((r) => {
-      const cells = r.split('|').filter((c) => c.trim() !== '')
-      return `<tr>${cells.map((c) => `<td>${c.trim()}</td>`).join('')}</tr>`
-    })
-    html += `<table>${rows.join('')}</table>`
+    const rows = tableBuf
+      .filter((r) => !/^\s*\|?[\s:|-]+\|?\s*$/.test(r)) // 过滤 |---| 分隔行
+      .map((r) => {
+        const cells = r.split('|').filter((c) => c.trim() !== '')
+        return `<tr>${cells.map((c) => `<td>${inline(c.trim())}</td>`).join('')}</tr>`
+      })
+    if (rows.length) html += `<table>${rows.join('')}</table>`
     tableBuf = []
   }
   for (const raw of lines) {

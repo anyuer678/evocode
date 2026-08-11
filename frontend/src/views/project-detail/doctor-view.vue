@@ -176,7 +176,7 @@ async function createSession() {
 }
 
 async function selectSession(id: number) {
-  if (loading.value || id === activeId.value) return
+  if (loading.value || streaming.value || id === activeId.value) return
   activeId.value = id
   messages.value = []
   loading.value = true
@@ -199,6 +199,7 @@ async function selectSession(id: number) {
 }
 
 async function removeSession(id: number) {
+  if (streaming.value) return
   try {
     await deleteChatSession(id)
     sessions.value = sessions.value.filter((s) => s.id !== id)
@@ -228,40 +229,52 @@ async function send() {
   streamCitations.value = []
   await nextTick()
   scrollToBottom()
-  await sendChatMessage(sessionId, content, refPath, {
-    onDelta: (delta: string) => {
-      streamText.value += delta
-    },
-    onCitations: (items: ChatCitation[]) => {
-      streamCitations.value = items
-    },
-    onDone: () => {
-      const text = streamText.value
-      const cites = streamCitations.value
-      messages.value.push({
-        _localId: ++localSeq,
-        id: null,
-        role: 'ASSISTANT',
-        content: text || '（空回复）',
-        citations: cites.length ? cites : null,
-      })
+  try {
+    await sendChatMessage(sessionId, content, refPath, {
+      onDelta: (delta: string) => {
+        if (sessionId !== activeId.value) return
+        streamText.value += delta
+      },
+      onCitations: (items: ChatCitation[]) => {
+        if (sessionId !== activeId.value) return
+        streamCitations.value = items
+      },
+      onDone: () => {
+        if (sessionId !== activeId.value) return
+        const text = streamText.value
+        const cites = streamCitations.value
+        messages.value.push({
+          _localId: ++localSeq,
+          id: null,
+          role: 'ASSISTANT',
+          content: text || '（空回复）',
+          citations: cites.length ? cites : null,
+        })
+        streaming.value = false
+        streamText.value = ''
+        void loadSessions()
+      },
+      onError: (code: string, message: string) => {
+        if (sessionId !== activeId.value) return
+        streamError.value = `回答失败（${code}）：${message}`
+        messages.value.push({
+          _localId: ++localSeq,
+          id: null,
+          role: 'ASSISTANT',
+          content: `回答失败（${code}）：${message}`,
+          citations: null,
+        })
+        streaming.value = false
+        streamText.value = ''
+      },
+    })
+  } finally {
+    // 防御：任何未捕获异常都复位流式状态（审查 M1）
+    if (streaming.value) {
       streaming.value = false
       streamText.value = ''
-      void loadSessions()
-    },
-    onError: (code: string, message: string) => {
-      streamError.value = `回答失败（${code}）：${message}`
-      messages.value.push({
-        _localId: ++localSeq,
-        id: null,
-        role: 'ASSISTANT',
-        content: `回答失败（${code}）：${message}`,
-        citations: null,
-      })
-      streaming.value = false
-      streamText.value = ''
-    },
-  })
+    }
+  }
 }
 
 async function previewFile(file: string, line: number) {
@@ -277,28 +290,34 @@ async function previewFile(file: string, line: number) {
     return
   }
   const monaco = await import('monaco-editor')
-  editor?.dispose()
-  editor = monaco.editor.create(editorEl.value, {
-    value: data.content,
-    language: mapLanguage(data.language),
-    readOnly: true,
-    automaticLayout: true,
-    fontSize: 12,
-    lineNumbers: 'on',
-    minimap: { enabled: false },
-    scrollBeyondLastLine: false,
-  })
-  if (line > 0 && line <= (data.loc || 1)) {
-    editor.revealLineInCenter(line)
-    editor.deltaDecorations(
-      [],
-      [
-        {
-          range: new monaco.Range(line, 1, line, 1),
-          options: { isWholeLine: true, className: 'doc-line-hl' },
-        },
-      ],
-    )
+  try {
+    editor?.dispose()
+    editor = monaco.editor.create(editorEl.value, {
+      value: data.content,
+      language: mapLanguage(data.language),
+      readOnly: true,
+      automaticLayout: true,
+      fontSize: 12,
+      lineNumbers: 'on',
+      minimap: { enabled: false },
+      scrollBeyondLastLine: false,
+    })
+    if (line > 0 && line <= (data.loc || 1)) {
+      editor.revealLineInCenter(line)
+      editor.deltaDecorations(
+        [],
+        [
+          {
+            range: new monaco.Range(line, 1, line, 1),
+            options: { isWholeLine: true, className: 'doc-line-hl' },
+          },
+        ],
+      )
+    }
+  } catch (err) {
+    // Monaco 加载/创建失败：关闭弹层并提示（审查 M5）
+    console.error('Monaco 预览失败', err)
+    preview.value = null
   }
 }
 
@@ -398,8 +417,8 @@ void loadSessions()
   border: 1px solid var(--border-color, #e5e7eb);
 }
 .doctor__session--active {
-  border-color: var(--ok-color, #16a34a);
-  background: rgba(22, 163, 74, 0.08);
+  border-color: var(--ok-color);
+  background: var(--ok-weak);
 }
 .doctor__session-title {
   flex: 1;
@@ -499,9 +518,9 @@ void loadSessions()
 .doctor__cite {
   font-family: ui-monospace, Consolas, monospace;
   font-size: 11px;
-  color: #1d4ed8;
-  background: #eff6ff;
-  border: 1px solid #bfdbfe;
+  color: var(--info-color);
+  background: var(--info-weak);
+  border: 1px solid var(--info-color);
   border-radius: 4px;
   padding: 2px 6px;
   cursor: pointer;

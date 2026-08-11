@@ -29,9 +29,11 @@ public enum ErrorCode {
 DEBT_STATUS_INVALID(2011, "技术债状态迁移非法或必填字段缺失", HttpStatus.BAD_REQUEST),
 DEBT_NOT_FOUND(2012, "技术债不存在", HttpStatus.NOT_FOUND),
 DOC_NOT_FOUND(2013, "文档不存在", HttpStatus.NOT_FOUND),
+DOC_EDITED(2014, "文档已被人工编辑，重新生成需确认（force）", HttpStatus.BAD_REQUEST),
 
     // 3xxx 分析器
     ANALYZER_UNREACHABLE(3001, "分析服务不可达或内部错误", HttpStatus.BAD_GATEWAY),
+LLM_NO_KEY(3004, "LLM 未配置（无法生成，请配置 LLM_API_KEY）", HttpStatus.BAD_REQUEST),
     SCAN_TIMEOUT(3002, "扫描超时", HttpStatus.BAD_GATEWAY),
     LLM_FAILED(3003, "AI 服务调用失败", HttpStatus.BAD_GATEWAY),
 

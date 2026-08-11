@@ -97,7 +97,7 @@ class KnowledgeStore:
                                     "endLine": chunk.end_line,
                                 }
                             ),
-                            str(embedding) if embedding else None,
+                            _vector_literal(embedding) if embedding else None,
                         )
                     )
                 cur.executemany(
@@ -144,9 +144,9 @@ class KnowledgeStore:
                         LIMIT %s
                         """,
                         (
-                            str(query_embedding),
+                            _vector_literal(query_embedding),
                             project_id,
-                            str(query_embedding),
+                            _vector_literal(query_embedding),
                             top_k,
                         ),
                     )
@@ -184,6 +184,11 @@ class KnowledgeStore:
                 merged[key] = hit
         ranked = sorted(merged.values(), key=lambda h: h["score"], reverse=True)
         return ranked[:top_k]
+
+
+def _vector_literal(embedding: list[float]) -> str:
+    """pgvector 字面量：固定 8 位小数，避免 str() 的科学计数法（审查 L1）。"""
+    return "[" + ",".join(f"{v:.8f}" for v in embedding) + "]"
 
 
 def _json_dumps(obj: Any) -> str:

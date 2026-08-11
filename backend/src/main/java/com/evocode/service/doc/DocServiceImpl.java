@@ -55,22 +55,25 @@ public class DocServiceImpl implements DocService {
     }
 
     @Override
-    public List<DocResp> list(Long projectId) {
+    public List<DocResp> list(Long projectId, String docType) {
         requireProject(projectId);
-        return docMapper.selectList(new LambdaQueryWrapper<GeneratedDoc>()
-                        .eq(GeneratedDoc::getProjectId, projectId))
-                .stream().map(this::toResp).toList();
+        LambdaQueryWrapper<GeneratedDoc> wrapper = new LambdaQueryWrapper<GeneratedDoc>()
+                .eq(GeneratedDoc::getProjectId, projectId);
+        if (docType != null && !docType.isBlank()) {
+            wrapper.eq(GeneratedDoc::getDocType, docType.toUpperCase(Locale.ROOT));
+        }
+        return docMapper.selectList(wrapper).stream().map(this::toResp).toList();
     }
 
     @Override
-    @Transactional
-    public DocResp generate(Long projectId, String docType) {
+    public DocResp generate(Long projectId, String docType, boolean force) {
         Project project = requireProject(projectId);
         String type = docType == null ? "" : docType.toUpperCase(Locale.ROOT);
         if (!DOC_TYPES.contains(type)) {
             throw new BusinessException(ErrorCode.PARAM_INVALID,
                     "docType 必须是 README/ARCH/API");
         }
+        // 审查 M3：远程 LLM 调用在事务外执行（不持锁）；落库为单条 insert/update 天然原子
         Map<String, Object> scan = "API".equals(type) ? null : buildScan(project);
         Map<String, Object> arch = "ARCH".equals(type) ? loadArch(project) : null;
         String codeDir = "API".equals(type) ? project.getStoragePath() : null;
@@ -92,7 +95,11 @@ public class DocServiceImpl implements DocService {
             doc.setEdited(false);
             docMapper.insert(doc);
         } else {
-            // AD-P7-3：重新生成覆盖（edited 保护由前端二次确认）
+            // 审查 M4：人工编辑过的文档必须显式 force 才覆盖
+            if (Boolean.TRUE.equals(doc.getEdited()) && !force) {
+                throw new BusinessException(ErrorCode.DOC_EDITED,
+                        "该文档已被人工编辑，重新生成将覆盖编辑内容（请确认后 force）");
+            }
             doc.setTitle(generated.title());
             doc.setContent(generated.content());
             doc.setVersion(doc.getVersion() + 1);

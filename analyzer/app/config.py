@@ -2,6 +2,7 @@
 
 from functools import lru_cache
 
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -29,7 +30,7 @@ class Settings(BaseSettings):
 
     # RAG 知识块直连 PG（AD-P6-2）：只读写 knowledge_chunk 一张表；
     # 留空 = RAG 向量不可用（关键词兜底）
-    pg_dsn: str = ""
+    pg_dsn: str = Field(default="", validation_alias="ANALYZER_PG_DSN")
 
     # Sonar（P3；留空/不可达 → 质量维度降级 N/A）
     sonar_host_url: str = "http://127.0.0.1:9000"

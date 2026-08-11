@@ -135,7 +135,7 @@ class RagService:
         hits: list[dict[str, Any]] = []
         try:
             hits = self.search(project_id, query, top_k=8)
-        except RuntimeError as exc:
+        except Exception as exc:  # PG 未配置或宕机（psycopg.Error）→ 检索不可用
             logger.warning("chat 检索不可用：%s", exc)
 
         if not hits:
@@ -210,7 +210,7 @@ class RagService:
     ) -> list[dict[str, Any]]:
         """从回答提取 [path:line] 引用并校验 ∈ 检索集合（AD-P6-5 防幻觉）。"""
         refs: list[tuple[str, int]] = []
-        for match in re.finditer(r"\[([^\]]+?):(\d+)\]", answer):
+        for match in re.finditer(r"\[([^\]\\(]+?):(\d+)\]", answer):
             path, line = match.group(1).strip(), int(match.group(2))
             if not path or line <= 0:
                 continue

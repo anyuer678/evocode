@@ -84,8 +84,8 @@ export async function sendChatMessage(
   const reader = resp.body.getReader()
   const decoder = new TextDecoder()
   let buffer = ''
-  let currentEvent = ''
   let sawDone = false
+
   const dispatch = (event: string, data: unknown) => {
     const obj = data as Record<string, unknown>
     if (event === 'delta') {
@@ -99,27 +99,55 @@ export async function sendChatMessage(
       handlers.onError?.(String(obj.code ?? 'LLM_FAILED'), String(obj.message ?? '回答生成失败'))
     }
   }
-  while (true) {
-    const { done, value } = await reader.read()
-    if (done) break
-    buffer += decoder.decode(value, { stream: true })
-    let sep: number
-    while ((sep = buffer.indexOf('\n\n')) >= 0) {
-      const block = buffer.slice(0, sep)
-      buffer = buffer.slice(sep + 2)
-      for (const line of block.split('\n')) {
-        const trimmed = line.trim()
-        if (trimmed.startsWith('event: ')) {
-          currentEvent = trimmed.slice(7)
-        } else if (trimmed.startsWith('data: ')) {
+
+  /** 逐行状态机解析一个事件块（兼容 \r\n\r\n 分块与无空格 data: 变体）。 */
+  const parseBlock = (block: string) => {
+    let event = 'message'
+    for (const rawLine of block.split('\n')) {
+      const line = rawLine.replace(/\r$/, '')
+      if (line.startsWith('event:')) {
+        event = line.slice(6).trim()
+      } else if (line.startsWith('data:')) {
+        const payload = line.slice(5).trim()
+        if (payload) {
           try {
-            dispatch(currentEvent, JSON.parse(trimmed.slice(6)))
+            dispatch(event, JSON.parse(payload))
           } catch {
             /* 跳过无法解析的 data 行 */
           }
         }
       }
     }
+  }
+
+  const drain = (chunk: string) => {
+    buffer += chunk
+    let sep: number
+    // 兼容 \n\n 与 \r\n\r\n 分块
+    while (
+      (sep = Math.min(
+        buffer.indexOf('\n\n') >= 0 ? buffer.indexOf('\n\n') : Number.MAX_SAFE_INTEGER,
+        buffer.indexOf('\r\n\r\n') >= 0 ? buffer.indexOf('\r\n\r\n') : Number.MAX_SAFE_INTEGER,
+      )) < Number.MAX_SAFE_INTEGER
+    ) {
+      const block = buffer.slice(0, sep)
+      buffer = buffer.slice(sep + 2)
+      parseBlock(block)
+    }
+  }
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+      drain(decoder.decode(value, { stream: true }))
+    }
+    // 流结束后：flush 解码器 + 解析残留尾部事件块（审查 H2：合法 SSE 允许 EOF 终止事件）
+    drain(decoder.decode())
+    parseBlock(buffer)
+  } catch {
+    handlers.onError?.('CONNECTION_LOST', '连接中断，回复可能不完整')
+    return
   }
   if (!sawDone) {
     handlers.onError?.('CONNECTION_LOST', '连接中断，回复可能不完整')

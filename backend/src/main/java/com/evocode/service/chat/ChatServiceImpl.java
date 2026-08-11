@@ -137,6 +137,11 @@ public class ChatServiceImpl implements ChatService {
         chatStreamer.stream(session, content, fileRef, userMsg.getId(), emitter);
     }
 
+    @Override
+    public void cancelStream(Long sessionId) {
+        chatStreamer.cancelStream(sessionId);
+    }
+
     private ChatSession requireSession(Long id) {
         ChatSession session = chatSessionMapper.selectById(id);
         if (session == null) {

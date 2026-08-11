@@ -7,10 +7,16 @@ export async function fetchDocs(projectId: number): Promise<DocItem[]> {
   return resp.data.data
 }
 
-/** 生成/重新生成（同步调 analyzer，可能耗时 10-30s；edited 文档前端需二次确认） */
-export async function generateDoc(projectId: number, docType: DocType): Promise<DocItem> {
+/** 生成/重新生成（同步调 analyzer，可能耗时 10-30s；edited 文档需 force=true 覆盖，否则 2014） */
+export async function generateDoc(
+  projectId: number,
+  docType: DocType,
+  force = false,
+): Promise<DocItem> {
   const resp = await request.post<ApiResponse<DocItem>>(
     `/projects/${projectId}/docs/${docType}/generate`,
+    undefined,
+    { params: { force } },
   )
   return resp.data.data
 }

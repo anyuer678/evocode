@@ -4,7 +4,8 @@ CREATE TABLE IF NOT EXISTS chat_session (
     id          BIGSERIAL PRIMARY KEY,
     project_id  BIGINT       NOT NULL,
     title       VARCHAR(200) NOT NULL DEFAULT '新会话',
-    created_at  TIMESTAMPTZ  NOT NULL DEFAULT now()
+    created_at  TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    deleted     SMALLINT     NOT NULL DEFAULT 0
 );
 
 CREATE INDEX idx_chat_session_project ON chat_session (project_id, created_at DESC);
@@ -15,7 +16,8 @@ CREATE TABLE IF NOT EXISTS chat_message (
     role        VARCHAR(10)  NOT NULL,             -- USER / ASSISTANT
     content     TEXT         NOT NULL,
     citations   JSONB,                             -- [{file,line,excerpt}]，ASSISTANT 才有
-    created_at  TIMESTAMPTZ  NOT NULL DEFAULT now()
+    created_at  TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    deleted     SMALLINT     NOT NULL DEFAULT 0
 );
 
 CREATE INDEX idx_chat_message_session ON chat_message (session_id, id);

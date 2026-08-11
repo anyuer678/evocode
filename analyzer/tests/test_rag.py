@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 
+import psycopg
 from fastapi.testclient import TestClient
 
 from app.core.rag.chunker import chunk_source, normalize_language
@@ -92,6 +93,24 @@ class TestRagRoutes:
             json={"projectId": 1, "query": "controller"},
         )
         assert resp.status_code == 503
+
+    def test_search_503_when_pg_down(self, monkeypatch) -> None:
+        """DSN 已配置但 PG 宕机 → 503 + 统一错误体（审查 H2 回归）。"""
+        from app.core.rag.vectorstore import KnowledgeStore
+        from app.main import _rag_store
+
+        def boom(self) -> None:
+            raise psycopg.OperationalError("connection refused")
+
+        monkeypatch.setattr(KnowledgeStore, "_connect", boom)
+        monkeypatch.setattr(_rag_store, "_dsn", "postgresql://127.0.0.1:1/x")
+        resp = client.post(
+            "/analyze/v1/rag/search",
+            json={"projectId": 1, "query": "controller"},
+        )
+        assert resp.status_code == 503
+        body = resp.json()["detail"]
+        assert body["error"]["code"] == "RAG_UNAVAILABLE"
 
     def test_index_404_when_dir_missing(self) -> None:
         resp = client.post(

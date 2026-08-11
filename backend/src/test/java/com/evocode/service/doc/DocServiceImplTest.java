@@ -61,7 +61,7 @@ class DocServiceImplTest {
     @Test
     void list_projectMissing_throws2001() {
         when(projectMapper.selectById(9L)).thenReturn(null);
-        assertThrows(BusinessException.class, () -> svc.list(9L));
+        assertThrows(BusinessException.class, () -> svc.list(9L, null));
     }
 
     @Test
@@ -73,7 +73,7 @@ class DocServiceImplTest {
         d.setTitle("T");
         d.setVersion(2);
         when(docMapper.selectList(any())).thenReturn(List.of(d));
-        List<DocResp> resp = svc.list(1L);
+        List<DocResp> resp = svc.list(1L, null);
         assertEquals(1, resp.size());
         assertEquals("README", resp.get(0).docType());
     }
@@ -82,7 +82,7 @@ class DocServiceImplTest {
     void generate_invalidType_throws1002() {
         when(projectMapper.selectById(1L)).thenReturn(project());
         BusinessException ex = assertThrows(BusinessException.class,
-                () -> svc.generate(1L, "PDF"));
+                () -> svc.generate(1L, "PDF", false));
         assertEquals(ErrorCode.PARAM_INVALID.getCode(), ex.getCode());
     }
 
@@ -92,7 +92,7 @@ class DocServiceImplTest {
         when(analyzerClient.doc(any(), any(), any(), any(), any(), any()))
                 .thenThrow(new BusinessException(ErrorCode.ANALYZER_UNREACHABLE, "down"));
         BusinessException ex = assertThrows(BusinessException.class,
-                () -> svc.generate(1L, "README"));
+                () -> svc.generate(1L, "README", false));
         assertEquals(ErrorCode.ANALYZER_UNREACHABLE.getCode(), ex.getCode());
     }
 
@@ -109,10 +109,24 @@ class DocServiceImplTest {
             d.setId(7L);
             return 1;
         });
-        DocResp resp = svc.generate(1L, "README");
+        DocResp resp = svc.generate(1L, "README", false);
         assertEquals("README", resp.docType());
         assertEquals(1, resp.version());
         verify(docMapper).insert(any(GeneratedDoc.class));
+    }
+
+    @Test
+    void generate_editedDocWithoutForce_throws2014() {
+        when(projectMapper.selectById(1L)).thenReturn(project());
+        GeneratedDoc existing = new GeneratedDoc();
+        existing.setId(7L);
+        existing.setVersion(1);
+        existing.setEdited(true);
+        when(docMapper.selectOne(any())).thenReturn(existing);
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> svc.generate(1L, "README", false));
+        assertEquals(ErrorCode.DOC_EDITED.getCode(), ex.getCode());
+        verify(docMapper, never()).updateById(any(GeneratedDoc.class));
     }
 
     @Test
@@ -124,7 +138,7 @@ class DocServiceImplTest {
         when(docMapper.selectOne(any())).thenReturn(existing);
         when(analyzerClient.doc(any(), any(), any(), any(), any(), any()))
                 .thenReturn(new AnalyzerClient.DocResp("README", "新标题", "新内容"));
-        DocResp resp = svc.generate(1L, "README");
+        DocResp resp = svc.generate(1L, "README", false);
         assertEquals(2, resp.version());
         verify(docMapper).updateById(any(GeneratedDoc.class));
         verify(docMapper, never()).insert(any(GeneratedDoc.class));

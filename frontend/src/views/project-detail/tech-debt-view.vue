@@ -247,16 +247,16 @@ onMounted(load)
   padding: 1px 6px;
 }
 .debt__badge--high {
-  background: #fee2e2;
-  color: #b91c1c;
+  background: var(--fail-weak);
+  color: var(--fail-color);
 }
 .debt__badge--medium {
-  background: #fef3c7;
-  color: #b45309;
+  background: var(--warn-weak);
+  color: var(--warn-color);
 }
 .debt__badge--low {
-  background: #e0f2fe;
-  color: #0369a1;
+  background: var(--info-weak);
+  color: var(--info-color);
 }
 .debt__source {
   font-size: 11px;
@@ -276,20 +276,20 @@ onMounted(load)
   padding: 1px 6px;
 }
 .debt__status--open {
-  background: var(--code-bg);
-  color: #374151;
+  background: var(--bg-muted);
+  color: var(--text-secondary);
 }
 .debt__status--doing {
-  background: #dbeafe;
-  color: #1d4ed8;
+  background: var(--info-weak);
+  color: var(--info-color);
 }
 .debt__status--done {
-  background: #dcfce7;
-  color: #15803d;
+  background: var(--ok-weak);
+  color: var(--ok-color);
 }
 .debt__status--wonfix {
-  background: #f3e8ff;
-  color: #7c3aed;
+  background: var(--purple-weak);
+  color: var(--purple-color);
 }
 .debt__act {
   border: none;

@@ -130,7 +130,7 @@ class TestDocRoute:
                                json={"projectId": 1, "docType": "README"})
         assert resp.status_code == 400
         body = resp.json()["detail"]
-        assert body["code"] == "LLM_NO_KEY"
+        assert body["error"]["code"] == "LLM_NO_KEY"
 
     def test_success(self) -> None:
         with patch("app.main._llm") as fake:

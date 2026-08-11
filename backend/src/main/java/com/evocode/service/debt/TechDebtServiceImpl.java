@@ -126,7 +126,7 @@ public class TechDebtServiceImpl implements TechDebtService {
         List<TechDebt> out = new java.util.ArrayList<>(violations.size());
         for (ArchViolation v : violations) {
             TechDebt debt = base(projectId, "ARCH", analysisId);
-            debt.setTitle(v.getViolationType() + "：" + clip(v.getDescription(), 60));
+            debt.setTitle(clip(v.getViolationType() + "：" + clip(v.getDescription(), 60), 200));
             debt.setLevel(v.getSeverity());
             debt.setDescription(v.getDescription());
             debt.setSuggestion(v.getSuggestion());

@@ -27,6 +27,7 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * AI 医生 SSE 透传（06 §4.5）：backend → analyzer /analyze/v1/chat（透传不缓冲），
@@ -39,12 +40,16 @@ public class ChatStreamer {
 
     private static final int HISTORY_ROUNDS = 6;
     private static final int FILE_REF_MAX_CHARS = 4000;
+    private static final long FILE_REF_MAX_BYTES = 2L * 1024 * 1024; // 对齐 FileController 2MB
 
     private final AnalyzerClient analyzerClient;
     private final ChatMessageMapper chatMessageMapper;
     private final ProjectMapper projectMapper;
     private final AnalysisMapper analysisMapper;
     private final ObjectMapper objectMapper;
+
+    /** 活跃 SSE 流的 analyzer 输入流（审查 M5：超时/关闭时中断释放线程）。 */
+    private final Map<Long, BufferedReader> activeStreams = new ConcurrentHashMap<>();
 
     public ChatStreamer(AnalyzerClient analyzerClient, ChatMessageMapper chatMessageMapper,
                         ProjectMapper projectMapper, AnalysisMapper analysisMapper,
@@ -62,38 +67,68 @@ public class ChatStreamer {
     @Async("chatExecutor")
     public void stream(ChatSession session, String query, String fileRef,
                        Long currentUserMsgId, SseEmitter emitter) {
+        boolean saved = false;
+        BufferedReader reader = null;
         try {
             Map<String, Object> systemContext = buildSystemContext(session.getProjectId());
             List<Map<String, String>> history = loadHistory(session.getId(), currentUserMsgId);
             AnalyzerClient.ChatFileRef ref = loadFileRef(session.getProjectId(), fileRef);
-            RelayResult result = relay(session.getId(), emitter,
-                    analyzerClient.chatStream(session.getProjectId(), systemContext,
-                            history, query, ref));
+            reader = analyzerClient.chatStream(session.getProjectId(), systemContext,
+                    history, query, ref);
+            activeStreams.put(session.getId(), reader);
+            RelayResult result = relay(session.getId(), emitter, reader);
             if (result.handled()) {
-                return; // error 分支已落库并 complete
+                saved = true; // error 分支已落库
+                return;
             }
             if (result.answer().isEmpty()) {
                 insertAssistant(session.getId(), "回答生成失败：流式响应为空", null);
+                saved = true;
                 sendEvent(emitter, "error",
                         Map.of("code", "LLM_FAILED", "message", "回答生成失败：流式响应为空"));
                 emitter.complete();
                 return;
             }
-            ChatMessage saved = insertAssistant(session.getId(), result.answer(),
+            ChatMessage savedMsg = insertAssistant(session.getId(), result.answer(),
                     result.citations());
-            sendEvent(emitter, "done", Map.of("messageId", saved.getId()));
+            saved = true;
+            sendEvent(emitter, "done", Map.of("messageId", savedMsg.getId()));
             emitter.complete();
         } catch (Exception e) {
             log.error("chat stream failed session={} err={}", session.getId(), e.getMessage());
             try {
-                insertAssistant(session.getId(),
-                        "回答生成失败（连接中断）：" + e.getMessage(), null);
+                // 审查 M1：仅在尚未落库时补一条失败消息，避免'正确回答+假失败'双记录
+                if (!saved) {
+                    insertAssistant(session.getId(),
+                            "回答生成失败（连接中断）：" + e.getMessage(), null);
+                }
                 sendEvent(emitter, "error",
                         Map.of("code", "LLM_FAILED", "message", e.getMessage()));
             } catch (Exception ignored) {
                 // 前端已断开，忽略
             }
             emitter.complete();
+        } finally {
+            if (reader != null) {
+                activeStreams.remove(session.getId());
+                try {
+                    reader.close();
+                } catch (Exception ignored) {
+                    // 关闭输入流即可
+                }
+            }
+        }
+    }
+
+    /** 审查 M5：SseEmitter 超时/关闭时中断对应 analyzer 流，释放 chatExecutor 线程。 */
+    public void cancelStream(Long sessionId) {
+        BufferedReader reader = activeStreams.get(sessionId);
+        if (reader != null) {
+            try {
+                reader.close();
+            } catch (Exception ignored) {
+                // 已关闭
+            }
         }
     }
 
@@ -229,13 +264,16 @@ public class ChatStreamer {
             return null;
         }
         try {
-            Path base = Path.of(p.getStoragePath()).toAbsolutePath().normalize();
-            Path target = base.resolve(fileRef).normalize();
+            Path base = Path.of(p.getStoragePath()).toAbsolutePath().normalize().toRealPath();
+            Path target = base.resolve(fileRef).normalize().toRealPath();
             if (!target.startsWith(base)) {
-                return null; // 目录穿越
+                return null; // 目录穿越 / 符号链接逃逸（审查 M2）
             }
             if (!Files.isRegularFile(target)) {
                 return null;
+            }
+            if (Files.size(target) > FILE_REF_MAX_BYTES) {
+                return null; // 超大文件不整读（对齐 FileController 2MB 上限）
             }
             String content = Files.readString(target, StandardCharsets.UTF_8);
             if (content.length() > FILE_REF_MAX_CHARS) {

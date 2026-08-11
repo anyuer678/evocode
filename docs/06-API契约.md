@@ -387,10 +387,19 @@
 ### 3.14 文档（P7）
 
 ```jsonc
-// GET /api/v1/projects/{id}/docs?type=README
-{ "code": 0, "data": { "id": 201, "docType": "README", "title": "Chatez 项目说明",
+// GET /api/v1/projects/{id}/docs?type=README|ARCH|API
+//   type 可选筛选；data 为列表（README/ARCH/API 三类各至多一条）
+{ "code": 0, "data": [ { "id": 201, "docType": "README", "title": "Chatez 项目说明",
                        "content": "# Chatez\n…", "version": 1, "edited": false,
-                       "createdAt": "..." } }
+                       "createdAt": "..." } ] }
+
+// POST /api/v1/projects/{id}/docs/{docType}/generate?force=false
+//   生成/重新生成（同步调 analyzer，耗时 10-30s）
+//   200：{ "code": 0, "data": { "id": 201, "docType": "README", "title": "…", "version": 2, … } }
+//   400：{ "code": 2014, "message": "文档已被人工编辑，重新生成需确认（force）" }
+//        （edited=true 且未带 force=true 时拒绝覆盖）
+//   502：{ "code": 3001, "message": "文档服务不可达…" }
+//   400：{ "code": 3004, "message": "LLM 未配置…" }（analyzer 返回 LLM_NO_KEY 时）
 
 // POST /api/v1/docs/{id}/edit
 // req: { "content": "# 人工修改后的 README…" }
@@ -570,7 +579,29 @@ data: {"messageId": 9527}
 //        → 200 { "chunks": 312, "embeddingModel": "bge-m3" }
 // search: req { "projectId": 1, "query": "…", "topK": 8 }
 //        → 200 { "chunks": [ { "file","chunkIndex","content","meta","score" } ] }
+// 错误：PG 未配置/宕机 → 503 {"error":{"code":"RAG_UNAVAILABLE","message":"…"}}
 ```
+
+### 5.9 POST /analyze/v1/doc（P7b 契约新增）
+
+```jsonc
+// req（JSON body 一次提交）
+{ "projectId": 1, "docType": "README" | "ARCH" | "API",
+  "scan": {…}|null,        // README/API 用（backend 由 file_node 重建）
+  "arch": {…}|null,        // ARCH 用（backend 取最新 analysis 架构）
+  "projectInfo": { "name": "…", "description": "…" },
+  "codeDir": "data/projects/1"|null }   // API 用：analyzer 直读磁盘扫描 controller
+// → 200 { "docType": "README", "title": "…", "content": "markdown…" }
+// 错误（统一错误体）：
+//   400 {"error":{"code":"LLM_NO_KEY","message":"文档生成失败：…"}}  无 LLM key
+//   502 {"error":{"code":"LLM_FAILED","message":"文档生成失败：…"}}  LLM 调用失败
+```
+
+### 5.10 错误体与降级语义（P6-P7 审查修订）
+
+- analyzer 内部 API 非 200 一律 `{"error": {"code": "…", "message": "…"}}`（§4.5 前为裸字符串/缺包装处已统一）
+- `/analyze/v1/chat` 的 `done` 事件 data 为 `{}`（analyzer 无 messageId 概念），由 backend 落库后补发 `{"messageId": id}`（§4.2 对前端保持原样）
+- PG 未配置 与 PG 宕机（psycopg.Error）降级语义一致：index → 200 `stored=false`；search → 503 `RAG_UNAVAILABLE`；chat → 兜底话术 SSE（不截断）
 
 ---
 

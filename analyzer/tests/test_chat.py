@@ -98,6 +98,30 @@ class TestChatSse:
         assert "当前分析范围无法确认" in delta["content"]
         assert "citations" not in names
 
+    def test_fallback_when_pg_down(self, monkeypatch) -> None:
+        """DSN 已配置但 PG 宕机 → SSE 仍完整（兜底 + done），无截断（审查 H1 回归）。"""
+        import psycopg
+
+        from app.core.rag.vectorstore import KnowledgeStore
+        from app.main import _rag_store
+
+        def boom(self) -> None:
+            raise psycopg.OperationalError("connection refused")
+
+        monkeypatch.setattr(KnowledgeStore, "_connect", boom)
+        monkeypatch.setattr(_rag_store, "_dsn", "postgresql://127.0.0.1:1/x")
+        body = {
+            "projectId": 1,
+            "systemContext": {},
+            "history": [],
+            "query": "问题在哪？",
+        }
+        with client.stream("POST", "/analyze/v1/chat", json=body) as resp:
+            events = _sse_events(resp)
+        names = [e for e, _ in events]
+        assert names[-1] == "done"
+        assert "error" not in names
+
     def test_error_event_when_llm_stream_fails(self) -> None:
         """检索有结果但 LLM 流式失败 → error 事件（LLM_FAILED）。"""
         body = {
