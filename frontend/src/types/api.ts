@@ -324,3 +324,21 @@ export interface ChatSessionsResult {
   total: number
   items: ChatSessionItem[]
 }
+
+// ---------- P7 技术债（06 §3.12） ----------
+
+export type TechDebtSource = 'ARCH' | 'QUALITY' | 'DEPEND' | 'EVOLUTION' | 'AI_DOCTOR' | 'MANUAL'
+export type TechDebtStatus = 'OPEN' | 'DOING' | 'DONE' | 'WONTFIX'
+
+export interface TechDebtItem {
+  id: number
+  source: TechDebtSource
+  title: string
+  level: 'HIGH' | 'MEDIUM' | 'LOW'
+  description: string | null
+  suggestion: string | null
+  status: TechDebtStatus
+  refAnalysisId: number | null
+  createdAt: string
+  resolvedAt: string | null
+}

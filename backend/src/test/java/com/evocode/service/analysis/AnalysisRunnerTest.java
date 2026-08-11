@@ -14,6 +14,7 @@ import com.evocode.mapper.ProjectMapper;
 import com.evocode.mapper.QualityIssueMapper;
 import com.evocode.service.ArchitectureService;
 import com.evocode.service.EvolutionService;
+import com.evocode.service.debt.TechDebtService;
 import com.evocode.service.scan.FileNodeService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -50,11 +51,12 @@ class AnalysisRunnerTest {
     private final QualityIssueMapper qualityIssueMapper = mock(QualityIssueMapper.class);
     private final ArchitectureService architectureService = mock(ArchitectureService.class);
     private final EvolutionService evolutionService = mock(EvolutionService.class);
+    private final TechDebtService techDebtService = mock(TechDebtService.class);
 
     private AnalysisRunner newRunner() {
         return new AnalysisRunner(
                 analysisMapper, projectMapper, analyzerClient, fileNodeService, qualityIssueMapper,
-                architectureService, evolutionService);
+                architectureService, evolutionService, techDebtService);
     }
 
     private Analysis newAnalysis() {

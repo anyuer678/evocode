@@ -26,6 +26,8 @@ public enum ErrorCode {
     REPORT_REGENERATING(2008, "该分析正在重新生成报告中", HttpStatus.BAD_REQUEST),
     GIT_CLONE_FAILED(2009, "仓库克隆失败", HttpStatus.BAD_REQUEST),
     ARCH_NOT_FOUND(2010, "该项目尚无架构分析", HttpStatus.NOT_FOUND),
+DEBT_STATUS_INVALID(2011, "技术债状态迁移非法或必填字段缺失", HttpStatus.BAD_REQUEST),
+DEBT_NOT_FOUND(2012, "技术债不存在", HttpStatus.NOT_FOUND),
 
     // 3xxx 分析器
     ANALYZER_UNREACHABLE(3001, "分析服务不可达或内部错误", HttpStatus.BAD_GATEWAY),

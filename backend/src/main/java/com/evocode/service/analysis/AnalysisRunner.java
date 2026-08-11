@@ -15,6 +15,7 @@ import com.evocode.mapper.ProjectMapper;
 import com.evocode.mapper.QualityIssueMapper;
 import com.evocode.service.ArchitectureService;
 import com.evocode.service.EvolutionService;
+import com.evocode.service.debt.TechDebtService;
 import com.evocode.service.scan.FileNodeService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Async;
@@ -47,11 +48,12 @@ public class AnalysisRunner {
     private final QualityIssueMapper qualityIssueMapper;
     private final ArchitectureService architectureService;
     private final EvolutionService evolutionService;
+    private final TechDebtService techDebtService;
 
     public AnalysisRunner(AnalysisMapper analysisMapper, ProjectMapper projectMapper,
                           AnalyzerClient analyzerClient, FileNodeService fileNodeService,
                           QualityIssueMapper qualityIssueMapper, ArchitectureService architectureService,
-                          EvolutionService evolutionService) {
+                          EvolutionService evolutionService, TechDebtService techDebtService) {
         this.analysisMapper = analysisMapper;
         this.projectMapper = projectMapper;
         this.analyzerClient = analyzerClient;
@@ -59,6 +61,7 @@ public class AnalysisRunner {
         this.qualityIssueMapper = qualityIssueMapper;
         this.architectureService = architectureService;
         this.evolutionService = evolutionService;
+        this.techDebtService = techDebtService;
     }
 
     @Async("quickScanExecutor")
@@ -160,6 +163,13 @@ public class AnalysisRunner {
         analysis.setReportJson(report.report());
         analysis.setReportSource(report.source());
         analysis.setPromptVersion(report.promptVersion());
+
+        // P7a：分析产物聚合生成技术债（同 analysis 幂等重建；失败不阻塞分析完成）
+        try {
+            techDebtService.rebuildForAnalysis(project.getId(), analysis.getId(), report.report());
+        } catch (Exception e) {
+            log.warn("技术债聚合失败 analysisId={}：{}", analysis.getId(), e.getMessage());
+        }
 
         analysis.setStatus(AnalysisStatus.SUCCEEDED.name());
         analysis.setStage(Stage.DONE.name());

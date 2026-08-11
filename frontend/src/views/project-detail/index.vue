@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import ArchitectureView from './architecture-view.vue'
 import DoctorView from './doctor-view.vue'
 import EvolutionView from './evolution-view.vue'
+import TechDebtView from './tech-debt-view.vue'
 import { deleteProject, getProjectDetail } from '../../api/project'
 import { getFileContent, listFiles } from '../../api/file'
 import {
@@ -643,6 +644,8 @@ onBeforeUnmount(() => {
     <EvolutionView v-if="detail?.status === 'READY'" :project-id="projectId" />
     <!-- AI 医生（P6c） -->
     <DoctorView v-if="detail?.status === 'READY'" :project-id="projectId" />
+    <!-- 技术债（P7a） -->
+    <TechDebtView v-if="detail?.status === 'READY'" :project-id="projectId" />
 
     <!-- 文件地图 -->
     <div class="files">
