@@ -2,6 +2,7 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import ArchitectureView from './architecture-view.vue'
+import EvolutionView from './evolution-view.vue'
 import { deleteProject, getProjectDetail } from '../../api/project'
 import { getFileContent, listFiles } from '../../api/file'
 import {
@@ -637,6 +638,8 @@ onBeforeUnmount(() => {
 
     <!-- 架构分析（P4c） -->
     <ArchitectureView v-if="quality" :project-id="projectId" />
+    <!-- 演化分析（P5c） -->
+    <EvolutionView v-if="quality" :project-id="projectId" />
 
     <!-- 文件地图 -->
     <div class="files">

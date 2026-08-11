@@ -52,7 +52,7 @@
 ✅ P2 v0.1 MVP 完成（上传→扫描→AI 报告端到端）：P2a 分析任务链路 + P2b LLM/规则版报告 + P2c 报告前端（体检报告/分析历史/发起与重新生成）
 ✅ P3 质量完成（P3a /analyze/v1/quality + P3b FULL 流程接入 + P3c 质量前端：issues 查询端点/聚合指标/详情页质量区；Sonar 不可用降级 N/A 不影响其他）
 ✅ P4 架构完成（P4a /analyze/v1/architecture：tree-sitter 节点/调用边/分层违规 + 节点指标；P4b 落库 V003 + GET /architecture 查询端点；P4c 前端架构视图：ECharts 分层图 + 违规列表 + 2010 空态）
-🟡 P5 演化（P5a /analyze/v1/evolution 已完成：git log 统计 + 周趋势/TOP 文件/作者 + 规则热点；P5b 落库 V004/V007 + GET /evolution 查询端点已完成；P5c 前端演化页待做）
+✅ P5 演化完成（P5a /analyze/v1/evolution：git log 统计 + 周趋势/TOP 文件/作者 + 规则热点；P5b 落库 V004/V007 + GET /evolution 查询端点；P5c 前端演化页：趋势/TOP/作者三图 + 风险中心热点卡 + range 切换）
 ⬜ P5 演化 → P6 AI 医生 → P7 技术债+Dashboard = v1.0
 ```
 
@@ -136,3 +136,4 @@ v0.1 代码体检 MVP（上传→扫描→AI 报告）→ v0.2 质量(Sonar) →
 | v2.8 | 2026-08-11 | **P4c 前端架构视图完成（P4 收官）**：详情页新增"架构分析"区块——ECharts 分层图（5 泳道按 nodeType 分层、违规边标红、点击违规高亮节点、hover 显示出入度）+ 违规列表（严重级徽标/描述/修复建议/ai_note 占位）；2010 空态友好提示；无头 Edge 真渲染冒烟通过（mock 契约数据）；修复 4 个前端 bug（axios 双前缀、字符串 ref 不回填、nextTick 时序、非 2xx 丢失业务 code），详见 `docs/devlog/2026-08-10-p4c.md` |
 | v2.9 | 2026-08-11 | **P5a 演化统计端点完成**：analyzer `/analyze/v1/evolution`（git log 解析 + 周聚合趋势/TOP 文件/作者 + 规则热点 HIGH/MEDIUM + evidence 证据数组；非 git 目录 → 200 + `available:false`）；不引入 Python git 库（subprocess 调系统 git）；测试 85/85 + 真实仓库冒烟（详见 `docs/devlog/2026-08-11-p5.md`） |
 | v3.0 | 2026-08-11 | **P5b 演化落库 + 查询端点完成**：V004（commit_stat/file_change_stat）+ V007（hotspot）迁移；FULL 流程 REPORT 前接入（失败降级不阻塞报告）；`GET /projects/{id}/evolution?range=30d/90d/180d/all`（非 Git/无数据 → 200 + `available:false`，非 404）；项目删除级联；backend 测试 82/82（详见 `docs/devlog/2026-08-11-p5.md`） |
+| v3.1 | 2026-08-11 | **P5c 前端演化页完成（P5 收官）**：详情页新增"演化分析"区块——提交趋势折线 / TOP 变更文件条形 / 作者占比环形图（ECharts 按需引入）+ 风险中心热点卡片（riskLevel 徽标/evidence/aiConclusion）+ range 切换 + 非 Git 降级空态；无头 Edge 真渲染冒烟通过；P5 三阶段全部落地（详见 `docs/devlog/2026-08-11-p5.md`） |

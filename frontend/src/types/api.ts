@@ -246,3 +246,52 @@ export interface ArchitectureResult {
   edges: ArchitectureEdge[]
   violations: ArchitectureViolation[]
 }
+
+// ---------- P5 演化（06 §3.13） ----------
+
+export interface EvolutionCommit {
+  hash: string
+  authorName: string | null
+  authorEmail: string | null
+  committedAt: string
+  linesAdded: number
+  linesRemoved: number
+  filesChanged: number
+  message: string
+}
+
+export interface EvolutionTrend {
+  week: string
+  commits: number
+  linesAdded: number
+  linesRemoved: number
+}
+
+export interface EvolutionTopFile {
+  filePath: string
+  commitCount: number
+  linesAdded: number
+  linesRemoved: number
+}
+
+export interface EvolutionAuthor {
+  authorName: string
+  commits: number
+  linesAdded: number
+}
+
+export interface EvolutionHotspot {
+  module: string
+  riskLevel: 'HIGH' | 'MEDIUM'
+  evidence: string[]
+  aiConclusion: string | null
+}
+
+export interface EvolutionResult {
+  available: boolean
+  commits: EvolutionCommit[]
+  trend: EvolutionTrend[]
+  topFiles: EvolutionTopFile[]
+  authors: EvolutionAuthor[]
+  hotspots: EvolutionHotspot[]
+}
