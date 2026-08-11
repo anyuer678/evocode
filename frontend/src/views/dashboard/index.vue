@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <section class="dash">
     <h2 class="dash__title">全局总览</h2>
 
@@ -21,10 +21,13 @@
       </div>
     </div>
 
-    <div class="dash__charts">
+    <div v-if="projects.length" class="dash__charts">
       <div ref="healthEl" class="dash__chart" />
       <div ref="langEl" class="dash__chart" />
       <div ref="statusEl" class="dash__chart" />
+    </div>
+    <div v-else class="dash__empty">
+      还没有项目，去「项目」页创建并分析，这里会展示全局健康分布。
     </div>
 
     <h3 class="dash__sub">最近分析</h3>

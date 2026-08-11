@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import ArchitectureView from './architecture-view.vue'
@@ -732,7 +732,7 @@ onBeforeUnmount(() => {
 .page {
   background: var(--bg-page);
   border: 1px solid var(--border-color);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   padding: 24px 28px;
 }
 .head {
@@ -777,7 +777,7 @@ onBeforeUnmount(() => {
 .badge {
   display: inline-block;
   padding: 2px 10px;
-  border-radius: 10px;
+  border-radius: var(--radius-lg);
   font-size: 12px;
   white-space: nowrap;
 }
@@ -822,7 +822,7 @@ onBeforeUnmount(() => {
 .card {
   background: var(--bg-card);
   border: 1px solid var(--border-color);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   padding: 16px;
 }
 .card h3 {
@@ -919,7 +919,7 @@ onBeforeUnmount(() => {
   margin-top: 20px;
   background: var(--bg-card);
   border: 1px solid var(--border-color);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   padding: 20px;
 }
 .report.loading,
@@ -999,7 +999,7 @@ onBeforeUnmount(() => {
 }
 .dim {
   border: 1px solid var(--border-color);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   padding: 12px;
 }
 .dim-head {
@@ -1132,7 +1132,7 @@ onBeforeUnmount(() => {
 }
 .quality-badge {
   padding: 2px 10px;
-  border-radius: 10px;
+  border-radius: var(--radius-lg);
   font-size: 12px;
 }
 .quality-badge.on {
@@ -1315,7 +1315,7 @@ onBeforeUnmount(() => {
 .content-panel {
   margin-top: 20px;
   border: 1px solid var(--border-color);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   background: var(--bg-card);
   overflow: hidden;
 }

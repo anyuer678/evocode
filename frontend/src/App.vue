@@ -19,7 +19,7 @@ function toggleTheme() {
 
 <template>
   <header class="app-header">
-    <span class="app-logo">EvoCode</span>
+    <span class="app-logo">Evo<span class="app-logo-sub">Code</span></span>
     <nav class="app-nav">
       <RouterLink to="/dashboard" class="app-nav-link">Dashboard</RouterLink>
       <RouterLink to="/projects" class="app-nav-link">项目</RouterLink>
@@ -35,7 +35,11 @@ function toggleTheme() {
     </button>
   </header>
   <main class="app-main">
-    <RouterView />
+    <RouterView v-slot="{ Component }">
+      <Transition name="fade" mode="out-in">
+        <component :is="Component" />
+      </Transition>
+    </RouterView>
   </main>
 </template>
 
@@ -44,9 +48,11 @@ function toggleTheme() {
   display: flex;
   align-items: center;
   gap: 16px;
-  padding: 14px 24px;
+  padding: 12px 24px;
   border-bottom: 1px solid var(--border-color);
-  background: var(--bg-card);
+  background: color-mix(in srgb, var(--bg-card) 88%, transparent);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   position: sticky;
   top: 0;
   z-index: 50;
@@ -55,6 +61,11 @@ function toggleTheme() {
   font-size: 20px;
   font-weight: 700;
   color: var(--primary-color);
+  letter-spacing: 0.02em;
+}
+.app-logo-sub {
+  font-weight: 300;
+  color: var(--text-secondary);
 }
 .app-nav {
   display: flex;
@@ -66,10 +77,26 @@ function toggleTheme() {
   font-size: 13px;
   color: var(--text-secondary);
   text-decoration: none;
+  position: relative;
+  transition: color var(--transition);
+}
+.app-nav-link:hover {
+  color: var(--text-primary);
 }
 .app-nav-link.router-link-active {
   color: var(--primary-color);
-  background: var(--primary-weak);
+  font-weight: 600;
+}
+/* P9a：active 下划线指示 */
+.app-nav-link.router-link-active::after {
+  content: '';
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: 0;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--primary-color);
 }
 .app-slogan {
   flex: 1;
@@ -83,6 +110,10 @@ function toggleTheme() {
   padding: 4px 10px;
   font-size: 14px;
   cursor: pointer;
+  transition: border-color var(--transition);
+}
+.app-theme:hover {
+  border-color: var(--primary-color);
 }
 .app-main {
   padding: 20px 24px;

@@ -1,4 +1,4 @@
-/* EvoCode 设计 token（P8：全面美化 + 深浅色）。
+/* EvoCode 设计 token（P8：全面美化 + 深浅色；P9a：精致化精修）。
  * 浅色为默认（:root），深色由 [data-theme='dark'] 覆盖同名变量。
  * 组件一律使用语义变量，禁止硬编码色值。 */
 
@@ -6,6 +6,9 @@
   /* 品牌 */
   --primary-color: #2f6fed;
   --primary-weak: rgba(47, 111, 237, 0.08);
+
+  /* 字体（P9a：明确字体栈，跨平台稳定；数字用 tabular-nums 防跳动） */
+  --font-family: system-ui, -apple-system, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
 
   /* 文本 */
   --text-primary: #1f2329;
@@ -37,16 +40,68 @@
   --code-block-bg: #1e293b;
   --code-block-text: #e2e8f0;
 
-  /* 几何 / 阴影 / 排版 */
+  /* 几何 / 阴影 / 排版（P9a：3 级阴影 + 4pt 间距 + 焦点环 + 过渡） */
   --radius-sm: 6px;
-  --radius-md: 8px;
-  --radius-lg: 10px;
-  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.06);
-  --shadow-md: 0 4px 12px rgba(15, 23, 42, 0.08);
+  --radius-md: 10px;
+  --radius-lg: 12px;
+  --shadow-xs: 0 1px 3px rgba(15, 23, 42, 0.06); /* hover 卡片微抬升 */
+  --shadow-md: 0 4px 12px rgba(15, 23, 42, 0.08); /* 卡片默认 */
+  --shadow-lg: 0 8px 24px rgba(15, 23, 42, 0.14); /* 弹窗/浮层 */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --focus-ring: 2px solid var(--primary-weak); /* 全局 :focus-visible */
+  --transition: 150ms ease; /* 按钮/卡片 hover/主题切换 */
+  --skeleton-bg: #eceef1; /* 骨架屏脉动底色 */
   --font-size-base: 13px;
   --font-size-sm: 12px;
   --font-size-lg: 15px;
   --font-mono: ui-monospace, Consolas, 'Courier New', monospace;
+}
+
+/* 全局基础样式（P9a） */
+body {
+  font-family: var(--font-family);
+  font-size: var(--font-size-base);
+  background: var(--bg-page);
+  color: var(--text-primary);
+}
+
+:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: 1px;
+}
+
+/* 数字对齐防跳动（健康分/LOC/统计卡等度量值） */
+.tabular-nums,
+.stat-num,
+.score,
+.dash__stat-num {
+  font-variant-numeric: tabular-nums;
+}
+
+/* 骨架屏脉动（列表/卡片加载占位） */
+@keyframes evo-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.55;
+  }
+}
+
+/* 路由切换淡入 */
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity var(--transition);
+}
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
 }
 
 [data-theme='dark'] {
@@ -81,4 +136,6 @@
 
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
   --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.6);
+  --skeleton-bg: #26314a;
 }
