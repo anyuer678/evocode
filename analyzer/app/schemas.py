@@ -146,3 +146,60 @@ class ArchResult(BaseModel):
     nodes: list[ArchNode] = []
     edges: list[ArchEdge] = []
     violations: list[ArchViolation] = []
+
+
+# ---------- P5 演化（06 §5.6） ----------
+
+
+class EvolutionRequest(BaseModel):
+    """演化统计请求（06 §5.6）。"""
+
+    projectId: int
+    gitDir: str
+    rangeDays: int = 30
+
+
+class EvolutionCommit(BaseModel):
+    hash: str
+    authorName: str | None = None
+    authorEmail: str | None = None
+    committedAt: str
+    linesAdded: int = 0
+    linesRemoved: int = 0
+    filesChanged: int = 0
+    message: str = ""
+
+
+class EvolutionTrend(BaseModel):
+    week: str
+    commits: int = 0
+    linesAdded: int = 0
+    linesRemoved: int = 0
+
+
+class EvolutionTopFile(BaseModel):
+    filePath: str
+    commitCount: int = 0
+    linesAdded: int = 0
+    linesRemoved: int = 0
+
+
+class EvolutionAuthor(BaseModel):
+    authorName: str
+    commits: int = 0
+    linesAdded: int = 0
+
+
+class EvolutionHotspot(BaseModel):
+    module: str
+    riskLevel: str  # HIGH / MEDIUM
+    evidence: list[str] = []
+
+
+class EvolutionResult(BaseModel):
+    available: bool = True
+    commits: list[EvolutionCommit] = []
+    trend: list[EvolutionTrend] = []
+    topFiles: list[EvolutionTopFile] = []
+    authors: list[EvolutionAuthor] = []
+    hotspots: list[EvolutionHotspot] = []

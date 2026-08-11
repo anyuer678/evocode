@@ -8,6 +8,7 @@ from fastapi import FastAPI, HTTPException
 
 from .config import get_settings
 from .core.arch.archscan import architecture_scan
+from .core.evolution import evolution_scan
 from .core.filescanner import scan_project
 from .core.llm import OpenAICompatClient
 from .core.prompts import REPORT_PROMPT_VERSION
@@ -19,6 +20,8 @@ from .schemas import (
     ArchRequest,
     ArchResult,
     ArchViolation,
+    EvolutionRequest,
+    EvolutionResult,
     QualityIssue,
     QualityMetrics,
     QualityRequest,
@@ -195,3 +198,20 @@ def architecture(req: ArchRequest) -> ArchResult:
         edges=[ArchEdge(**e) for e in data["edges"]],
         violations=[ArchViolation(**v) for v in data["violations"]],
     )
+
+
+@app.post("/analyze/v1/evolution")
+def evolution(req: EvolutionRequest) -> EvolutionResult:
+    """演化统计（06 §5.6）：git log 聚合 + 规则热点；非 git → available=false。"""
+    git_dir = Path(req.gitDir)
+    if not git_dir.is_dir():
+        raise HTTPException(status_code=404, detail="gitDir not found")
+    data = evolution_scan(str(git_dir), req.rangeDays)
+    logger.info(
+        "evolution done project=%s available=%s commits=%s hotspots=%s",
+        req.projectId,
+        data["available"],
+        len(data["commits"]),
+        len(data["hotspots"]),
+    )
+    return EvolutionResult(**data)
