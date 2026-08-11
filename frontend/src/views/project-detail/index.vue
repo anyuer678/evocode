@@ -637,9 +637,9 @@ onBeforeUnmount(() => {
     </div>
 
     <!-- 架构分析（P4c） -->
-    <ArchitectureView v-if="quality" :project-id="projectId" />
+    <ArchitectureView v-if="detail?.status === 'READY'" :project-id="projectId" />
     <!-- 演化分析（P5c） -->
-    <EvolutionView v-if="quality" :project-id="projectId" />
+    <EvolutionView v-if="detail?.status === 'READY'" :project-id="projectId" />
 
     <!-- 文件地图 -->
     <div class="files">

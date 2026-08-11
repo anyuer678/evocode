@@ -35,6 +35,7 @@ import com.evocode.mapper.QualityIssueMapper;
 import com.evocode.service.analysis.QuickScanService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
@@ -190,6 +191,7 @@ public class ProjectServiceImpl implements ProjectService {
     }
 
     @Override
+    @Transactional
     public void delete(Long id) {
         Project project = getById(id);
         // 06 §3.4：RUNNING 任务 → CANCELLED（快扫线程会检查取消）

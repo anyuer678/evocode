@@ -23,7 +23,7 @@ public interface CommitStatMapper extends BaseMapper<CommitStat> {
                                                 @Param("since") OffsetDateTime since);
 
     /** 按作者聚合，提交数降序。 */
-    @Select("SELECT author_name AS author_name, COUNT(*) AS commits, "
+    @Select("SELECT COALESCE(author_name, 'unknown') AS author_name, COUNT(*) AS commits, "
             + "COALESCE(SUM(lines_added), 0) AS lines_added "
             + "FROM commit_stat WHERE analysis_id = #{analysisId} AND committed_at >= #{since} "
             + "GROUP BY author_name ORDER BY commits DESC")

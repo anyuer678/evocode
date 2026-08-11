@@ -35,6 +35,17 @@ def evolution_scan(git_dir: str, range_days: int | None = None) -> dict:
         }
 
     commits = git_log_entries(git_dir, range_days)
+    if commits is None:
+        # git 执行失败/超时（非空仓库）→ 按不可用处理，避免把故障误报成「无提交」
+        logger.warning("evolution unavailable (git log failed): %s", git_dir)
+        return {
+            "available": False,
+            "commits": [],
+            "trend": [],
+            "topFiles": [],
+            "authors": [],
+            "hotspots": [],
+        }
     trend = build_trend(commits)
     top_files = build_top_files(commits)
     authors = build_authors(commits)

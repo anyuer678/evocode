@@ -170,7 +170,7 @@
 // 200：{ "code": 0, "message": "ok", "data": null }
 ```
 
-删除时序（对应架构 §7.5）：① 存在 RUNNING 任务 → 置 CANCELLED → ② 等执行线程退出（≤60s）→ ③ 事务级联清库（chat_message→chat_session→knowledge_chunk→tech_debt→generated_doc→commit_stat/file_change_stat→arch_*→quality_issue/dependency→file_node→analysis→project）→ ④ 删磁盘目录（失败仅记日志）。
+删除时序（对应架构 §7.5）：① 存在 RUNNING 任务 → 置 CANCELLED → ② 等执行线程退出（≤60s）→ ③ 事务级联清库（chat_message→chat_session→knowledge_chunk→tech_debt→generated_doc→commit_stat/file_change_stat/hotspot→arch_*→quality_issue/dependency→file_node→analysis→project）→ ④ 删磁盘目录（失败仅记日志）。
 
 ### 3.5 发起分析
 
@@ -374,13 +374,14 @@
   "range": "30d",
   "trend": [ { "week": "2026-07-20", "commits": 12, "linesAdded": 3200, "linesRemoved": 800 } ],
   "topFiles": [ { "filePath": "src/.../UserService.java", "commitCount": 45,
-                  "linesAddedTotal": 12000, "linesRemovedTotal": 3000,
-                  "lastChangedAt": "...", "riskScore": 92.5 } ],
+                  "linesAdded": 12000, "linesRemoved": 3000 } ],
   "authors": [ { "authorName": "李工", "commits": 87, "linesAdded": 15000 } ],
   "hotspots": [ { "module": "User", "riskLevel": "HIGH",
                   "evidence": ["变更 45 次", "新增 12000 行", "耦合度全项目最高"],
                   "aiConclusion": "User 模块正在成为风险中心，建议优先重构" } ] } }
-// 404：{ "code": 2001, "message": "非 Git 来源项目不支持演化分析" }
+// 200 + available=false：非 Git 来源 / 无提交历史项目（P5 决策：不返回 404）
+// 404：{ "code": 2001, "message": "项目不存在" }
+// 注：topFiles 为最新一次分析的全量 TOP-N（落库窗口 365d），不受 range 过滤
 ```
 
 ### 3.14 文档（P7）
@@ -543,11 +544,10 @@ data: {"messageId": 9527}
 // 200 { "commits": [ { "hash","authorName","committedAt","linesAdded","linesRemoved",
 //                      "filesChanged","message" } ],
 //       "trend": [ { "week","commits","linesAdded","linesRemoved" } ],
-//       "topFiles": [ { "filePath","commitCount","linesAddedTotal","linesRemovedTotal",
-//                       "lastChangedAt","riskScore" } ],
+//       "topFiles": [ { "filePath","commitCount","linesAdded","linesRemoved" } ],
 //       "authors": [ { "authorName","commits","linesAdded" } ],
 //       "hotspots": [ { "module","riskLevel","evidence" } ] }
-// 非 git 目录 → 200 + { "available": false }
+// 非 git 目录 / git 执行失败 → 200 + { "available": false }；空仓库（有 .git 无提交）→ available=true + 空数组
 ```
 
 ### 5.7 POST /analyze/v1/chat（SSE 生成端，P6）

@@ -7,6 +7,7 @@ import com.evocode.entity.Hotspot;
 import com.evocode.mapper.CommitStatMapper;
 import com.evocode.mapper.FileChangeStatMapper;
 import com.evocode.mapper.HotspotMapper;
+import com.evocode.mapper.ProjectMapper;
 import org.junit.jupiter.api.Test;
 
 import java.time.OffsetDateTime;
@@ -15,6 +16,7 @@ import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -31,9 +33,10 @@ class EvolutionServiceImplTest {
     private final CommitStatMapper commitStatMapper = mock(CommitStatMapper.class);
     private final FileChangeStatMapper fileChangeStatMapper = mock(FileChangeStatMapper.class);
     private final HotspotMapper hotspotMapper = mock(HotspotMapper.class);
+    private final ProjectMapper projectMapper = mock(ProjectMapper.class);
 
     private final EvolutionServiceImpl service =
-            new EvolutionServiceImpl(commitStatMapper, fileChangeStatMapper, hotspotMapper);
+            new EvolutionServiceImpl(commitStatMapper, fileChangeStatMapper, hotspotMapper, projectMapper);
 
     private EvolutionResp sampleResult() {
         return new EvolutionResp(
@@ -78,6 +81,7 @@ class EvolutionServiceImplTest {
 
     @Test
     void getReturnsUnavailableWhenNoData() {
+        when(projectMapper.selectById(1L)).thenReturn(new com.evocode.entity.Project());
         when(commitStatMapper.selectOne(any())).thenReturn(null);
         EvolutionResp resp = service.getForProject(1L, "30d");
         assertFalse(resp.available());
@@ -85,7 +89,14 @@ class EvolutionServiceImplTest {
     }
 
     @Test
+    void getThrowsNotFoundWhenProjectMissing() {
+        when(projectMapper.selectById(1L)).thenReturn(null);
+        assertThrows(com.evocode.common.BusinessException.class, () -> service.getForProject(1L, "30d"));
+    }
+
+    @Test
     void getMapsAggregatesAndHotspots() {
+        when(projectMapper.selectById(1L)).thenReturn(new com.evocode.entity.Project());
         CommitStat latest = new CommitStat();
         latest.setProjectId(1L);
         latest.setAnalysisId(10L);
@@ -113,6 +124,7 @@ class EvolutionServiceImplTest {
 
     @Test
     void getParsesAllRangeWithoutCutoff() {
+        when(projectMapper.selectById(1L)).thenReturn(new com.evocode.entity.Project());
         CommitStat latest = new CommitStat();
         latest.setProjectId(1L);
         latest.setAnalysisId(10L);

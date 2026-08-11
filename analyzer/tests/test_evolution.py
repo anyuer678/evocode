@@ -220,3 +220,69 @@ def test_evolution_endpoint_missing_dir(tmp_path: Path):
         json={"projectId": 1, "gitDir": str(tmp_path / "nope"), "rangeDays": 30},
     )
     assert resp.status_code == 404
+
+
+def test_empty_git_repo_available_true_empty(tmp_path: Path):
+    repo = tmp_path / "emptyrepo"
+    repo.mkdir()
+    _git(repo, "init", "-q", "-b", "main")
+    data = evolution_scan(str(repo))
+    assert data["available"] is True
+    assert data["commits"] == []
+    assert data["trend"] == []
+
+
+def test_git_failure_available_false(monkeypatch, tmp_path: Path):
+    """git log 执行失败/超时 → available=false（区分于空仓库）。"""
+    import app.core.evolution.gitlog as gl
+
+    monkeypatch.setattr(gl, "_run_git", lambda *a, **k: None)
+    data = evolution_scan(str(tmp_path))
+    assert data["available"] is False
+
+
+def test_trend_cross_year_week_aggregation(tmp_path: Path):
+    # 2025-12-29（周一）与 2026-01-05（周一）跨年但各成一周；UTC 归一周界稳定
+    repo = make_git_repo(
+        tmp_path,
+        [
+            {"path": "a.py", "date": "2025-12-29T10:00:00+00:00"},
+            {"path": "a.py", "date": "2025-12-30T10:00:00+00:00"},
+            {"path": "b.py", "date": "2026-01-05T10:00:00+00:00"},
+        ],
+    )
+    data = evolution_scan(str(repo))
+    weeks = [t["week"] for t in data["trend"]]
+    assert weeks == ["2025-12-29", "2026-01-05"]
+    assert data["trend"][0]["commits"] == 2
+
+
+def test_mixed_timezone_commit_goes_to_utc_week(tmp_path: Path):
+    # +08:00 的 2026-07-27T02:00 与 UTC 2026-07-26T18:00 是同一瞬间 → 归入同一周
+    repo = make_git_repo(
+        tmp_path,
+        [
+            {"path": "a.py", "date": "2026-07-26T18:00:00+00:00"},
+            {"path": "b.py", "date": "2026-07-27T02:00:00+08:00"},
+        ],
+    )
+    data = evolution_scan(str(repo))
+    assert len(data["trend"]) == 1
+    assert data["trend"][0]["week"] == "2026-07-20"
+    assert data["trend"][0]["commits"] == 2
+
+
+def test_range_days_rejected_by_schema(tmp_path: Path):
+    """rangeDays 超界（0 / 负数 / 超上限）→ 422。"""
+    plain = tmp_path / "plain"
+    plain.mkdir()
+    resp = client.post(
+        "/analyze/v1/evolution",
+        json={"projectId": 1, "gitDir": str(plain), "rangeDays": 0},
+    )
+    assert resp.status_code == 422
+    resp = client.post(
+        "/analyze/v1/evolution",
+        json={"projectId": 1, "gitDir": str(plain), "rangeDays": -5},
+    )
+    assert resp.status_code == 422

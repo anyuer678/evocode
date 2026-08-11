@@ -1,6 +1,6 @@
 """扫描契约（06 §5.1，唯一事实来源，backend 按此反序列化）。"""
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class ScanRequest(BaseModel):
@@ -156,7 +156,7 @@ class EvolutionRequest(BaseModel):
 
     projectId: int
     gitDir: str
-    rangeDays: int = 30
+    rangeDays: int = Field(default=30, ge=1, le=3650)
 
 
 class EvolutionCommit(BaseModel):

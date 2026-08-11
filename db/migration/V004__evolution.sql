@@ -25,7 +25,7 @@ CREATE TABLE IF NOT EXISTS file_change_stat (
     id            BIGSERIAL PRIMARY KEY,
     project_id    BIGINT         NOT NULL,
     analysis_id   BIGINT         NOT NULL,
-    file_path     VARCHAR(1024)  NOT NULL,
+    file_path     TEXT           NOT NULL,
     commit_count  INT            NOT NULL DEFAULT 0,
     lines_added   INT            NOT NULL DEFAULT 0,
     lines_removed INT            NOT NULL DEFAULT 0,

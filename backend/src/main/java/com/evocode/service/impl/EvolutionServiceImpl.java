@@ -1,13 +1,17 @@
 package com.evocode.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.evocode.common.BusinessException;
+import com.evocode.common.ErrorCode;
 import com.evocode.dto.evolution.EvolutionResp;
 import com.evocode.entity.CommitStat;
 import com.evocode.entity.FileChangeStat;
 import com.evocode.entity.Hotspot;
+import com.evocode.entity.Project;
 import com.evocode.mapper.CommitStatMapper;
 import com.evocode.mapper.FileChangeStatMapper;
 import com.evocode.mapper.HotspotMapper;
+import com.evocode.mapper.ProjectMapper;
 import com.evocode.service.EvolutionService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -30,13 +34,16 @@ public class EvolutionServiceImpl implements EvolutionService {
     private final CommitStatMapper commitStatMapper;
     private final FileChangeStatMapper fileChangeStatMapper;
     private final HotspotMapper hotspotMapper;
+    private final ProjectMapper projectMapper;
 
     public EvolutionServiceImpl(CommitStatMapper commitStatMapper,
                                 FileChangeStatMapper fileChangeStatMapper,
-                                HotspotMapper hotspotMapper) {
+                                HotspotMapper hotspotMapper,
+                                ProjectMapper projectMapper) {
         this.commitStatMapper = commitStatMapper;
         this.fileChangeStatMapper = fileChangeStatMapper;
         this.hotspotMapper = hotspotMapper;
+        this.projectMapper = projectMapper;
     }
 
     @Override
@@ -96,6 +103,10 @@ public class EvolutionServiceImpl implements EvolutionService {
 
     @Override
     public EvolutionResp getForProject(Long projectId, String range) {
+        // 06 §3.13：项目不存在 → 404/2001（区别于「非 Git 来源」的 available=false）
+        if (projectMapper.selectById(projectId) == null) {
+            throw new BusinessException(ErrorCode.PROJECT_NOT_FOUND, null);
+        }
         // 直接取演化表最新一次分析，绕开 analysis 状态（最近分析失败时仍可读上次结果）
         CommitStat latest = commitStatMapper.selectOne(new LambdaQueryWrapper<CommitStat>()
                 .eq(CommitStat::getProjectId, projectId)

@@ -9,12 +9,18 @@ subprocess 调系统 git（不引入 Python git 库，保持 analyzer 依赖最�
 from __future__ import annotations
 
 import logging
+import os
 import re
 import subprocess
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 logger = logging.getLogger("evocode.analyzer.evolution")
+
+# Windows 无控制台部署（服务/计划任务/pythonw）时抑制 git 子进程弹出的黑窗口
+_SUBPROCESS_KW = (
+    {"creationflags": subprocess.CREATE_NO_WINDOW} if os.name == "nt" else {}
+)
 
 # git log pretty 字段，用 \x1f 分隔避免作者名/提交消息中的空格歧义
 _PRETTY = "COMMIT%x1f%h%x1f%an%x1f%ae%x1f%ad%x1f%s"
@@ -34,6 +40,7 @@ def is_git_repo(git_dir: str) -> bool:
             capture_output=True,
             text=True,
             timeout=15,
+            **_SUBPROCESS_KW,
         )
         return r.returncode == 0
     except (OSError, subprocess.SubprocessError):
@@ -49,6 +56,7 @@ def _run_git(git_dir: str, args: list[str]) -> str | None:
             encoding="utf-8",
             errors="replace",
             timeout=60,
+            **_SUBPROCESS_KW,
         )
         if r.returncode != 0:
             logger.warning("git %s failed: %s", args[0], r.stderr[:300])
@@ -59,9 +67,10 @@ def _run_git(git_dir: str, args: list[str]) -> str | None:
         return None
 
 
-def git_log_entries(git_dir: str, range_days: int | None = None) -> list[dict]:
+def git_log_entries(git_dir: str, range_days: int | None = None) -> list[dict] | None:
     """解析 `git log --numstat` → commit 列表（含文件级变更明细）。
 
+    git 执行失败/超时 → None（与「空仓库」区分：空仓库是 []）。
     """
     args = [
         "-c", "core.quotepath=false",
@@ -74,7 +83,10 @@ def git_log_entries(git_dir: str, range_days: int | None = None) -> list[dict]:
         args.append(f"--since={range_days} days ago")
     out = _run_git(git_dir, args)
     if out is None:
-        return []
+        # git log 失败：区分「空仓库（无任何提交）」与「真故障（超时/损坏）」
+        if _run_git(git_dir, ["rev-parse", "--verify", "HEAD"]) is None:
+            return []  # HEAD 不存在 → 空仓库，非故障
+        return None
 
     commits: list[dict] = []
     cur: dict | None = None
@@ -117,8 +129,17 @@ def git_log_entries(git_dir: str, range_days: int | None = None) -> list[dict]:
 
 
 def _week_start(committed_at: str) -> str:
-    """ISO-8601 时间戳 → 所在周周一（YYYY-MM-DD）。"""
-    dt = datetime.fromisoformat(committed_at.replace("Z", "+00:00"))
+    """ISO-8601 时间戳 → 所在周周一（YYYY-MM-DD）。
+
+    先归一到 UTC 再取日期，避免混合时区仓库在周界处错分周；
+    无法解析时返回空串（该 commit 计入「未知周」，不阻断整体）。
+    """
+    try:
+        dt = datetime.fromisoformat(committed_at.replace("Z", "+00:00"))
+        dt = dt.astimezone(timezone.utc)  # noqa: UP017（datetime.UTC 需 import datetime 模块而非类）
+    except ValueError:
+        logger.warning("无法解析 committed_at=%s，计入未知周", committed_at)
+        return ""
     return (dt.date() - timedelta(days=dt.weekday())).isoformat()
 
 
@@ -171,19 +192,20 @@ def build_authors(commits: list[dict]) -> list[dict]:
 
 
 def detect_hotspots(
-    top_files: list[dict], total_commits: int, top_n: int = 5
+    top_files: list[dict], total_commits: int, top_n: int | None = None
 ) -> list[dict]:
     """规则判定热点模块（07 枚举 HotspotLevel：HIGH/MEDIUM；evidence 见 07 §5.6）。
 
     规则（阈值可随数据规模调整）：
     - HIGH：变更占比 ≥ 15% 且新增 ≥ 300 行，或新增 ≥ 2000 行
     - MEDIUM：变更 ≥ 3 次
+    top_n 缺省评估全部候选（输入已是 top10，避免第 6~10 名满足 MEDIUM 被漏报）。
     AI 风险中心结论（ai_conclusion）由 backend 侧可选调用 D.5 Prompt 补充，不在此阻塞。
     """
     if total_commits == 0:
         return []
     hotspots: list[dict] = []
-    for tf in top_files[:top_n]:
+    for tf in top_files[:top_n] if top_n else top_files:
         share = tf["commitCount"] / total_commits
         evidence = [
             f"变更 {tf['commitCount']} 次",

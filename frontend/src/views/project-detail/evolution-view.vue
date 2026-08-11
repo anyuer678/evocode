@@ -71,6 +71,13 @@ const charts = new Map<HTMLDivElement, ECharts>()
 function renderChart(holder: typeof trendEl, option: ECOption): void {
   const el = holder.value
   if (!el) return
+  // 防御：容器已不在 DOM（三态切换重建）时清理僵尸实例
+  for (const [key, c] of charts) {
+    if (!key.isConnected) {
+      c.dispose()
+      charts.delete(key)
+    }
+  }
   let chart = charts.get(el)
   if (!chart) {
     chart = echarts.init(el)
@@ -84,7 +91,7 @@ function buildTrendOption(trend: EvolutionTrend[]): ECOption {
     tooltip: { trigger: 'axis' },
     legend: { data: ['提交数', '新增行数'], top: 0 },
     grid: { left: 50, right: 50, top: 32, bottom: 28 },
-    xAxis: { type: 'category', data: trend.map((t) => t.week.slice(5)) },
+    xAxis: { type: 'category', data: trend.map((t) => t.week.slice(0, 7)) },
     yAxis: [
       { type: 'value', name: '提交', minInterval: 1 },
       { type: 'value', name: '行', splitLine: { show: false } },
@@ -116,7 +123,7 @@ function buildFilesOption(files: EvolutionTopFile[]): ECOption {
     xAxis: { type: 'value', minInterval: 1 },
     yAxis: {
       type: 'category',
-      data: top.map((f) => f.filePath.split('/').pop() ?? f.filePath).reverse(),
+      data: top.map((f) => f.filePath.split(/[\\/]/).pop() || f.filePath).reverse(),
       axisLabel: { width: 160, overflow: 'truncate' },
     },
     series: [
@@ -162,20 +169,34 @@ watch(
   { flush: 'post' },
 )
 
+// resize 用 rAF 防抖，避免高频触发时对三个图各 resize 一次；跳过隐藏（v-show=false）容器防缩零
+let resizeRaf = 0
 function onResize(): void {
-  charts.forEach((c) => c.resize())
+  cancelAnimationFrame(resizeRaf)
+  resizeRaf = requestAnimationFrame(() => {
+    charts.forEach((c) => {
+      const el = c.getDom()
+      if (el.isConnected && el.offsetParent !== null) c.resize()
+    })
+  })
 }
 
+// 请求序号守卫：快速切换 range 时丢弃过期响应，避免旧数据覆盖新数据
+let loadSeq = 0
 async function load(): Promise<void> {
+  const seq = ++loadSeq
   loading.value = true
   errorMsg.value = ''
   try {
-    data.value = await fetchEvolution(props.projectId, range.value)
+    const d = await fetchEvolution(props.projectId, range.value)
+    if (seq !== loadSeq) return
+    data.value = d
   } catch (e) {
+    if (seq !== loadSeq) return
     errorMsg.value = e instanceof Error ? e.message : '演化统计加载失败'
     data.value = null
   } finally {
-    loading.value = false
+    if (seq === loadSeq) loading.value = false
   }
 }
 
@@ -204,6 +225,7 @@ onBeforeUnmount(() => {
           :key="r.key"
           class="ev-range-btn"
           :class="{ active: range === r.key }"
+          :aria-pressed="range === r.key"
           @click="range = r.key"
         >
           {{ r.label }}
@@ -211,48 +233,50 @@ onBeforeUnmount(() => {
       </div>
     </div>
 
-    <div v-if="loading" class="ev-state">演化统计加载中…</div>
-    <div v-else-if="errorMsg" class="ev-state fail">{{ errorMsg }}</div>
-    <div v-else-if="!data || !data.available" class="ev-state">
+    <div v-if="loading" class="ev-state" role="status">演化统计加载中…</div>
+    <div v-else-if="errorMsg" class="ev-state fail" role="status">{{ errorMsg }}</div>
+    <div v-else-if="!data || !data.available" class="ev-state" role="status">
       该项目非 Git 来源或无提交历史，暂无演化数据。
     </div>
-    <template v-else>
-      <div class="ev-grid">
-        <div class="ev-card ev-card-wide">
-          <h4 class="ev-card-title">提交趋势</h4>
-          <div :ref="setTrendRef" class="ev-canvas"></div>
-        </div>
-        <div class="ev-card">
-          <h4 class="ev-card-title">TOP 变更文件</h4>
-          <div :ref="setFilesRef" class="ev-canvas"></div>
-        </div>
-        <div class="ev-card">
-          <h4 class="ev-card-title">作者提交占比</h4>
-          <div :ref="setAuthorsRef" class="ev-canvas"></div>
-        </div>
-        <div class="ev-card ev-card-wide">
-          <h4 class="ev-card-title">风险中心</h4>
-          <div v-if="data.hotspots.length" class="ev-hotspots">
-            <div
-              v-for="h in data.hotspots"
-              :key="h.module"
-              class="ev-hotspot"
-              :class="'lv-' + h.riskLevel.toLowerCase()"
-            >
-              <div class="ev-hotspot-head">
-                <span class="ev-hotspot-module">{{ h.module }}</span>
-                <span class="ev-hotspot-badge">{{ h.riskLevel }}</span>
-              </div>
-              <ul class="ev-hotspot-evidence">
-                <li v-for="(e, i) in h.evidence" :key="i">{{ e }}</li>
-              </ul>
-              <p v-if="h.aiConclusion" class="ev-hotspot-ai">{{ h.aiConclusion }}</p>
-            </div>
-          </div>
-          <div v-else class="ev-state small">当前范围内未发现风险热点。</div>
-        </div>
+    <!-- 图表容器常驻（v-show 而非 v-if），避免三态切换重建 DOM 导致 ECharts 实例泄漏 -->
+    <div v-show="!loading && !errorMsg && data?.available" class="ev-grid">
+      <div class="ev-card ev-card-wide">
+        <h4 class="ev-card-title">提交趋势</h4>
+        <div :ref="setTrendRef" class="ev-canvas"></div>
       </div>
-    </template>
+      <div class="ev-card">
+        <h4 class="ev-card-title">TOP 变更文件</h4>
+        <div :ref="setFilesRef" class="ev-canvas"></div>
+      </div>
+      <div class="ev-card">
+        <h4 class="ev-card-title">作者提交占比</h4>
+        <div :ref="setAuthorsRef" class="ev-canvas"></div>
+      </div>
+      <div class="ev-card ev-card-wide">
+        <h4 class="ev-card-title">风险中心</h4>
+        <div v-if="data?.hotspots.length" class="ev-hotspots">
+          <div
+            v-for="h in data?.hotspots ?? []"
+            :key="h.module"
+            class="ev-hotspot"
+            :class="[
+              'lv-' + h.riskLevel.toLowerCase(),
+              !['high', 'medium'].includes(h.riskLevel.toLowerCase()) ? 'lv-medium' : '',
+            ]"
+          >
+            <div class="ev-hotspot-head">
+              <span class="ev-hotspot-module">{{ h.module }}</span>
+              <span class="ev-hotspot-badge">{{ h.riskLevel }}</span>
+            </div>
+            <ul class="ev-hotspot-evidence">
+              <li v-for="(e, i) in h.evidence" :key="i">{{ e }}</li>
+            </ul>
+            <p v-if="h.aiConclusion" class="ev-hotspot-ai">{{ h.aiConclusion }}</p>
+          </div>
+        </div>
+        <div v-else class="ev-state small">当前范围内未发现风险热点。</div>
+      </div>
+    </div>
   </section>
 </template>
 
