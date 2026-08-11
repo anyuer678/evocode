@@ -13,6 +13,9 @@ import com.evocode.dto.project.ProjectResp;
 import com.evocode.dto.project.ProjectSummaryResp;
 import com.evocode.entity.Analysis;
 import com.evocode.entity.ArchViolation;
+import com.evocode.entity.CommitStat;
+import com.evocode.entity.FileChangeStat;
+import com.evocode.entity.Hotspot;
 import com.evocode.entity.FileNode;
 import com.evocode.entity.Project;
 import com.evocode.entity.QualityIssue;
@@ -23,6 +26,9 @@ import com.evocode.mapper.AnalysisMapper;
 import com.evocode.mapper.ArchViolationMapper;
 import com.evocode.mapper.ArchitectureEdgeMapper;
 import com.evocode.mapper.ArchitectureNodeMapper;
+import com.evocode.mapper.CommitStatMapper;
+import com.evocode.mapper.FileChangeStatMapper;
+import com.evocode.mapper.HotspotMapper;
 import com.evocode.mapper.FileNodeMapper;
 import com.evocode.mapper.ProjectMapper;
 import com.evocode.mapper.QualityIssueMapper;
@@ -50,6 +56,9 @@ public class ProjectServiceImpl implements ProjectService {
     private final ArchitectureNodeMapper architectureNodeMapper;
     private final ArchitectureEdgeMapper architectureEdgeMapper;
     private final ArchViolationMapper archViolationMapper;
+    private final CommitStatMapper commitStatMapper;
+    private final FileChangeStatMapper fileChangeStatMapper;
+    private final HotspotMapper hotspotMapper;
     private final UploadService uploadService;
     private final GitCloneService gitCloneService;
     private final QuickScanService quickScanService;
@@ -60,6 +69,9 @@ public class ProjectServiceImpl implements ProjectService {
                               ArchitectureNodeMapper architectureNodeMapper,
                               ArchitectureEdgeMapper architectureEdgeMapper,
                               ArchViolationMapper archViolationMapper,
+                              CommitStatMapper commitStatMapper,
+                              FileChangeStatMapper fileChangeStatMapper,
+                              HotspotMapper hotspotMapper,
                               UploadService uploadService, GitCloneService gitCloneService,
                               QuickScanService quickScanService, EvocodeProperties props) {
         this.projectMapper = projectMapper;
@@ -69,6 +81,9 @@ public class ProjectServiceImpl implements ProjectService {
         this.architectureNodeMapper = architectureNodeMapper;
         this.architectureEdgeMapper = architectureEdgeMapper;
         this.archViolationMapper = archViolationMapper;
+        this.commitStatMapper = commitStatMapper;
+        this.fileChangeStatMapper = fileChangeStatMapper;
+        this.hotspotMapper = hotspotMapper;
         this.uploadService = uploadService;
         this.gitCloneService = gitCloneService;
         this.quickScanService = quickScanService;
@@ -187,6 +202,9 @@ public class ProjectServiceImpl implements ProjectService {
         architectureNodeMapper.delete(new QueryWrapper<com.evocode.entity.ArchitectureNode>().eq("project_id", id));
         architectureEdgeMapper.delete(new QueryWrapper<com.evocode.entity.ArchitectureEdge>().eq("project_id", id));
         archViolationMapper.delete(new QueryWrapper<ArchViolation>().eq("project_id", id));
+        commitStatMapper.delete(new QueryWrapper<CommitStat>().eq("project_id", id));
+        fileChangeStatMapper.delete(new QueryWrapper<FileChangeStat>().eq("project_id", id));
+        hotspotMapper.delete(new QueryWrapper<Hotspot>().eq("project_id", id));
         analysisMapper.delete(new QueryWrapper<Analysis>().eq("project_id", id));
         projectMapper.deleteById(id);
         deleteRecursive(Path.of(project.getStoragePath()));

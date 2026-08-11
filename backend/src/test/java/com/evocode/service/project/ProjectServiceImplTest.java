@@ -7,7 +7,10 @@ import com.evocode.mapper.AnalysisMapper;
 import com.evocode.mapper.ArchViolationMapper;
 import com.evocode.mapper.ArchitectureEdgeMapper;
 import com.evocode.mapper.ArchitectureNodeMapper;
+import com.evocode.mapper.CommitStatMapper;
+import com.evocode.mapper.FileChangeStatMapper;
 import com.evocode.mapper.FileNodeMapper;
+import com.evocode.mapper.HotspotMapper;
 import com.evocode.mapper.ProjectMapper;
 import com.evocode.mapper.QualityIssueMapper;
 import com.evocode.entity.Project;
@@ -52,6 +55,9 @@ class ProjectServiceImplTest {
     private ArchitectureNodeMapper architectureNodeMapper;
     private ArchitectureEdgeMapper architectureEdgeMapper;
     private ArchViolationMapper archViolationMapper;
+    private CommitStatMapper commitStatMapper;
+    private FileChangeStatMapper fileChangeStatMapper;
+    private HotspotMapper hotspotMapper;
     private EvocodeProperties props;
     private ProjectServiceImpl service;
 
@@ -69,9 +75,13 @@ class ProjectServiceImplTest {
         architectureNodeMapper = Mockito.mock(ArchitectureNodeMapper.class);
         architectureEdgeMapper = Mockito.mock(ArchitectureEdgeMapper.class);
         archViolationMapper = Mockito.mock(ArchViolationMapper.class);
+        commitStatMapper = Mockito.mock(CommitStatMapper.class);
+        fileChangeStatMapper = Mockito.mock(FileChangeStatMapper.class);
+        hotspotMapper = Mockito.mock(HotspotMapper.class);
         service = new ProjectServiceImpl(projectMapper, analysisMapper, fileNodeMapper,
                 qualityIssueMapper, architectureNodeMapper, architectureEdgeMapper,
-                archViolationMapper, uploadService, gitCloneService, quickScanService, props);
+                archViolationMapper, commitStatMapper, fileChangeStatMapper, hotspotMapper,
+                uploadService, gitCloneService, quickScanService, props);
         doAnswer(inv -> {
             Project p = inv.getArgument(0);
             p.setId(1L);

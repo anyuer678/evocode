@@ -4,6 +4,7 @@ import com.evocode.common.BusinessException;
 import com.evocode.common.ErrorCode;
 import com.evocode.config.EvocodeProperties;
 import com.evocode.dto.architecture.ArchResultResp;
+import com.evocode.dto.evolution.EvolutionResp;
 import com.evocode.dto.scan.ScanResultResp;
 import com.fasterxml.jackson.databind.JsonNode;
 import lombok.extern.slf4j.Slf4j;
@@ -104,10 +105,31 @@ public class AnalyzerClient {
         }
     }
 
+    /**
+     * 调 /analyze/v1/evolution（06 §5.6）。非 git 仓库 analyzer 返回 available=false；
+     * 不可达/5xx → 3001（由 AnalysisRunner.runEvolution 捕获降级，不阻塞报告）。
+     */
+    public EvolutionResp evolution(Long projectId, String gitDir, int rangeDays) {
+        try {
+            return client.post()
+                    .uri("/analyze/v1/evolution")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(new EvolutionRequest(projectId, gitDir, rangeDays))
+                    .retrieve()
+                    .body(EvolutionResp.class);
+        } catch (Exception e) {
+            throw new BusinessException(ErrorCode.ANALYZER_UNREACHABLE,
+                    "演化统计服务不可达或内部错误：" + e.getMessage());
+        }
+    }
+
     public record ScanRequest(Long projectId, String codeDir) {
     }
 
     public record ArchitectureRequest(Long projectId, String codeDir) {
+    }
+
+    public record EvolutionRequest(Long projectId, String gitDir, Integer rangeDays) {
     }
 
     public record QualityRequest(Long projectId, String codeDir) {

@@ -14,6 +14,7 @@ import com.evocode.mapper.AnalysisMapper;
 import com.evocode.mapper.ProjectMapper;
 import com.evocode.mapper.QualityIssueMapper;
 import com.evocode.service.ArchitectureService;
+import com.evocode.service.EvolutionService;
 import com.evocode.service.scan.FileNodeService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Async;
@@ -45,16 +46,19 @@ public class AnalysisRunner {
     private final FileNodeService fileNodeService;
     private final QualityIssueMapper qualityIssueMapper;
     private final ArchitectureService architectureService;
+    private final EvolutionService evolutionService;
 
     public AnalysisRunner(AnalysisMapper analysisMapper, ProjectMapper projectMapper,
                           AnalyzerClient analyzerClient, FileNodeService fileNodeService,
-                          QualityIssueMapper qualityIssueMapper, ArchitectureService architectureService) {
+                          QualityIssueMapper qualityIssueMapper, ArchitectureService architectureService,
+                          EvolutionService evolutionService) {
         this.analysisMapper = analysisMapper;
         this.projectMapper = projectMapper;
         this.analyzerClient = analyzerClient;
         this.fileNodeService = fileNodeService;
         this.qualityIssueMapper = qualityIssueMapper;
         this.architectureService = architectureService;
+        this.evolutionService = evolutionService;
     }
 
     @Async("quickScanExecutor")
@@ -99,6 +103,7 @@ public class AnalysisRunner {
 
             Map<String, Object> qualityMetrics = runQuality(project, codeDir);
             runArchitecture(project, analysis, codeDir);
+            runEvolution(project, analysis, codeDir);
             generateAndStoreReport(analysis, project, scan, qualityMetrics);
         } catch (Exception e) {
             log.error("分析失败 analysisId={} projectId={}", analysis.getId(), project.getId(), e);
@@ -197,6 +202,22 @@ public class AnalysisRunner {
                     analysis.getId(), arch == null ? 0 : arch.nodes().size());
         } catch (Exception e) {
             log.warn("架构分析不可用，跳过 projectId={}：{}", project.getId(), e.getMessage());
+        }
+    }
+
+    /**
+     * 演化统计（06 §5.6）：git log 聚合，结果以 analysisId 为单位落库。失败只记录，不阻塞
+     * 报告生成（可承受降级）。落库窗口 365d，查询端点再按 range 过滤。
+     */
+    private void runEvolution(Project project, Analysis analysis, String codeDir) {
+        try {
+            var evolution = analyzerClient.evolution(project.getId(), codeDir, 365);
+            evolutionService.replaceForAnalysis(project.getId(), analysis.getId(), evolution);
+            log.info("演化统计落库完成 analysisId={} available={} commits={}",
+                    analysis.getId(), evolution == null || evolution.available(),
+                    evolution == null ? 0 : evolution.commits().size());
+        } catch (Exception e) {
+            log.warn("演化统计不可用，跳过 projectId={}：{}", project.getId(), e.getMessage());
         }
     }
 

@@ -1,6 +1,7 @@
 package com.evocode.service.analysis;
 
 import com.evocode.dto.architecture.ArchResultResp;
+import com.evocode.dto.evolution.EvolutionResp;
 import com.evocode.dto.scan.ScanResultResp;
 import com.evocode.entity.Analysis;
 import com.evocode.entity.Project;
@@ -12,6 +13,7 @@ import com.evocode.mapper.AnalysisMapper;
 import com.evocode.mapper.ProjectMapper;
 import com.evocode.mapper.QualityIssueMapper;
 import com.evocode.service.ArchitectureService;
+import com.evocode.service.EvolutionService;
 import com.evocode.service.scan.FileNodeService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -23,6 +25,7 @@ import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
@@ -46,11 +49,12 @@ class AnalysisRunnerTest {
     private final FileNodeService fileNodeService = mock(FileNodeService.class);
     private final QualityIssueMapper qualityIssueMapper = mock(QualityIssueMapper.class);
     private final ArchitectureService architectureService = mock(ArchitectureService.class);
+    private final EvolutionService evolutionService = mock(EvolutionService.class);
 
     private AnalysisRunner newRunner() {
         return new AnalysisRunner(
                 analysisMapper, projectMapper, analyzerClient, fileNodeService, qualityIssueMapper,
-                architectureService);
+                architectureService, evolutionService);
     }
 
     private Analysis newAnalysis() {
@@ -90,6 +94,7 @@ class AnalysisRunnerTest {
                 List.of(new ArchResultResp.Edge("c1", "s1", "CALL")),
                 List.of(new ArchResultResp.Violation("LAYER_VIOLATION", "Controller 直连 Repository",
                         "c1", "s1", "HIGH", null))));
+        when(analyzerClient.evolution(eq(7L), anyString(), anyInt())).thenReturn(newEvolutionResp());
         when(analyzerClient.report(eq(7L), any(ScanResultResp.class), any(), any()))
                 .thenReturn(newReportResp());
         AnalysisRunner runner = newRunner();
@@ -99,6 +104,9 @@ class AnalysisRunnerTest {
         // 架构分析落库
         verify(analyzerClient).architecture(eq(7L), anyString());
         verify(architectureService).replaceForAnalysis(eq(7L), eq(10L), any(ArchResultResp.class));
+        // 演化统计落库
+        verify(analyzerClient).evolution(eq(7L), anyString(), anyInt());
+        verify(evolutionService).replaceForAnalysis(eq(7L), eq(10L), any(EvolutionResp.class));
 
         ArgumentCaptor<Analysis> captor = ArgumentCaptor.forClass(Analysis.class);
         verify(analysisMapper, atLeastOnce()).updateById(captor.capture());
@@ -254,5 +262,57 @@ class AnalysisRunnerTest {
         ArgumentCaptor<Analysis> captor = ArgumentCaptor.forClass(Analysis.class);
         verify(analysisMapper).updateById(captor.capture());
         assertEquals(AnalysisStatus.FAILED.name(), captor.getValue().getStatus());
+    }
+
+    @Test
+    void runEvolutionFailureDoesNotBlockReport() {
+        when(analysisMapper.selectById(10L)).thenReturn(newAnalysis());
+        when(projectMapper.selectById(7L)).thenReturn(newProject());
+        when(analyzerClient.scan(eq(7L), anyString())).thenReturn(newScan());
+        when(analyzerClient.architecture(eq(7L), anyString()))
+                .thenReturn(new ArchResultResp(List.of(), List.of(), List.of()));
+        when(analyzerClient.evolution(eq(7L), anyString(), anyInt()))
+                .thenThrow(new RuntimeException("evolution down"));
+        when(analyzerClient.report(eq(7L), any(ScanResultResp.class), any(), any()))
+                .thenReturn(newReportResp());
+        AnalysisRunner runner = newRunner();
+
+        runner.run(10L);
+
+        verify(evolutionService, never()).replaceForAnalysis(any(), any(), any());
+        ArgumentCaptor<Analysis> captor = ArgumentCaptor.forClass(Analysis.class);
+        verify(analysisMapper, atLeastOnce()).updateById(captor.capture());
+        Analysis last = captor.getAllValues().get(captor.getAllValues().size() - 1);
+        assertEquals(AnalysisStatus.SUCCEEDED.name(), last.getStatus());
+    }
+
+    @Test
+    void runEvolutionUnavailableStillCallsServiceWhichSkipsStorage() {
+        when(analysisMapper.selectById(10L)).thenReturn(newAnalysis());
+        when(projectMapper.selectById(7L)).thenReturn(newProject());
+        when(analyzerClient.scan(eq(7L), anyString())).thenReturn(newScan());
+        when(analyzerClient.architecture(eq(7L), anyString()))
+                .thenReturn(new ArchResultResp(List.of(), List.of(), List.of()));
+        when(analyzerClient.evolution(eq(7L), anyString(), anyInt()))
+                .thenReturn(new EvolutionResp(false, List.of(), List.of(), List.of(), List.of(), List.of()));
+        when(analyzerClient.report(eq(7L), any(ScanResultResp.class), any(), any()))
+                .thenReturn(newReportResp());
+        AnalysisRunner runner = newRunner();
+
+        runner.run(10L);
+
+        // available=false 时 replaceForAnalysis 仍被调用，内部跳过落库（见 EvolutionServiceImplTest）
+        verify(evolutionService).replaceForAnalysis(eq(7L), eq(10L), any(EvolutionResp.class));
+    }
+
+    private EvolutionResp newEvolutionResp() {
+        return new EvolutionResp(
+                true,
+                List.of(new EvolutionResp.CommitResp("abc", "alice", "a@t.co",
+                        "2026-08-10T10:00:00+08:00", 40, 0, 1, "feat: x")),
+                List.of(new EvolutionResp.TrendResp("2026-08-10", 1, 40, 0)),
+                List.of(new EvolutionResp.TopFileResp("src/a.py", 1, 40, 0)),
+                List.of(new EvolutionResp.AuthorResp("alice", 1, 40)),
+                List.of(new EvolutionResp.HotspotResp("src/a.py", "HIGH", List.of("变更 1 次"), null)));
     }
 }
