@@ -295,3 +295,32 @@ export interface EvolutionResult {
   authors: EvolutionAuthor[]
   hotspots: EvolutionHotspot[]
 }
+
+// ---------- P6 AI 医生（06 §3.15 / §4） ----------
+
+export interface ChatSessionItem {
+  id: number
+  title: string
+  messageCount: number
+  createdAt: string
+  lastMessageAt: string | null
+}
+
+export interface ChatCitation {
+  file: string
+  line: number
+  excerpt: string
+}
+
+export interface ChatMessageItem {
+  id: number
+  role: 'USER' | 'ASSISTANT'
+  content: string
+  citations: ChatCitation[] | null
+  createdAt: string
+}
+
+export interface ChatSessionsResult {
+  total: number
+  items: ChatSessionItem[]
+}
