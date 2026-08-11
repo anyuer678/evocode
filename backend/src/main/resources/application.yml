@@ -1,0 +1,38 @@
+spring:
+  application:
+    name: evocode-backend
+  datasource:
+    url: ${POSTGRES_URL:jdbc:postgresql://127.0.0.1:5432/evocode}
+    username: ${POSTGRES_USER:evocode}
+    password: ${POSTGRES_PASSWORD:evocode_dev}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 10
+  servlet:
+    multipart:
+      max-file-size: 200MB
+      max-request-size: 500MB
+
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+  global-config:
+    banner: false
+    db-config:
+      id-type: auto
+      logic-delete-field: deleted
+      logic-delete-value: 1
+      logic-not-delete-value: 0
+
+server:
+  port: ${BACKEND_PORT:8080}
+
+evocode:
+  data-dir: ${DATA_DIR:data}
+  analyzer-url: ${ANALYZER_URL:http://127.0.0.1:8081}
+
+logging:
+  level:
+    com.evocode: INFO
+  pattern:
+    console: "%d{HH:mm:ss.SSS} %-5level [%thread] %logger{36} - %msg%n"

@@ -1,0 +1,39 @@
+# EvoCode 仓库忽略清单
+
+# 环境与密钥
+.env
+*.local
+
+# Java / Maven
+backend/target/
+backend/.mvn/wrapper/maven-wrapper.jar
+*.class
+
+# Node
+node_modules/
+frontend/dist/
+frontend/.vite/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+.ruff_cache/
+analyzer/.coverage
+
+# 运行数据（代码库磁盘目录）
+data/
+
+# IDE / 系统
+.idea/
+.vscode/
+*.iml
+.DS_Store
+Thumbs.db
+
+# 本地工具运行痕迹
+.reasonix/
+
+# 日志
+*.log

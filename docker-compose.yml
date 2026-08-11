@@ -1,0 +1,43 @@
+# EvoCode 开发环境基础设施（02 §12.1）
+# 仅监听 127.0.0.1，禁止暴露公网
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: evocode-postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-evocode}
+      POSTGRES_USER: ${POSTGRES_USER:-evocode}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-evocode_dev}
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-evocode} -d ${POSTGRES_DB:-evocode}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: evocode-redis
+    ports:
+      # 本机 6379 被 polycode-redis 占用（2026-08-10），改绑 6380；见 AD/devlog 记录
+      - "127.0.0.1:6380:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  sonarqube:
+    image: sonarqube:lts-community
+    container_name: evocode-sonar
+    ports:
+      - "127.0.0.1:9000:9000"
+    environment:
+      SONAR_ES_BOOTSTRAP_CHECKS_DISABLE: "true"
+    profiles: ["full"]   # 体积大，默认不启动；P3 阶段再启用 docker compose --profile full up -d
+
+volumes:
+  pgdata: {}
