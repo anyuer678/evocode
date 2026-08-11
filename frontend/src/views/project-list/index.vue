@@ -210,7 +210,7 @@ onMounted(load)
   padding: 0 10px;
   border: 1px solid var(--border-color);
   border-radius: 6px;
-  background: #fff;
+  background: var(--bg-card);
   font-size: 13px;
 }
 .input:focus {
@@ -225,7 +225,7 @@ onMounted(load)
   padding: 0 14px;
   border: 1px solid var(--border-color);
   border-radius: 6px;
-  background: #fff;
+  background: var(--bg-card);
   font-size: 13px;
   cursor: pointer;
 }
@@ -252,7 +252,7 @@ onMounted(load)
   border: none;
   border-radius: 6px;
   background: var(--primary-color);
-  color: #fff;
+  color: var(--bg-card);
   font-size: 14px;
   cursor: pointer;
 }
@@ -296,7 +296,7 @@ onMounted(load)
   white-space: nowrap;
 }
 .st-created {
-  color: #6b7280;
+  color: var(--text-secondary);
   background: rgba(107, 114, 128, 0.12);
 }
 .st-analyzing {
@@ -319,7 +319,7 @@ onMounted(load)
 .tag {
   padding: 1px 6px;
   border-radius: 4px;
-  background: #eef2f7;
+  background: var(--bg-muted);
   font-size: 12px;
   color: var(--text-primary);
 }

@@ -373,7 +373,7 @@ void loadSessions()
   border: none;
   border-radius: 6px;
   background: var(--ok-color, #16a34a);
-  color: #fff;
+  color: var(--bg-card);
   cursor: pointer;
   font-size: 13px;
 }
@@ -394,7 +394,7 @@ void loadSessions()
   padding: 8px 10px;
   border-radius: 6px;
   cursor: pointer;
-  background: #fff;
+  background: var(--bg-card);
   border: 1px solid var(--border-color, #e5e7eb);
 }
 .doctor__session--active {
@@ -466,7 +466,7 @@ void loadSessions()
 }
 .doctor__msg--user .doctor__msg-bubble {
   background: var(--ok-color, #16a34a);
-  color: #fff;
+  color: var(--bg-card);
   border: none;
 }
 .doctor__msg--user .doc-ref {
@@ -559,7 +559,7 @@ void loadSessions()
   border: none;
   border-radius: 6px;
   background: var(--ok-color, #16a34a);
-  color: #fff;
+  color: var(--bg-card);
   cursor: pointer;
   font-size: 13px;
 }

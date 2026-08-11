@@ -782,7 +782,7 @@ onBeforeUnmount(() => {
   white-space: nowrap;
 }
 .st-created {
-  color: #6b7280;
+  color: var(--text-secondary);
   background: rgba(107, 114, 128, 0.12);
 }
 .st-analyzing {
@@ -820,7 +820,7 @@ onBeforeUnmount(() => {
   margin-top: 18px;
 }
 .card {
-  background: #fff;
+  background: var(--bg-card);
   border: 1px solid var(--border-color);
   border-radius: 8px;
   padding: 16px;
@@ -852,7 +852,7 @@ onBeforeUnmount(() => {
 .tag {
   padding: 2px 8px;
   border-radius: 4px;
-  background: #eef2f7;
+  background: var(--bg-muted);
   font-size: 12px;
 }
 .langs {
@@ -876,7 +876,7 @@ onBeforeUnmount(() => {
   flex: 1;
   height: 6px;
   border-radius: 3px;
-  background: #eef2f7;
+  background: var(--bg-muted);
   overflow: hidden;
 }
 .bar-fill {
@@ -917,7 +917,7 @@ onBeforeUnmount(() => {
 /* ---- 体检报告 ---- */
 .report {
   margin-top: 20px;
-  background: #fff;
+  background: var(--bg-card);
   border: 1px solid var(--border-color);
   border-radius: 8px;
   padding: 20px;
@@ -1216,7 +1216,7 @@ onBeforeUnmount(() => {
   padding: 0 10px;
   border: 1px solid var(--border-color);
   border-radius: 6px;
-  background: #fff;
+  background: var(--bg-card);
   font-size: 13px;
 }
 .input:focus {
@@ -1231,7 +1231,7 @@ onBeforeUnmount(() => {
   padding: 0 14px;
   border: 1px solid var(--border-color);
   border-radius: 6px;
-  background: #fff;
+  background: var(--bg-card);
   font-size: 13px;
   cursor: pointer;
 }
@@ -1258,7 +1258,7 @@ onBeforeUnmount(() => {
   border: none;
   border-radius: 6px;
   background: var(--primary-color);
-  color: #fff;
+  color: var(--bg-card);
   font-size: 14px;
   cursor: pointer;
 }
@@ -1316,7 +1316,7 @@ onBeforeUnmount(() => {
   margin-top: 20px;
   border: 1px solid var(--border-color);
   border-radius: 8px;
-  background: #fff;
+  background: var(--bg-card);
   overflow: hidden;
 }
 .content-head {

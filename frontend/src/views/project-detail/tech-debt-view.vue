@@ -204,7 +204,7 @@ onMounted(load)
 }
 .debt__filter {
   border: 1px solid var(--border-color, #e5e7eb);
-  background: #fff;
+  background: var(--bg-card);
   border-radius: 6px;
   padding: 4px 10px;
   font-size: 12px;
@@ -276,7 +276,7 @@ onMounted(load)
   padding: 1px 6px;
 }
 .debt__status--open {
-  background: #f3f4f6;
+  background: var(--code-bg);
   color: #374151;
 }
 .debt__status--doing {
@@ -294,7 +294,7 @@ onMounted(load)
 .debt__act {
   border: none;
   background: var(--ok-color, #16a34a);
-  color: #fff;
+  color: var(--bg-card);
   border-radius: 4px;
   padding: 3px 10px;
   font-size: 12px;
@@ -322,7 +322,7 @@ onMounted(load)
   z-index: 90;
 }
 .debt__modal-box {
-  background: #fff;
+  background: var(--bg-card);
   border-radius: 10px;
   padding: 18px;
   width: 380px;
@@ -351,7 +351,7 @@ onMounted(load)
 }
 .debt__btn {
   border: 1px solid var(--border-color, #e5e7eb);
-  background: #fff;
+  background: var(--bg-card);
   border-radius: 6px;
   padding: 5px 14px;
   font-size: 13px;
@@ -360,7 +360,7 @@ onMounted(load)
 .debt__btn--ok {
   background: var(--ok-color, #16a34a);
   border-color: var(--ok-color, #16a34a);
-  color: #fff;
+  color: var(--bg-card);
 }
 .debt__error {
   color: var(--fail-color, #dc2626);

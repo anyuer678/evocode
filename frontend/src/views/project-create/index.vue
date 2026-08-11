@@ -222,7 +222,7 @@ async function submit() {
   padding: 0 10px;
   border: 1px solid var(--border-color);
   border-radius: 6px;
-  background: #fff;
+  background: var(--bg-card);
   font-size: 13px;
 }
 .input:focus {
@@ -260,7 +260,7 @@ async function submit() {
   border: none;
   border-radius: 6px;
   background: var(--primary-color);
-  color: #fff;
+  color: var(--bg-card);
   font-size: 14px;
   cursor: pointer;
 }
@@ -276,7 +276,7 @@ async function submit() {
   padding: 0 18px;
   border: 1px solid var(--border-color);
   border-radius: 6px;
-  background: #fff;
+  background: var(--bg-card);
   font-size: 14px;
   cursor: pointer;
 }

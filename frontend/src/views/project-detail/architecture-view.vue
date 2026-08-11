@@ -115,7 +115,7 @@ function buildOption(data: ArchitectureResult, width: number): ECOption {
     legend: {
       bottom: 0,
       data: Object.keys(TYPE_COLOR),
-      textStyle: { fontSize: 11, color: '#6b7280' },
+      textStyle: { fontSize: 11, color: 'var(--text-secondary)' },
     },
     series: [
       {
@@ -287,7 +287,7 @@ onBeforeUnmount(() => {
   height: 440px;
   border: 1px solid var(--border-color, #e5e7eb);
   border-radius: 8px;
-  background: #fff;
+  background: var(--bg-card);
 }
 .arch-empty {
   color: var(--text-secondary);

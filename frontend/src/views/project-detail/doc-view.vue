@@ -235,7 +235,7 @@ onMounted(load)
 }
 .docs__tab {
   border: 1px solid var(--border-color, #e5e7eb);
-  background: #fff;
+  background: var(--bg-card);
   border-radius: 6px;
   padding: 4px 12px;
   font-size: 12px;
@@ -278,7 +278,7 @@ onMounted(load)
 }
 .docs__btn {
   border: 1px solid var(--border-color, #e5e7eb);
-  background: #fff;
+  background: var(--bg-card);
   border-radius: 6px;
   padding: 4px 12px;
   font-size: 12px;
@@ -287,7 +287,7 @@ onMounted(load)
 .docs__btn--ok {
   background: var(--ok-color, #16a34a);
   border-color: var(--ok-color, #16a34a);
-  color: #fff;
+  color: var(--bg-card);
 }
 .docs__content {
   padding: 12px 16px;
@@ -307,7 +307,7 @@ onMounted(load)
   margin: 3px 0 3px 18px;
 }
 .docs__content :deep(code) {
-  background: #f3f4f6;
+  background: var(--code-bg);
   border-radius: 4px;
   padding: 0 4px;
   font-size: 12px;

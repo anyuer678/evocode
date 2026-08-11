@@ -328,7 +328,7 @@ onBeforeUnmount(() => {
 .ev-range-btn.active {
   background: var(--ok-color, #10b981);
   border-color: var(--ok-color, #10b981);
-  color: #fff;
+  color: var(--bg-card);
 }
 
 .ev-state {
@@ -412,7 +412,7 @@ onBeforeUnmount(() => {
   padding: 1px 8px;
   border-radius: 10px;
   font-size: 11px;
-  color: #fff;
+  color: var(--bg-card);
 }
 
 .ev-hotspot.lv-high .ev-hotspot-badge {
