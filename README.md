@@ -106,7 +106,7 @@ cd frontend && npm install && npm run dev
 
 | 症状 | 排查/解决 |
 |---|---|
-| 页面打开但**接口 500**（如项目列表加载失败） | 多半是 backend 未就绪（vite proxy 连不上 18080 会返回 500）：确认 `start-dev.bat` 主窗口健康检查里 `[backend] OK`；或 `curl http://127.0.0.1:18080/api/v1/health` |
+| 页面打开但**接口 500**（如项目列表加载失败） | **先跑 `scripts\check-env.ps1` 自动自检**；多半是 backend 未就绪（vite proxy 连不上 18080 会返回 500）：确认 `start-dev.bat` 主窗口健康检查里 `[backend] OK`；或 `curl http://127.0.0.1:18080/api/v1/health` |
 | `start-dev.bat` 卡在 `[1/5]` docker compose 失败 | Docker Desktop 引擎未启动/崩溃：启动 Docker Desktop 等引擎就绪后重跑；容器已在运行时 bat 会继续（不会卡死） |
 | 前端窗口报 `npm` 找不到 package.json | 子窗口 cd 失败：确保双击 `start-dev.bat`（不要手动在仓库根跑 npm）；前端窗口标题应为 `EvoCode-frontend` |
 | 分析结果里演化/技术债为空 | 项目是 zip 上传（非 git）→ 演化 `available=false` 属正常；技术债需架构/质量/演化数据支撑 |
