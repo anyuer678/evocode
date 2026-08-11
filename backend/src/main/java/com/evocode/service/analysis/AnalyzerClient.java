@@ -209,4 +209,34 @@ public class AnalyzerClient {
                                       List<Map<String, String>> history, String query,
                                       ChatFileRef fileRef) {
     }
+
+    /** /analyze/v1/doc 请求（06 §5.9，P7b）。 */
+    public record DocRequest(Long projectId, String docType, Map<String, Object> scan,
+                             Map<String, Object> arch, Map<String, Object> projectInfo,
+                             String codeDir) {
+    }
+
+    /** /analyze/v1/doc 响应。 */
+    public record DocResp(String docType, String title, String content) {
+    }
+
+    /**
+     * 调 /analyze/v1/doc（06 §5.9）：文档生成。不可达/错误 → 3001
+     * （analyzer 内部 LLM_NO_KEY 400 / LLM_FAILED 502 统一映射为 3001，前端提示）。
+     */
+    public DocResp doc(Long projectId, String docType, Map<String, Object> scan,
+                       Map<String, Object> arch, Map<String, Object> projectInfo,
+                       String codeDir) {
+        try {
+            return client.post()
+                    .uri("/analyze/v1/doc")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(new DocRequest(projectId, docType, scan, arch, projectInfo, codeDir))
+                    .retrieve()
+                    .body(DocResp.class);
+        } catch (Exception e) {
+            throw new BusinessException(ErrorCode.ANALYZER_UNREACHABLE,
+                    "文档服务不可达或内部错误：" + e.getMessage());
+        }
+    }
 }

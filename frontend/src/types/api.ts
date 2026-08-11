@@ -342,3 +342,17 @@ export interface TechDebtItem {
   createdAt: string
   resolvedAt: string | null
 }
+
+// ---------- P7b 文档（06 §3.14） ----------
+
+export type DocType = 'README' | 'ARCH' | 'API'
+
+export interface DocItem {
+  id: number
+  docType: DocType
+  title: string
+  content: string
+  version: number
+  edited: boolean
+  createdAt: string
+}

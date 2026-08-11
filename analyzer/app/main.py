@@ -9,6 +9,7 @@ from fastapi.responses import StreamingResponse
 
 from .config import get_settings
 from .core.arch.archscan import architecture_scan
+from .core.docgen import generate_doc
 from .core.evolution import evolution_scan
 from .core.filescanner import scan_project
 from .core.llm import OpenAICompatClient
@@ -24,6 +25,8 @@ from .schemas import (
     ArchResult,
     ArchViolation,
     ChatRequest,
+    DocRequest,
+    DocResponse,
     EvolutionRequest,
     EvolutionResult,
     QualityIssue,
@@ -284,3 +287,29 @@ def analyze_chat(req: ChatRequest) -> StreamingResponse:
             "X-Accel-Buffering": "no",
         },
     )
+
+
+@app.post("/analyze/v1/doc")
+def analyze_doc(req: DocRequest) -> DocResponse:
+    """文档生成（06 §5.9 契约新增，P7b）：README/ARCH/API 三类（D.7 prompt）。"""
+    if req.docType.upper() not in ("README", "ARCH", "API"):
+        raise HTTPException(status_code=400, detail="docType 必须是 README/ARCH/API")
+    try:
+        result = generate_doc(
+            _llm,
+            req.docType,
+            scan=req.scan,
+            arch=req.arch,
+            project_info=req.projectInfo or {},
+            code_dir=req.codeDir,
+        )
+    except Exception as exc:
+        code = "LLM_NO_KEY" if "LLM_NO_KEY" in str(exc) else "LLM_FAILED"
+        logger.warning("doc 生成失败 %s project=%s：%s", code, req.projectId, exc)
+        raise HTTPException(
+            status_code=400 if code == "LLM_NO_KEY" else 502,
+            detail={"code": code, "message": f"文档生成失败：{exc}"},
+        ) from exc
+    logger.info("doc done project=%s type=%s title=%s", req.projectId,
+                result["docType"], result["title"][:40])
+    return DocResponse(**result)

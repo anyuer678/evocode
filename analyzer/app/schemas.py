@@ -259,3 +259,21 @@ class ChatRequest(BaseModel):
     history: list[ChatHistoryItem] = []  # 已截断：≤6 轮 + 摘要（backend 负责）
     query: str = Field(min_length=1, max_length=2000)
     fileRef: ChatFileRef | None = None
+
+
+# ---- P7b 文档生成（06 §5.9 契约新增）----
+
+
+class DocRequest(BaseModel):
+    projectId: int
+    docType: str  # README / ARCH / API
+    scan: dict | None = None
+    arch: dict | None = None
+    projectInfo: dict = {}
+    codeDir: str | None = None  # API 文档：analyzer 直读磁盘扫描 controller
+
+
+class DocResponse(BaseModel):
+    docType: str
+    title: str
+    content: str

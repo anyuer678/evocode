@@ -28,6 +28,7 @@ public enum ErrorCode {
     ARCH_NOT_FOUND(2010, "该项目尚无架构分析", HttpStatus.NOT_FOUND),
 DEBT_STATUS_INVALID(2011, "技术债状态迁移非法或必填字段缺失", HttpStatus.BAD_REQUEST),
 DEBT_NOT_FOUND(2012, "技术债不存在", HttpStatus.NOT_FOUND),
+DOC_NOT_FOUND(2013, "文档不存在", HttpStatus.NOT_FOUND),
 
     // 3xxx 分析器
     ANALYZER_UNREACHABLE(3001, "分析服务不可达或内部错误", HttpStatus.BAD_GATEWAY),

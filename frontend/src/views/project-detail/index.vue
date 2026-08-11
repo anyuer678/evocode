@@ -2,6 +2,7 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import ArchitectureView from './architecture-view.vue'
+import DocView from './doc-view.vue'
 import DoctorView from './doctor-view.vue'
 import EvolutionView from './evolution-view.vue'
 import TechDebtView from './tech-debt-view.vue'
@@ -646,6 +647,8 @@ onBeforeUnmount(() => {
     <DoctorView v-if="detail?.status === 'READY'" :project-id="projectId" />
     <!-- 技术债（P7a） -->
     <TechDebtView v-if="detail?.status === 'READY'" :project-id="projectId" />
+    <!-- 文档（P7b） -->
+    <DocView v-if="detail?.status === 'READY'" :project-id="projectId" />
 
     <!-- 文件地图 -->
     <div class="files">
