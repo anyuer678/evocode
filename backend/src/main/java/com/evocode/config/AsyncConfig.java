@@ -25,4 +25,16 @@ public class AsyncConfig {
         executor.initialize();
         return executor;
     }
+
+    /** AI 医生 SSE 长连接池（P6）：任务长（≤180s），并发放宽。 */
+    @Bean("chatExecutor")
+    public Executor chatExecutor() {
+        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+        executor.setCorePoolSize(2);
+        executor.setMaxPoolSize(4);
+        executor.setQueueCapacity(50);
+        executor.setThreadNamePrefix("chat-");
+        executor.initialize();
+        return executor;
+    }
 }

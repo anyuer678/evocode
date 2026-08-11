@@ -5,6 +5,7 @@ import logging
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import StreamingResponse
 
 from .config import get_settings
 from .core.arch.archscan import architecture_scan
@@ -22,6 +23,7 @@ from .schemas import (
     ArchRequest,
     ArchResult,
     ArchViolation,
+    ChatRequest,
     EvolutionRequest,
     EvolutionResult,
     QualityIssue,
@@ -255,3 +257,30 @@ def rag_search(req: RagSearchRequest) -> RagSearchResponse:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     logger.info("rag search project=%s hits=%s", req.projectId, len(chunks))
     return RagSearchResponse(chunks=chunks)
+
+
+@app.post("/analyze/v1/chat")
+def analyze_chat(req: ChatRequest) -> StreamingResponse:
+    """AI 医生 SSE 生成端（06 §5.7 / §4）：delta/citations/done/error。"""
+
+    def gen():
+        for event in _rag.chat(
+            req.projectId,
+            req.query,
+            req.systemContext or {},
+            [h.model_dump() for h in req.history],
+            req.fileRef.model_dump() if req.fileRef else None,
+        ):
+            payload = json.dumps(event["data"], ensure_ascii=False)
+            yield f"event: {event['event']}\ndata: {payload}\n\n"
+
+    logger.info("chat start project=%s query=%s", req.projectId, req.query[:40])
+    return StreamingResponse(
+        gen(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )

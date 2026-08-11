@@ -60,3 +60,59 @@ def build_user_prompt(
         ),  # 只带最近 3 期摘要，省 token
         score_base=json.dumps(score_base, ensure_ascii=False),
     )
+
+
+# ---- P6 AI 医生（02 附录 D.6）----
+
+DOCTOR_PROMPT_VERSION = "doctor-1.0"
+
+DOCTOR_SYSTEM_TEMPLATE = (
+    "你是 EvoCode 的软件医生助手，服务于项目 {project_name}"
+    "（{language} / {framework} / {loc} 行）。\n"
+    "背景资料（仅以下内容可信）：\n"
+    "1. 项目摘要：{project_summary}\n"
+    "2. 最近分析报告摘要：{latest_report_summary}\n"
+    "3. 检索到的代码片段（每条带 [path:line] 标记）：\n"
+    "{knowledge_chunks}\n"
+    "4. 会话历史：{history}\n"
+    "\n"
+    "规则：\n"
+    "1. 只能引用\"背景资料\"中出现过的文件，引用格式必须为 [path:line]，禁止编造；\n"
+    "2. 涉及代码分析时先给出结论再给证据（引用）；\n"
+    "3. 无法从背景资料回答时，明确说\"当前分析范围无法确认\"，"
+    "可建议用户发起一次新分析；\n"
+    "4. 不执行代码、不改写代码文件、不输出机密信息；\n"
+    "5. 用中文，简洁、结构化（列表/小标题）。"
+)
+
+
+def build_doctor_prompt(
+    *,
+    project_name: str,
+    language: str,
+    framework: str,
+    loc: int,
+    project_summary: str,
+    latest_report_summary: str,
+    knowledge_chunks: str,
+    history: str,
+    query: str,
+    file_ref: dict | None = None,
+) -> tuple[str, str]:
+    """返回 (system, user)。fileRef 为用户 @ 的文件全文（契约 §5.7）。"""
+    system = DOCTOR_SYSTEM_TEMPLATE.format(
+        project_name=project_name or "未知项目",
+        language=language or "未知",
+        framework=framework or "未知",
+        loc=loc or 0,
+        project_summary=project_summary or "（无）",
+        latest_report_summary=latest_report_summary or "（无）",
+        knowledge_chunks=knowledge_chunks or "（无检索结果）",
+        history=history or "（无）",
+    )
+    user_parts = [f"用户问题：{query}"]
+    if file_ref and file_ref.get("path"):
+        content = (file_ref.get("content") or "")[:4000]  # 全文发送，截断保护
+        user_parts.append(f"用户正在查看文件 {file_ref['path']}：\n{content}")
+    user_parts.append("请按规则回答，涉及代码时使用 [path:line] 引用。")
+    return system, "\n\n".join(user_parts)

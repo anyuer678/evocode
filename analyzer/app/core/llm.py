@@ -7,12 +7,27 @@
 
 from __future__ import annotations
 
+import json
 import logging
+from collections.abc import Iterator
 from typing import Protocol
 
 import httpx
 
 logger = logging.getLogger("evocode.analyzer.llm")
+
+
+def _parse_stream_delta(chunk: str) -> str | None:
+    """解析 SSE data 增量块 → choices[0].delta.content；无增量返回 None。"""
+    try:
+        payload = json.loads(chunk)
+    except json.JSONDecodeError:
+        return None
+    choices = payload.get("choices") or []
+    if not choices:
+        return None
+    delta = (choices[0].get("delta") or {}).get("content")
+    return delta if isinstance(delta, str) else None
 
 
 class LLMClient(Protocol):
@@ -98,6 +113,48 @@ class OpenAICompatClient:
         data = self._post("/embeddings", payload)
         items = sorted(data["data"], key=lambda d: d.get("index", 0))
         return [item["embedding"] for item in items]
+
+    def chat_stream(
+        self, system: str, user: str, temperature: float = 0.7
+    ) -> Iterator[str]:
+        """流式对话（SSE）：逐 token yield 增量文本；失败抛异常（调用方降级）。"""
+        if not self.available():
+            raise RuntimeError("LLM_API_KEY 未配置（LLM_NO_KEY）")
+        payload = {
+            "model": self._model,
+            "messages": [
+                {"role": "system", "content": system},
+                {"role": "user", "content": user},
+            ],
+            "temperature": temperature,
+            "stream": True,
+        }
+        last_exc: Exception | None = None
+        for attempt in range(self._max_retries + 1):
+            try:
+                with httpx.Client(timeout=self._timeout) as client, client.stream(
+                    "POST",
+                    f"{self._base_url}/chat/completions",
+                    headers={"Authorization": f"Bearer {self._api_key}"},
+                    json=payload,
+                ) as resp:
+                    resp.raise_for_status()
+                    for line in resp.iter_lines():
+                        if not line or not line.startswith("data:"):
+                            continue
+                        chunk = line[5:].strip()
+                        if chunk == "[DONE]":
+                            return
+                        delta = _parse_stream_delta(chunk)
+                        if delta:
+                            yield delta
+                return
+            except Exception as exc:
+                last_exc = exc
+                logger.warning(
+                    "LLM 流式调用失败 attempt=%s: %s", attempt + 1, exc
+                )
+        raise RuntimeError(f"LLM 流式调用失败：{last_exc}")
 
 
 def _parse_json_object(content: str) -> dict | None:

@@ -49,6 +49,8 @@ class CodeChunk:
     symbol: str | None
     chunk_index: int
     content: str
+    start_line: int = 0
+    end_line: int = 0
 
 
 def normalize_language(language: str) -> str:
@@ -72,6 +74,10 @@ def _slide(text: str) -> list[str]:
         parts.append(text[start : start + _SLIDE_WINDOW])
         start += _SLIDE_WINDOW - _SLIDE_OVERLAP
     return parts
+
+
+def _total_lines(source: str) -> int:
+    return source.count("\n") + 1
 
 
 def _text(node) -> str:
@@ -98,9 +104,19 @@ def _symbol_chunks(
             name_node = node.child_by_field_name(symbol_fields[node.type])
             symbol = _text(name_node) if name_node is not None else node.type
             text = node.text.decode("utf-8", errors="replace")
+            start_line = node.start_point[0] + 1
+            end_line = node.end_point[0] + 1
             for part in _slide(text):
                 chunks.append(
-                    CodeChunk(file_path, language, symbol, len(chunks), part)
+                    CodeChunk(
+                        file_path,
+                        language,
+                        symbol,
+                        len(chunks),
+                        part,
+                        start_line,
+                        end_line,
+                    )
                 )
             spans.append((node.start_byte, node.end_byte))
             return  # 符号内部不再下沉
@@ -116,8 +132,9 @@ def _module_fallback_chunks(
 ) -> list[CodeChunk]:
     """未被符号覆盖的区域（imports / 顶层语句）合并为模块级切片；无符号时整文件。"""
     if not spans:
+        total = _total_lines(source)
         return [
-            CodeChunk(file_path, language, None, i, part)
+            CodeChunk(file_path, language, None, i, part, 1, total)
             for i, part in enumerate(_slide(source))
         ]
     data = source.encode("utf-8")
@@ -132,8 +149,9 @@ def _module_fallback_chunks(
     joined = "".join(p for p in parts if p.strip())
     if not joined.strip():
         return []
+    total = _total_lines(source)
     return [
-        CodeChunk(file_path, language, None, len(spans) + i, part)
+        CodeChunk(file_path, language, None, len(spans) + i, part, 1, total)
         for i, part in enumerate(_slide(joined))
     ]
 
@@ -142,8 +160,9 @@ def chunk_source(file_path: str, language: str, source: str) -> list[CodeChunk]:
     """按语言切片源码；language 值域对齐 langdetect（Java/Python/OTHER）。"""
     lang = normalize_language(language)
     if lang == "other":
+        total = _total_lines(source)
         return [
-            CodeChunk(file_path, language, None, i, part)
+            CodeChunk(file_path, language, None, i, part, 1, total)
             for i, part in enumerate(_slide(source))
         ]
     symbol_chunks, spans = _symbol_chunks(file_path, lang, source)

@@ -8,11 +8,13 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 from typing import Any
 
 from ...config import Settings
 from ..langdetect import detect_language
 from ..llm import OpenAICompatClient
+from ..prompts import build_doctor_prompt
 from .chunker import CodeChunk, chunk_source, supported_language
 from .vectorstore import KnowledgeStore
 
@@ -111,7 +113,6 @@ class RagService:
         project_id: int,
         query: str,
         top_k: int = 8,
-        query_embedding: list[float] | None = None,
     ) -> list[dict[str, Any]]:
         query_embedding: list[float] | None = None
         if self._llm.available():
@@ -120,3 +121,127 @@ class RagService:
             except Exception as exc:
                 logger.warning("查询向量化失败，降级关键词：%s", exc)
         return self._store.search(project_id, query, top_k, query_embedding)
+
+    # ---- chat（SSE 生成端，06 §5.7 / §4）----
+    def chat(
+        self,
+        project_id: int,
+        query: str,
+        system_context: dict,
+        history: list[dict],
+        file_ref: dict | None = None,
+    ):
+        """AI 医生 SSE 生成器：yield {"event", "data"}，协议见 06 §4.2。"""
+        hits: list[dict[str, Any]] = []
+        try:
+            hits = self.search(project_id, query, top_k=8)
+        except RuntimeError as exc:
+            logger.warning("chat 检索不可用：%s", exc)
+
+        if not hits:
+            # 检索为空 → 兜底话术（不调 LLM，AD-P6-5）
+            yield {
+                "event": "delta",
+                "data": {
+                    "content": (
+                        "当前分析范围无法确认。建议先发起一次新分析"
+                        "（或确认 RAG 知识库已建立），再向我提问。"
+                    )
+                },
+            }
+            yield {"event": "done", "data": {}}
+            return
+
+        knowledge_chunks = self._format_chunks(hits)
+        history_text = "\n".join(
+            f"{'用户' if h.get('role') == 'user' else '助手'}："
+            f"{h.get('content', '')}"
+            for h in history[-6:]  # 防御性截断（backend 已截断）
+        )
+        system, user = build_doctor_prompt(
+            project_name=system_context.get("projectName") or "未知项目",
+            language=system_context.get("language") or "未知",
+            framework=system_context.get("framework") or "未知",
+            loc=int(system_context.get("loc") or 0),
+            project_summary=system_context.get("projectSummary") or "",
+            latest_report_summary=system_context.get("latestReportSummary") or "",
+            knowledge_chunks=knowledge_chunks,
+            history=history_text,
+            query=query,
+            file_ref=file_ref,
+        )
+
+        answer_parts: list[str] = []
+        try:
+            for delta in self._llm.chat_stream(system, user, temperature=0.7):
+                answer_parts.append(delta)
+                yield {"event": "delta", "data": {"content": delta}}
+        except Exception as exc:
+            code = "LLM_NO_KEY" if "LLM_NO_KEY" in str(exc) else "LLM_FAILED"
+            logger.warning("chat 流式失败 %s：%s", code, exc)
+            yield {
+                "event": "error",
+                "data": {"code": code, "message": f"回答生成失败：{exc}"},
+            }
+            return
+
+        answer = "".join(answer_parts)
+        citations = self._extract_citations(answer, hits)
+        yield {"event": "citations", "data": {"items": citations}}
+        yield {"event": "done", "data": {}}
+
+    @staticmethod
+    def _format_chunks(hits: list[dict[str, Any]]) -> str:
+        lines = []
+        for hit in hits:
+            meta = hit.get("meta") or {}
+            start = meta.get("startLine") or 1
+            symbol = meta.get("symbol")
+            prefix = f"[{hit['file']}:{start}]"
+            if symbol:
+                prefix += f" ({symbol})"
+            content = (hit.get("content") or "").strip()
+            lines.append(f"{prefix}\n{content[:600]}")
+        return "\n\n".join(lines)
+
+    @staticmethod
+    def _extract_citations(
+        answer: str, hits: list[dict[str, Any]]
+    ) -> list[dict[str, Any]]:
+        """从回答提取 [path:line] 引用并校验 ∈ 检索集合（AD-P6-5 防幻觉）。"""
+        refs: list[tuple[str, int]] = []
+        for match in re.finditer(r"\[([^\]]+?):(\d+)\]", answer):
+            path, line = match.group(1).strip(), int(match.group(2))
+            if not path or line <= 0:
+                continue
+            refs.append((path, line))
+        if not refs:
+            return []
+        by_basename = {os.path.basename(h["file"]): h for h in hits}
+        citations: list[dict[str, Any]] = []
+        seen: set[tuple[str, int]] = set()
+        for path, line in refs:
+            if (path, line) in seen:
+                continue
+            hit = None
+            for h in hits:
+                if h["file"] == path:
+                    hit = h
+                    break
+            if hit is None:
+                hit = by_basename.get(os.path.basename(path))
+            if hit is None:
+                continue  # 引用不在检索集合 → 剔除
+            meta = hit.get("meta") or {}
+            start, end = meta.get("startLine"), meta.get("endLine")
+            if start and end and not (start <= line <= end):
+                continue  # 行号不在 chunk 区间 → 剔除
+            seen.add((path, line))
+            citations.append(
+                {
+                    "file": hit["file"],
+                    "line": line,
+                    "excerpt": (hit.get("content") or "")[:200],
+                }
+            )
+        return citations[:8]

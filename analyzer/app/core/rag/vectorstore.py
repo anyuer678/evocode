@@ -90,7 +90,12 @@ class KnowledgeStore:
                             chunk.chunk_index,
                             chunk.content,
                             _json_dumps(
-                                {"symbol": chunk.symbol, "lang": chunk.language}
+                                {
+                                    "symbol": chunk.symbol,
+                                    "lang": chunk.language,
+                                    "startLine": chunk.start_line,
+                                    "endLine": chunk.end_line,
+                                }
                             ),
                             str(embedding) if embedding else None,
                         )

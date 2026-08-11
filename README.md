@@ -117,24 +117,26 @@ v0.1 代码体检 MVP（上传→扫描→AI 报告）→ v0.2 质量(Sonar) →
 
 | 版本 | 日期 | 说明 |
 |---|---|---|
-| v1.2 | 2026-08-10 | 文档体系初版（需求/指导/规范详细版） |
-| v1.3 | 2026-08-10 | 新增 README、灵活性声明、技术附录（规则表/Prompt/配置/代码骨架） |
-| v1.4 | 2026-08-10 | 新增架构设计（4+1 视图、类级分解、SPI、演进规划 A0-A3） |
-| v1.5 | 2026-08-10 | 架构审查（05）并全量修订；新增 API 契约（06）：LLM 出口唯一化、文件内容/重新生成端点、幂等重建、SSE 协议 |
-| v1.6 | 2026-08-10 | 第二轮架构审查修订（会话列表/删除、错误码 2007/2008、dependency/knowledge_chunk/hotspot 落库）；新增数据字典（07）、测试计划（08） |
-| v1.7 | 2026-08-10 | 第三轮交叉审查（05 §10）C-1~C-17 全部执行（报告来源落库、AC-2 用例、2009 克隆错误码、LLM 残留清理等）；**P0 骨架完成**：三端脚手架 + docker-compose + scripts + V001 迁移，三端门禁验证全绿（详见 docs/devlog/2026-08-10-p0.md） |
-| v1.8 | 2026-08-10 | **P1 项目+扫描完成**：后端 project CRUD / zip 上传 / GitHub clone / 快扫 / 文件地图与内容接口，前端三页面（列表/创建/详情），analyzer 扫描链路，三端联调闭环通过；修复 PG timestamptz↔LocalDateTime 映射、分页格式对齐契约（详见 docs/devlog/2026-08-10-p1.md） |
-| v1.9 | 2026-08-10 | **P2a 分析任务链路完成**：发起 FULL 分析（排他 2002）/ 历史分页 / 状态轮询 + 异步状态机 QUEUED→SCAN→SCAN_DONE→DONE（AnalysisController/AnalysisService/AnalysisRunner），后端测试 54/54，实库联调闭环（详见 docs/devlog/2026-08-10-p2a.md） |
-| v2.0 | 2026-08-10 | **P2b 报告生成完成**：analyzer /analyze/v1/report（LLM Provider 抽象 OpenAI 兼容 + 规则版降级，健康分=质量40/结构30/依赖15/规模15±10 修正，scoreDetail 可解释）；后端 REPORT 阶段接入 + GET /analyses/{id}/report + POST /report/regenerate（2008），测试 61/61，实库闭环（详见 docs/devlog/2026-08-10-p2b.md） |
-| v2.1 | 2026-08-10 | **P2c 报告前端完成，v0.1 MVP 端到端可用**：详情页体检报告视图（健康分/维度星级/风险/建议 + LLM/规则来源标注）、分析历史（点击切换）、发起完整分析 + 重新生成按钮、任务 2s 轮询；vite proxy 支持 VITE_PROXY_TARGET 覆盖后端端口（详见 docs/devlog/2026-08-10-p2c.md） |
-| v2.2 | 2026-08-10 | **P3a 质量分析端点完成**：analyzer /analyze/v1/quality（SonarClient：可用性探测 token/host/scanner 三条件 + sonar-scanner 执行 + CE 轮询 + 指标/issues 归一），Sonar 不可用/未配置 → 200 + metrics.available=false 降级 N/A（详见 docs/devlog/2026-08-10-p3a.md） |
-| v2.3 | 2026-08-10 | **P3b FULL 流程接入质量完成**：V002 quality_issue 迁移 + 实体/Mapper/级联清理；AnalysisRunner REPORT 前调 /analyze/v1/quality，issues 落库、质量指标传入报告（Sonar 接入用真实指标评分 + 漏洞/Bug 风险，不可用走代理指标）；测试 63/63 + 70 例（详见 docs/devlog/2026-08-10-p3b.md） |
-| v2.4 | 2026-08-10 | **P3c 质量前端完成，P3 闭环**：GET /projects/{id}/quality-issues（筛选/分页/metrics 聚合）+ 详情页质量区（指标徽章/issues 列表/severity 色标/空态引导）；测试 68/68（详见 docs/devlog/2026-08-10-p3c.md） |
-| v2.5 | 2026-08-10 | **P4a 架构分析端点完成**：analyzer /analyze/v1/architecture（tree-sitter Python/Java 解析 + 节点/调用边提取 + 分层违规检测 + 出入度指标），依赖 tree-sitter 系；测试 74 例（详见 docs/devlog/2026-08-10-p4a.md） |
-| v2.6 | 2026-08-10 | **P4b 架构落库 + 查询端点完成**：V003 三表（architecture_node/edge/violation）+ FULL 流程接入架构阶段（失败降级不阻塞报告）+ GET /projects/{id}/architecture（analysisId 缺省取最新，无数据 404/2010）+ 项目删除级联；backend 测试 74 例，实库闭环 3 节点/3 边/1 违规（详见 docs/devlog/2026-08-10-p4b.md） |
-| v2.7 | 2026-08-11 | **审查修复**：analyzer 加 `GET /` 根路由（提示前端入口 :5173，消除 404 误导，测试 75/75）；vite proxy 默认指向 18080（`VITE_PROXY_TARGET` 仍可覆盖）；修复 `ErrorCode` 2010 缩进、`.env.example` 默认 `BACKEND_PORT=18080`、`smoke.ps1` 注释旧脚本名；文档对齐（p4b 迁移说明、README samples 标注规划中） |
-| v2.8 | 2026-08-11 | **P4c 前端架构视图完成（P4 收官）**：详情页新增"架构分析"区块——ECharts 分层图（5 泳道按 nodeType 分层、违规边标红、点击违规高亮节点、hover 显示出入度）+ 违规列表（严重级徽标/描述/修复建议/ai_note 占位）；2010 空态友好提示；无头 Edge 真渲染冒烟通过（mock 契约数据）；修复 4 个前端 bug（axios 双前缀、字符串 ref 不回填、nextTick 时序、非 2xx 丢失业务 code），详见 `docs/devlog/2026-08-10-p4c.md` |
-| v2.9 | 2026-08-11 | **P5a 演化统计端点完成**：analyzer `/analyze/v1/evolution`（git log 解析 + 周聚合趋势/TOP 文件/作者 + 规则热点 HIGH/MEDIUM + evidence 证据数组；非 git 目录 → 200 + `available:false`）；不引入 Python git 库（subprocess 调系统 git）；测试 85/85 + 真实仓库冒烟（详见 `docs/devlog/2026-08-11-p5.md`） |
-| v3.0 | 2026-08-11 | **P5b 演化落库 + 查询端点完成**：V004（commit_stat/file_change_stat）+ V007（hotspot）迁移；FULL 流程 REPORT 前接入（失败降级不阻塞报告）；`GET /projects/{id}/evolution?range=30d/90d/180d/all`（非 Git/无数据 → 200 + `available:false`，非 404）；项目删除级联；backend 测试 82/82（详见 `docs/devlog/2026-08-11-p5.md`） |
-| v3.1 | 2026-08-11 | **P5c 前端演化页完成（P5 收官）**：详情页新增"演化分析"区块——提交趋势折线 / TOP 变更文件条形 / 作者占比环形图（ECharts 按需引入）+ 风险中心热点卡片（riskLevel 徽标/evidence/aiConclusion）+ range 切换 + 非 Git 降级空态；无头 Edge 真渲染冒烟通过；P5 三阶段全部落地（详见 `docs/devlog/2026-08-11-p5.md`） |
-| v3.2 | 2026-08-11 | **P5 代码审查修复**：级联删除加事务；演化查询项目不存在 → 404/2001；git 失败与空仓库语义区分（available）；周聚合时区归一 + Windows 弹窗抑制 + rangeDays 校验；前端请求竞态守卫 + ECharts 实例泄漏（v-show 常驻）+ 架构/演化与质量解耦（READY 判断）；文档契约同步（topFiles 字段/404 语义/删除时序/索引）；三端测试 90+83+全绿（详见 `docs/devlog/2026-08-11-p5.md` 审查修复段） |
+| v1.2 | 2026-08 | 文档体系初版（需求/指导/规范详细版） |
+| v1.3 | 2026-08 | 新增 README、灵活性声明、技术附录（规则表/Prompt/配置/代码骨架） |
+| v1.4 | 2026-08 | 新增架构设计（4+1 视图、类级分解、SPI、演进规划 A0-A3） |
+| v1.5 | 2026-08 | 架构审查（05）并全量修订；新增 API 契约（06）：LLM 出口唯一化、文件内容/重新生成端点、幂等重建、SSE 协议 |
+| v1.6 | 2026-08 | 第二轮架构审查修订（会话列表/删除、错误码 2007/2008、dependency/knowledge_chunk/hotspot 落库）；新增数据字典（07）、测试计划（08） |
+| v1.7 | 2026-08 | 第三轮交叉审查（05 §10）C-1~C-17 全部执行（报告来源落库、AC-2 用例、2009 克隆错误码、LLM 残留清理等）；**P0 骨架完成**：三端脚手架 + docker-compose + scripts + V001 迁移，三端门禁验证全绿（详见 docs/devlog/2026-08-10-p0.md） |
+| v1.8 | 2026-08 | **P1 项目+扫描完成**：后端 project CRUD / zip 上传 / GitHub clone / 快扫 / 文件地图与内容接口，前端三页面（列表/创建/详情），analyzer 扫描链路，三端联调闭环通过；修复 PG timestamptz↔LocalDateTime 映射、分页格式对齐契约（详见 docs/devlog/2026-08-10-p1.md） |
+| v1.9 | 2026-08 | **P2a 分析任务链路完成**：发起 FULL 分析（排他 2002）/ 历史分页 / 状态轮询 + 异步状态机 QUEUED→SCAN→SCAN_DONE→DONE（AnalysisController/AnalysisService/AnalysisRunner），后端测试 54/54，实库联调闭环（详见 docs/devlog/2026-08-10-p2a.md） |
+| v2.0 | 2026-08 | **P2b 报告生成完成**：analyzer /analyze/v1/report（LLM Provider 抽象 OpenAI 兼容 + 规则版降级，健康分=质量40/结构30/依赖15/规模15±10 修正，scoreDetail 可解释）；后端 REPORT 阶段接入 + GET /analyses/{id}/report + POST /report/regenerate（2008），测试 61/61，实库闭环（详见 docs/devlog/2026-08-10-p2b.md） |
+| v2.1 | 2026-08 | **P2c 报告前端完成，v0.1 MVP 端到端可用**：详情页体检报告视图（健康分/维度星级/风险/建议 + LLM/规则来源标注）、分析历史（点击切换）、发起完整分析 + 重新生成按钮、任务 2s 轮询；vite proxy 支持 VITE_PROXY_TARGET 覆盖后端端口（详见 docs/devlog/2026-08-10-p2c.md） |
+| v2.2 | 2026-08 | **P3a 质量分析端点完成**：analyzer /analyze/v1/quality（SonarClient：可用性探测 token/host/scanner 三条件 + sonar-scanner 执行 + CE 轮询 + 指标/issues 归一），Sonar 不可用/未配置 → 200 + metrics.available=false 降级 N/A（详见 docs/devlog/2026-08-10-p3a.md） |
+| v2.3 | 2026-08 | **P3b FULL 流程接入质量完成**：V002 quality_issue 迁移 + 实体/Mapper/级联清理；AnalysisRunner REPORT 前调 /analyze/v1/quality，issues 落库、质量指标传入报告（Sonar 接入用真实指标评分 + 漏洞/Bug 风险，不可用走代理指标）；测试 63/63 + 70 例（详见 docs/devlog/2026-08-10-p3b.md） |
+| v2.4 | 2026-08 | **P3c 质量前端完成，P3 闭环**：GET /projects/{id}/quality-issues（筛选/分页/metrics 聚合）+ 详情页质量区（指标徽章/issues 列表/severity 色标/空态引导）；测试 68/68（详见 docs/devlog/2026-08-10-p3c.md） |
+| v2.5 | 2026-08 | **P4a 架构分析端点完成**：analyzer /analyze/v1/architecture（tree-sitter Python/Java 解析 + 节点/调用边提取 + 分层违规检测 + 出入度指标），依赖 tree-sitter 系；测试 74 例（详见 docs/devlog/2026-08-10-p4a.md） |
+| v2.6 | 2026-08 | **P4b 架构落库 + 查询端点完成**：V003 三表（architecture_node/edge/violation）+ FULL 流程接入架构阶段（失败降级不阻塞报告）+ GET /projects/{id}/architecture（analysisId 缺省取最新，无数据 404/2010）+ 项目删除级联；backend 测试 74 例，实库闭环 3 节点/3 边/1 违规（详见 docs/devlog/2026-08-10-p4b.md） |
+| v2.7 | 2026-08 | **审查修复**：analyzer 加 `GET /` 根路由（提示前端入口 :5173，消除 404 误导，测试 75/75）；vite proxy 默认指向 18080（`VITE_PROXY_TARGET` 仍可覆盖）；修复 `ErrorCode` 2010 缩进、`.env.example` 默认 `BACKEND_PORT=18080`、`smoke.ps1` 注释旧脚本名；文档对齐（p4b 迁移说明、README samples 标注规划中） |
+| v2.8 | 2026-08 | **P4c 前端架构视图完成（P4 收官）**：详情页新增"架构分析"区块——ECharts 分层图（5 泳道按 nodeType 分层、违规边标红、点击违规高亮节点、hover 显示出入度）+ 违规列表（严重级徽标/描述/修复建议/ai_note 占位）；2010 空态友好提示；无头 Edge 真渲染冒烟通过（mock 契约数据）；修复 4 个前端 bug（axios 双前缀、字符串 ref 不回填、nextTick 时序、非 2xx 丢失业务 code），详见 `docs/devlog/2026-08-10-p4c.md` |
+| v2.9 | 2026-08 | **P5a 演化统计端点完成**：analyzer `/analyze/v1/evolution`（git log 解析 + 周聚合趋势/TOP 文件/作者 + 规则热点 HIGH/MEDIUM + evidence 证据数组；非 git 目录 → 200 + `available:false`）；不引入 Python git 库（subprocess 调系统 git）；测试 85/85 + 真实仓库冒烟（详见 `docs/devlog/2026-08-11-p5.md`） |
+| v3.0 | 2026-08 | **P5b 演化落库 + 查询端点完成**：V004（commit_stat/file_change_stat）+ V007（hotspot）迁移；FULL 流程 REPORT 前接入（失败降级不阻塞报告）；`GET /projects/{id}/evolution?range=30d/90d/180d/all`（非 Git/无数据 → 200 + `available:false`，非 404）；项目删除级联；backend 测试 82/82（详见 `docs/devlog/2026-08-11-p5.md`） |
+| v3.1 | 2026-08 | **P5c 前端演化页完成（P5 收官）**：详情页新增"演化分析"区块——提交趋势折线 / TOP 变更文件条形 / 作者占比环形图（ECharts 按需引入）+ 风险中心热点卡片（riskLevel 徽标/evidence/aiConclusion）+ range 切换 + 非 Git 降级空态；无头 Edge 真渲染冒烟通过；P5 三阶段全部落地（详见 `docs/devlog/2026-08-11-p5.md`） |
+| v3.2 | 2026-08 | **P5 代码审查修复**：级联删除加事务；演化查询项目不存在 → 404/2001；git 失败与空仓库语义区分（available）；周聚合时区归一 + Windows 弹窗抑制 + rangeDays 校验；前端请求竞态守卫 + ECharts 实例泄漏（v-show 常驻）+ 架构/演化与质量解耦（READY 判断）；文档契约同步（topFiles 字段/404 语义/删除时序/索引）；三端测试 90+83+全绿（详见 `docs/devlog/2026-08-11-p5.md` 审查修复段） |
+| v3.3 | 2026-08 | **P6a RAG 基础完成**：V005/V006 迁移（tech_debt/generated_doc/chat_session/chat_message/knowledge_chunk，vector(1024)+HNSW）；analyzer 切片（tree-sitter 符号 ≤800 token 滑切）+ `embed()`（/embeddings 默认 bge-m3）+ PG 直连（只碰 knowledge_chunk，项目级全量重建）+ `POST /analyze/v1/rag/index`（无 PG → 200 stored=false 降级）/ `/rag/search`（向量 cosine + 关键词 LIKE 合并去重）；无 key → 纯关键词兜底；analyzer 测试 107/107（详见 `docs/devlog/2026-08-11-p6.md`） |
+| v3.4 | 2026-08 | **P6b AI 医生会话/SSE 完成**：analyzer `POST /analyze/v1/chat` SSE 生成端（D.6 prompt、温度 0.7、history ≤6 轮、检索空兜底话术、引用 [path:line] 集合校验防幻觉、delta/citations/done/error 事件流）；backend 会话 CRUD（GET/POST/DELETE chats + 消息分页）+ 防重复 2007 + 标题自动生成 + SseEmitter 透传（JDK HttpClient 流式读 analyzer，done 落库带 citations + messageId）；backend 测试 97/97（详见 `docs/devlog/2026-08-11-p6.md`） |

@@ -3,6 +3,7 @@ package com.evocode.service.analysis;
 import com.evocode.common.BusinessException;
 import com.evocode.config.EvocodeProperties;
 import com.evocode.dto.scan.ScanResultResp;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpMethod;
@@ -33,7 +34,7 @@ class AnalyzerClientTest {
         props.setAnalyzerUrl("http://127.0.0.1:18081");
         RestClient.Builder builder = RestClient.builder();
         server = MockRestServiceServer.bindTo(builder).build();
-        client = new AnalyzerClient(props, builder);
+        client = new AnalyzerClient(props, builder, new ObjectMapper());
     }
 
     @Test

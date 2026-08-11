@@ -238,3 +238,24 @@ class RagSearchChunk(BaseModel):
 
 class RagSearchResponse(BaseModel):
     chunks: list[RagSearchChunk] = []
+
+
+# ---- P6 AI 医生（06 §5.7 / §4 SSE 协议）----
+
+
+class ChatHistoryItem(BaseModel):
+    role: str  # user / assistant
+    content: str
+
+
+class ChatFileRef(BaseModel):
+    path: str
+    content: str = ""
+
+
+class ChatRequest(BaseModel):
+    projectId: int
+    systemContext: dict = {}
+    history: list[ChatHistoryItem] = []  # 已截断：≤6 轮 + 摘要（backend 负责）
+    query: str = Field(min_length=1, max_length=2000)
+    fileRef: ChatFileRef | None = None

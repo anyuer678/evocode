@@ -7,11 +7,21 @@ import com.evocode.dto.architecture.ArchResultResp;
 import com.evocode.dto.evolution.EvolutionResp;
 import com.evocode.dto.scan.ScanResultResp;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 
+import java.io.BufferedReader;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 
@@ -23,12 +33,21 @@ import java.util.Map;
 @Service
 public class AnalyzerClient {
 
-    private final RestClient client;
+    private static final HttpClient STREAM_HTTP = HttpClient.newBuilder()
+            .connectTimeout(Duration.ofSeconds(5))
+            .build();
 
-    public AnalyzerClient(EvocodeProperties props, RestClient.Builder builder) {
+    private final RestClient client;
+    private final String analyzerUrl;
+    private final ObjectMapper objectMapper;
+
+    public AnalyzerClient(EvocodeProperties props, RestClient.Builder builder,
+                          ObjectMapper objectMapper) {
+        this.analyzerUrl = props.getAnalyzerUrl();
         this.client = builder
-                .baseUrl(props.getAnalyzerUrl())
+                .baseUrl(analyzerUrl)
                 .build();
+        this.objectMapper = objectMapper;
     }
 
     /**
@@ -123,6 +142,39 @@ public class AnalyzerClient {
         }
     }
 
+    /**
+     * 调 /analyze/v1/chat（06 §5.7）：SSE 生成端。
+     * 返回 analyzer 响应体输入流（text/event-stream），由调用方逐行读取；
+     * 非 200 / 不可达 → 3001。
+     */
+    public BufferedReader chatStream(Long projectId, Map<String, Object> systemContext,
+                                     List<Map<String, String>> history, String query,
+                                     ChatFileRef fileRef) {
+        try {
+            String body = objectMapper.writeValueAsString(
+                    new AnalyzerChatRequest(projectId, systemContext, history, query, fileRef));
+            HttpRequest req = HttpRequest.newBuilder(
+                            URI.create(analyzerUrl + "/analyze/v1/chat"))
+                    .header("Content-Type", "application/json")
+                    .timeout(Duration.ofSeconds(180))
+                    .POST(HttpRequest.BodyPublishers.ofString(body))
+                    .build();
+            HttpResponse<InputStream> resp = STREAM_HTTP.send(
+                    req, HttpResponse.BodyHandlers.ofInputStream());
+            if (resp.statusCode() != 200) {
+                throw new BusinessException(ErrorCode.ANALYZER_UNREACHABLE,
+                        "chat 服务错误：" + resp.statusCode());
+            }
+            return new BufferedReader(
+                    new InputStreamReader(resp.body(), StandardCharsets.UTF_8));
+        } catch (BusinessException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new BusinessException(ErrorCode.ANALYZER_UNREACHABLE,
+                    "chat 服务不可达：" + e.getMessage());
+        }
+    }
+
     public record ScanRequest(Long projectId, String codeDir) {
     }
 
@@ -146,5 +198,15 @@ public class AnalyzerClient {
 
     /** /analyze/v1/report 响应：{source, promptVersion, report}。 */
     public record ReportResp(String source, String promptVersion, Map<String, Object> report) {
+    }
+
+    /** /analyze/v1/chat 请求 fileRef（06 §5.7）：用户 @ 的文件全文。 */
+    public record ChatFileRef(String path, String content) {
+    }
+
+    /** /analyze/v1/chat 请求（06 §5.7）。 */
+    public record AnalyzerChatRequest(Long projectId, Map<String, Object> systemContext,
+                                      List<Map<String, String>> history, String query,
+                                      ChatFileRef fileRef) {
     }
 }
