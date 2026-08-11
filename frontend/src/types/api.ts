@@ -208,3 +208,41 @@ export interface QualityIssuesResult {
   total: number
   items: QualityIssueItem[]
 }
+
+// ---------------- 架构（06 §3.11，P4c）----------------
+
+export type ArchitectureNodeType =
+  'CONTROLLER' | 'SERVICE' | 'REPOSITORY' | 'ENTITY' | 'UTIL' | 'OTHER'
+
+export interface ArchitectureNode {
+  id: number
+  nodeKey: string
+  name: string
+  nodeType: ArchitectureNodeType
+  filePath: string
+  metrics: { outDegree: number; inDegree: number }
+}
+
+export interface ArchitectureEdge {
+  id: number
+  sourceNodeId: number
+  targetNodeId: number
+  relation: 'CALL' | 'INHERIT' | 'COMPOSE' | string
+}
+
+export interface ArchitectureViolation {
+  id: number
+  violationType: string
+  description: string
+  sourceNodeId: number | null
+  targetNodeId: number | null
+  severity: 'HIGH' | 'MEDIUM' | 'LOW'
+  suggestion: string
+  aiNote: string | null
+}
+
+export interface ArchitectureResult {
+  nodes: ArchitectureNode[]
+  edges: ArchitectureEdge[]
+  violations: ArchitectureViolation[]
+}

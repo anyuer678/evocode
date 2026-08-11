@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import ArchitectureView from './architecture-view.vue'
 import { deleteProject, getProjectDetail } from '../../api/project'
 import { getFileContent, listFiles } from '../../api/file'
 import {
@@ -633,6 +634,9 @@ onBeforeUnmount(() => {
         }}
       </p>
     </div>
+
+    <!-- 架构分析（P4c） -->
+    <ArchitectureView v-if="quality" :project-id="projectId" />
 
     <!-- 文件地图 -->
     <div class="files">
