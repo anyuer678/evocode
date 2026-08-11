@@ -242,7 +242,7 @@ public class AnalyzerClient {
     }
 
     /** /analyze/v1/doc 响应。 */
-    public record DocResp(String docType, String title, String content) {
+    public record DocResp(String docType, String title, String content, String source) {
     }
 
     /**

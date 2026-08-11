@@ -1,4 +1,4 @@
-# EvoCode
+﻿# EvoCode
 
 > **AI Software Evolution Platform** · 基于大模型的软件维护与演化平台
 > 让 AI 持续理解、诊断、维护已有软件 —— 做软件的"体检 + 医生 + 健康档案"
@@ -187,3 +187,4 @@ v0.1 代码体检 MVP（上传→扫描→AI 报告）→ v0.2 质量(Sonar) →
 | v3.10 | 2026-08 | **P8 Dashboard + 美化 + 深浅色完成（v1.0 收官）**：全局 `/dashboard`（统计卡 + ECharts 健康分布/语言构成/状态分布 + 最近分析列表，纯前端聚合复用项目列表）；完整设计 token（`variables.css` 浅色 + `[data-theme='dark']` 深色双主题）+ 顶部导航（Dashboard/项目）+ 一键切换（localStorage 持久化）；35 处硬编码色值收编为语义变量（保护 var fallback）；lint/build 全绿 + 无头 Edge 浅色渲染冒烟通过（详见 `docs/devlog/2026-08-11-p8.md`） |
 | v3.11 | 2026-08 | **P6-P8 代码审查修复（三端并行）**：backend 高危 **V006 缺 deleted 列（@TableLogic 真库必崩）已补** + 8 项（重复落库/符号链接穿越/doc 超时与事务/force 2014/cancelStream/title 截断/错误码 3004/docs type 契约）；frontend 高危 **doc 表格 XSS（已转义）与 SSE 丢尾部块致 onDone 失效（已重构解析）** + 6 项（streaming 复位/会话竞态/编辑态保护/Monaco 容错/深色图表与徽章）；analyzer PG 宕机降级（503 + chat 兜底）+ `ANALYZER_PG_DSN` 生效修复；三端测试 analyzer 118 / backend 117 / frontend lint+build 全绿（详见 `docs/devlog/2026-08-11-p8.md` 审查段） |
 | v3.12 | 2026-08 | **端到端真库验证完成（Docker 恢复后全链路实测）**：真实项目上传→分析→技术债/RAG/chat/文档/删除级联全链路跑通，**修复 12 个真库才暴露的 bug**：init-db 脚本被 docker stderr 终止、迁移索引幂等 + V006 缺 pgvector 扩展/deleted 列、**zip 嵌套目录上传失败**（Compress-Archive 反斜杠目录条目）、**演化串父仓库历史** + GBK 解码崩溃、tech_debt 项目级重建、available=false 清演化数据、**RAG 多关键词检索空**（占位符顺序）、**JDK HttpClient HTTP/2 丢 body → chat 422**、文档 3004 映射（FastAPI detail 包装）、**项目删除级联补 P6/P7 新表**；实测：FULL 分析 DONE/100/healthScore 82、RAG index 4 chunks + search 命中、chat SSE 透传 error LLM_NO_KEY 落库、删除级联全清；三端测试 analyzer 119 / backend 119 / frontend lint+build 全绿（详见 `docs/devlog/2026-08-11-p8.md` 端到端段） |
+| v3.13 | 2026-08 | **P9b 项目操作与报告导出 + TD-08**：backend PATCH /projects/{id}（重命名/描述，1001/1002/2001）+ GET /projects/{id}/report/export（ReportExportService 纯字符串 Markdown + Content-Disposition 下载）；前端 ⋮ 操作菜单（重命名弹窗/导出下载/删除确认）；TD-08 docgen 规则版降级（无 Key 按 README/ARCH/API 模板产出 source=RULES，不再 400）；DocResp.source 透传；三端测试 backend 128 / analyzer 全量 / frontend lint+build+vitest 12/12 全绿（详见 docs/devlog/2026-08-11-p9-plan.md P9b 段） |

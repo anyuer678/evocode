@@ -75,3 +75,19 @@ export async function getProjectDetail(id: number): Promise<ProjectDetail> {
 export async function deleteProject(id: number): Promise<void> {
   await request.delete<ApiResponse<null>>(`/projects/${id}`)
 }
+
+/** 更新项目 name/description（06 §3.2 PATCH，字段可选） */
+export async function updateProject(
+  id: number,
+  patch: { name?: string; description?: string },
+): Promise<ProjectResp> {
+  return getData(request.patch<ApiResponse<ProjectResp>>(`/projects/${id}`, patch))
+}
+
+/** 导出 Markdown 报告（06 §3.2.1 GET，blob 下载） */
+export async function exportReport(id: number): Promise<Blob> {
+  const resp = await request.get<Blob>(`/projects/${id}/report/export`, {
+    responseType: 'blob',
+  })
+  return resp.data
+}

@@ -105,7 +105,7 @@ public class DocServiceImpl implements DocService {
             doc.setVersion(doc.getVersion() + 1);
             docMapper.updateById(doc);
         }
-        return toResp(doc);
+        return toResp(doc, generated.source());
     }
 
     @Override
@@ -168,7 +168,11 @@ public class DocServiceImpl implements DocService {
     }
 
     private DocResp toResp(GeneratedDoc d) {
+        return toResp(d, null);
+    }
+
+    private DocResp toResp(GeneratedDoc d, String source) {
         return new DocResp(d.getId(), d.getDocType(), d.getTitle(), d.getContent(),
-                d.getVersion(), d.getEdited(), d.getCreatedAt());
+                d.getVersion(), d.getEdited(), d.getCreatedAt(), source);
     }
 }

@@ -85,6 +85,7 @@ class TestGenerateDoc:
         assert result["docType"] == "README"
         assert result["title"] == "Demo 说明"
         assert "快速开始" in result["content"]
+        assert result["source"] == "LLM"
 
     def test_arch_and_api(self) -> None:
         arch = generate_doc(
@@ -114,6 +115,60 @@ class TestGenerateDoc:
         except ValueError:
             pass
 
+    # ---- TD-08：规则版降级 ----
+
+    def test_rules_fallback_when_llm_unavailable(self) -> None:
+        class NoLlm:
+            def available(self) -> bool:
+                return False
+
+            def chat_json(self, system, user):
+                raise AssertionError("不应调用 LLM")
+
+        result = generate_doc(
+            NoLlm(),
+            "README",
+            scan={"languages": {"Python": 100.0}, "locTotal": 42,
+                  "fileCount": 3, "frameworks": []},
+            arch=None,
+            project_info={"name": "demo", "description": "示例项目"},
+            code_dir=None,
+        )
+        assert result["source"] == "RULES"
+        assert result["title"] == "demo 使用说明"
+        assert "规则引擎" in result["content"]
+        assert "Python 100.0%" in result["content"]
+
+    def test_rules_fallback_when_llm_fails(self, tmp_path) -> None:
+        class BoomLlm:
+            def available(self) -> bool:
+                return True
+
+            def chat_json(self, system, user):
+                raise RuntimeError("LLM 调用失败（/v1/chat/completions）：500")
+
+        result = generate_doc(
+            BoomLlm(),
+            "API",
+            scan=None, arch=None, project_info={},
+            code_dir=str(tmp_path),
+        )
+        assert result["source"] == "RULES"
+        assert result["title"] == "API 文档"
+
+    def test_api_rules_table_from_controllers(self, tmp_path) -> None:
+        (tmp_path / "UserController.java").write_text(_JAVA, encoding="utf-8")
+        result = generate_doc(
+            type("NoLlm", (), {"available": lambda self: False,
+                                "chat_json": lambda *a: None})(),
+            "API",
+            scan=None, arch=None, project_info={},
+            code_dir=str(tmp_path),
+        )
+        assert result["source"] == "RULES"
+        assert "GET" in result["content"]
+        assert "/api/v1/users" in result["content"]
+
 
 class TestDocRoute:
     def test_invalid_doc_type_400(self) -> None:
@@ -121,16 +176,28 @@ class TestDocRoute:
                            json={"projectId": 1, "docType": "XXX"})
         assert resp.status_code == 400
 
-    def test_llm_no_key_400(self) -> None:
+    def test_llm_no_key_rules_fallback_200(self) -> None:
+        """TD-08：无 Key → 200 + 规则版文档（不再 400 LLM_NO_KEY）。"""
         with patch("app.main._llm") as fake:
+            fake.available.return_value = False
+            resp = client.post("/analyze/v1/doc",
+                               json={"projectId": 1, "docType": "README",
+                                     "projectInfo": {"name": "demo"}})
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["source"] == "RULES"
+        assert "规则引擎" in body["content"]
+
+    def test_llm_failure_falls_back_200(self) -> None:
+        with patch("app.main._llm") as fake:
+            fake.available.return_value = True
             fake.chat_json.side_effect = RuntimeError(
-                "LLM_API_KEY 未配置（LLM_NO_KEY）"
+                "LLM 调用失败（/v1/chat/completions）：500"
             )
             resp = client.post("/analyze/v1/doc",
                                json={"projectId": 1, "docType": "README"})
-        assert resp.status_code == 400
-        body = resp.json()["detail"]
-        assert body["error"]["code"] == "LLM_NO_KEY"
+        assert resp.status_code == 200
+        assert resp.json()["source"] == "RULES"
 
     def test_success(self) -> None:
         with patch("app.main._llm") as fake:
@@ -144,3 +211,4 @@ class TestDocRoute:
         body = resp.json()
         assert body["docType"] == "README"
         assert body["title"] == "T"
+        assert body["source"] == "LLM"

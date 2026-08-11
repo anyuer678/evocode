@@ -2,18 +2,21 @@
 
 - README：项目简介/技术栈/目录结构/快速开始/运行要求
 - ARCH：模块划分/分层/核心调用流程/部署方式（ASCII 图）
-- API：从 controller 源码提取端点 → LLM 生成表格文档
-LLM 失败抛异常（文档无法规则降级，由路由映射错误语义）。
+- API：从 controller 源码提取端点 → 生成表格文档
+LLM 不可用/失败时按 docType 模板产出（TD-08：规则版降级，source=RULES）。
 """
 
 from __future__ import annotations
 
 import json
+import logging
 import os
 import re
 from typing import Any
 
 from .llm import LLMClient
+
+logger = logging.getLogger("evocode.analyzer.doc")
 
 DOC_TYPES = ("README", "ARCH", "API")
 
@@ -58,22 +61,148 @@ def generate_doc(
     project_info: dict[str, Any],
     code_dir: str | None,
 ) -> dict[str, Any]:
-    """生成三类文档之一；返回 {docType, title, content}。"""
+    """生成三类文档之一；返回 {docType, title, content, source}。
+
+    TD-08：LLM 未配置或调用失败 → 规则版模板降级（source=RULES），
+    保证无 Key 全链路可演示；LLM 成功 → source=LLM。
+    """
     dt = doc_type.upper()
     if dt not in DOC_TYPES:
         raise ValueError(f"不支持的文档类型：{doc_type}")
+    if not llm.available():
+        logger.info("doc %s 无 LLM，规则版降级", dt)
+        return _rules_doc(dt, scan, arch, project_info, code_dir)
     if dt == "README":
         system, user = README_SYSTEM, _readme_user(scan, project_info)
     elif dt == "ARCH":
         system, user = ARCH_SYSTEM, _arch_user(arch)
     else:
         system, user = API_SYSTEM, _api_user(code_dir)
-    data = llm.chat_json(system, user)
-    return {
-        "docType": dt,
-        "title": str(data.get("title") or f"{dt} 文档"),
-        "content": str(data.get("content") or ""),
-    }
+    try:
+        data = llm.chat_json(system, user)
+        return {
+            "docType": dt,
+            "title": str(data.get("title") or f"{dt} 文档"),
+            "content": str(data.get("content") or ""),
+            "source": "LLM",
+        }
+    except Exception as exc:
+        logger.warning("doc %s LLM 失败，规则版降级：%s", dt, exc)
+        return _rules_doc(dt, scan, arch, project_info, code_dir)
+
+
+def _rules_doc(
+    dt: str,
+    scan: dict[str, Any] | None,
+    arch: dict[str, Any] | None,
+    info: dict[str, Any],
+    code_dir: str | None,
+) -> dict[str, Any]:
+    """TD-08 规则版模板：基于已落库/扫描的结构化数据生成 Markdown。"""
+    if dt == "README":
+        title, content = _readme_rules(scan, info)
+    elif dt == "ARCH":
+        title, content = _arch_rules(arch)
+    else:
+        title, content = _api_rules(code_dir)
+    return {"docType": dt, "title": title, "content": content, "source": "RULES"}
+
+
+def _readme_rules(scan: dict[str, Any] | None, info: dict[str, Any]) -> tuple[str, str]:
+    name = info.get("name") or "未知项目"
+    desc = info.get("description") or "（无描述）"
+    langs = (scan or {}).get("languages") or {}
+    frameworks = (scan or {}).get("frameworks") or []
+    loc_total = (scan or {}).get("locTotal") or 0
+    file_count = (scan or {}).get("fileCount") or 0
+    lang_line = "、".join(f"{k} {v}%" for k, v in langs.items()) or "未知"
+    stack = "、".join(map(str, frameworks)) or "（未识别）"
+    files = (scan or {}).get("files") or []
+    tree = "\n".join(
+        f"- `{f.get('path', '?')}`（{f.get('language', '?')}，{f.get('loc', 0)} 行）"
+        for f in files[:30]
+    ) or "- （无文件清单）"
+    content = (
+        f"# {name}\n\n"
+        f"> 本文档由 EvoCode 规则引擎生成（未启用 LLM 精修）。\n\n"
+        f"## 项目简介\n\n{desc}\n\n"
+        f"## 技术栈\n\n- 语言构成：{lang_line}\n"
+        f"- 框架：{stack}\n"
+        f"- 规模：{loc_total} 行 / {file_count} 文件\n\n"
+        f"## 目录结构（前 {min(len(files), 30)} 项）\n\n{tree}\n\n"
+        f"## 快速开始\n\n"
+        f"```bash\n# 构建与运行命令因项目而异，请参考各模块文档\n```\n\n"
+        f"## 运行要求\n\n- 环境：请参考各模块说明\n"
+    )
+    return f"{name} 使用说明", content
+
+
+def _arch_rules(arch: dict[str, Any] | None) -> tuple[str, str]:
+    nodes = (arch or {}).get("nodes") or []
+    edges = (arch or {}).get("edges") or []
+    violations = (arch or {}).get("violations") or []
+    by_type: dict[str, list[str]] = {}
+    for n in nodes:
+        kind = n.get("type") if isinstance(n, dict) else "未知"
+        by_type.setdefault(str(kind), []).append(
+            f"- `{n.get('name', '?')}`：{n.get('description', '')}"
+            if isinstance(n, dict)
+            else f"- {n}"
+        )
+    module_lines = []
+    for kind, lines in by_type.items():
+        module_lines.append(f"### {kind}\n\n" + "\n".join(lines[:30]))
+    module_block = "\n\n".join(module_lines) or "- （无节点数据）"
+    edge_lines = "\n".join(
+        f"- {e.get('source', '?')} → {e.get('target', '?')}（{e.get('type', '')}）"
+        for e in edges[:50] if isinstance(e, dict)
+    ) or "- （无调用关系）"
+    viol_lines = "\n".join(
+        f"- `{v.get('description', '')}`（{v.get('severity', '')}）"
+        for v in violations[:20] if isinstance(v, dict)
+    ) or "- 无违规"
+    content = (
+        f"# 架构说明\n\n"
+        f"> 本文档由 EvoCode 规则引擎生成（未启用 LLM 精修）。\n\n"
+        f"## 模块划分\n\n{module_block}\n\n"
+        f"## 核心调用流程\n\n{edge_lines}\n\n"
+        f"## 架构违规\n\n{viol_lines}\n\n"
+        f"## 部署方式\n\n- 请参考各模块部署说明\n"
+    )
+    return "架构说明", content
+
+
+def _api_rules(code_dir: str | None) -> tuple[str, str]:
+    if not code_dir or not os.path.isdir(code_dir):
+        content = (
+            "# API 文档\n\n"
+            "> 未提供代码目录，无法解析控制器端点。请先发起一次分析。\n"
+        )
+        return "API 文档", content
+    endpoints = _extract_controllers(code_dir)
+    if not endpoints:
+        content = (
+            "# API 文档\n\n"
+            "> 代码目录中未发现 REST 控制器"
+            "（Spring @*Mapping / FastAPI 路由未解析到）。\n"
+        )
+        return "API 文档", content
+    lines = [
+        "# API 文档",
+        "",
+        "> 本文档由 EvoCode 规则引擎生成（未启用 LLM 精修）。",
+        "",
+        "| 方法 | 路径 | 处理函数 |",
+        "|---|---|---|",
+    ]
+    for ep in endpoints:
+        m = re.match(r"^(GET|POST|PUT|DELETE|PATCH|HEAD|OPTIONS)\s+(\S+)\s+(.+)$", ep)
+        if m:
+            lines.append(f"| {m.group(1)} | `{m.group(2)}` | {m.group(3)} |")
+        else:
+            lines.append(f"| - | {ep} | - |")
+    lines.extend(["", "## 备注", "", "- 参数/响应结构请结合具体实现查看。"])
+    return "API 文档", "\n".join(lines)
 
 
 def _readme_user(scan: dict[str, Any] | None, info: dict[str, Any]) -> str:

@@ -277,3 +277,4 @@ class DocResponse(BaseModel):
     docType: str
     title: str
     content: str
+    source: str = "RULES"  # LLM / RULES（TD-08：无 Key 规则版降级）

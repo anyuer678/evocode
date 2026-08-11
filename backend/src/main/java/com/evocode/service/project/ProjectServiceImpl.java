@@ -11,6 +11,7 @@ import com.evocode.dto.analysis.LatestAnalysisResp;
 import com.evocode.dto.project.ProjectDetailResp;
 import com.evocode.dto.project.ProjectResp;
 import com.evocode.dto.project.ProjectSummaryResp;
+import com.evocode.dto.project.ProjectUpdateReq;
 import com.evocode.entity.Analysis;
 import com.evocode.entity.ArchViolation;
 import com.evocode.entity.CommitStat;
@@ -212,8 +213,38 @@ public class ProjectServiceImpl implements ProjectService {
                 .build();
     }
 
-    @Override
     @Transactional
+    @Override
+    public ProjectResp update(Long id, ProjectUpdateReq req) {
+        if (req == null || req.isEmpty()) {
+            throw new BusinessException(ErrorCode.PARAM_MISSING,
+                    "至少提供一个更新字段（name 或 description）");
+        }
+        String name = req.name();
+        if (name != null && name.isBlank()) {
+            throw new BusinessException(ErrorCode.PARAM_INVALID, "name 不能为空");
+        }
+        if (name != null && name.length() > 100) {
+            throw new BusinessException(ErrorCode.PARAM_INVALID, "name 长度不能超过 100");
+        }
+        Project project = getById(id);
+        UpdateWrapper<Project> uw = new UpdateWrapper<Project>().eq("id", id);
+        boolean changed = false;
+        if (name != null && !name.equals(project.getName())) {
+            uw.set("name", name);
+            changed = true;
+        }
+        if (req.description() != null && !req.description().equals(project.getDescription())) {
+            uw.set("description", req.description());
+            changed = true;
+        }
+        if (changed) {
+            projectMapper.update(null, uw);
+        }
+        return toResp(getById(id));
+    }
+
+    @Override
     public void delete(Long id) {
         Project project = getById(id);
         // 06 §3.4：RUNNING 任务 → CANCELLED（快扫线程会检查取消）
@@ -324,6 +355,7 @@ public class ProjectServiceImpl implements ProjectService {
         return ProjectResp.builder()
                 .id(p.getId())
                 .name(p.getName())
+                .description(p.getDescription())
                 .sourceType(p.getSourceType())
                 .status(p.getStatus())
                 .storagePath(p.getStoragePath())

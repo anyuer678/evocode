@@ -12,6 +12,7 @@ public record DocResp(
         String content,
         Integer version,
         Boolean edited,
-        OffsetDateTime createdAt
+        OffsetDateTime createdAt,
+        String source
 ) {
 }

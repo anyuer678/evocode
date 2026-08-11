@@ -14,6 +14,7 @@ public class ProjectResp {
 
     private Long id;
     private String name;
+    private String description;
     private String sourceType;
     private String status;
     private String storagePath;

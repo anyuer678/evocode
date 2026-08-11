@@ -103,7 +103,7 @@ class DocServiceImplTest {
                 new ScanFileResp("src/A.java", "Java", 10, 100)));
         when(docMapper.selectOne(any())).thenReturn(null);
         when(analyzerClient.doc(any(), any(), any(), any(), any(), any()))
-                .thenReturn(new AnalyzerClient.DocResp("README", "Demo 说明", "# Demo"));
+                .thenReturn(new AnalyzerClient.DocResp("README", "Demo 说明", "# Demo", "RULES"));
         when(docMapper.insert(any(GeneratedDoc.class))).thenAnswer(inv -> {
             GeneratedDoc d = inv.getArgument(0);
             d.setId(7L);
@@ -137,7 +137,7 @@ class DocServiceImplTest {
         existing.setVersion(1);
         when(docMapper.selectOne(any())).thenReturn(existing);
         when(analyzerClient.doc(any(), any(), any(), any(), any(), any()))
-                .thenReturn(new AnalyzerClient.DocResp("README", "新标题", "新内容"));
+                .thenReturn(new AnalyzerClient.DocResp("README", "新标题", "新内容", "LLM"));
         DocResp resp = svc.generate(1L, "README", false);
         assertEquals(2, resp.version());
         verify(docMapper).updateById(any(GeneratedDoc.class));

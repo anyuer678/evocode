@@ -9,13 +9,15 @@ import com.evocode.dto.project.ProjectCreateReq;
 import com.evocode.dto.project.ProjectDetailResp;
 import com.evocode.dto.project.ProjectResp;
 import com.evocode.dto.project.ProjectSummaryResp;
+import com.evocode.dto.project.ProjectUpdateReq;
 import com.evocode.service.project.ProjectService;
+import com.evocode.service.project.ReportExportService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.http.ResponseEntity;import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -32,9 +34,12 @@ import org.springframework.web.multipart.MultipartFile;
 public class ProjectController {
 
     private final ProjectService projectService;
+    private final ReportExportService reportExportService;
 
-    public ProjectController(ProjectService projectService) {
+    public ProjectController(ProjectService projectService,
+                             ReportExportService reportExportService) {
         this.projectService = projectService;
+        this.reportExportService = reportExportService;
     }
 
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -80,6 +85,23 @@ public class ProjectController {
     @GetMapping("/{id}")
     public Result<ProjectDetailResp> detail(@PathVariable Long id) {
         return Result.ok(projectService.detail(id));
+    }
+
+    /** P9b：报告导出（06 §3.7 扩展）——Markdown 纯文本下载。 */
+    @GetMapping(value = "/{id}/report/export", produces = "text/markdown; charset=utf-8")
+    public ResponseEntity<byte[]> exportReport(@PathVariable Long id) {
+        String markdown = reportExportService.exportLatest(id);
+        String filename = "evocode-report-" + id + ".md";
+        return ResponseEntity.ok()
+                .header("Content-Disposition",
+                        "attachment; filename=\"" + filename + "\"")
+                .body(markdown.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+    }
+
+    @PatchMapping("/{id}")
+    public Result<ProjectResp> update(@PathVariable Long id,
+                                      @RequestBody ProjectUpdateReq req) {
+        return Result.ok(projectService.update(id, req));
     }
 
     @DeleteMapping("/{id}")

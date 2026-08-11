@@ -42,6 +42,7 @@ export interface ProjectResp {
 export interface ProjectSummary {
   id: number
   name: string
+  description: string | null
   sourceType: ProjectSourceType
   langStats: Record<string, number> | null
   frameworkTags: string[]

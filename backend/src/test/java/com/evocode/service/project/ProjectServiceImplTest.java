@@ -3,6 +3,7 @@ package com.evocode.service.project;
 import com.evocode.common.BusinessException;
 import com.evocode.config.EvocodeProperties;
 import com.evocode.dto.project.ProjectResp;
+import com.evocode.dto.project.ProjectUpdateReq;
 import com.evocode.mapper.AnalysisMapper;
 import com.evocode.mapper.ArchViolationMapper;
 import com.evocode.mapper.ArchitectureEdgeMapper;
@@ -176,5 +177,57 @@ class ProjectServiceImplTest {
                 .thenReturn(null);
         assertThrows(BusinessException.class,
                 () -> service.list(1, 10, null, null, null, "malicious;drop", "asc"));
+    }
+
+    // ---- P9b：PATCH 更新 ----
+
+    @Test
+    void update_renameAndDescription_ok() {
+        Project p = new Project();
+        p.setId(7L);
+        p.setName("old");
+        p.setDescription(null);
+        when(projectMapper.selectById(7L)).thenReturn(p);
+        doAnswer(inv -> {
+            Project merged = new Project();
+            merged.setId(7L);
+            merged.setName("new-name");
+            merged.setDescription("desc");
+            when(projectMapper.selectById(7L)).thenReturn(merged);
+            return 1;
+        }).when(projectMapper).update(any(), any());
+
+        ProjectResp resp = service.update(7L, new ProjectUpdateReq("new-name", "desc"));
+        assertEquals("new-name", resp.getName());
+        assertEquals("desc", resp.getDescription());
+        verify(projectMapper).update(any(), any());
+    }
+
+    @Test
+    void update_emptyReq_throws1001() {
+        Project p = new Project();
+        p.setId(7L);
+        when(projectMapper.selectById(7L)).thenReturn(p);
+        assertThrows(BusinessException.class,
+                () -> service.update(7L, new ProjectUpdateReq(null, "  ")));
+    }
+
+    @Test
+    void update_blankName_throws1002() {
+        assertThrows(BusinessException.class,
+                () -> service.update(7L, new ProjectUpdateReq("  ", null)));
+    }
+
+    @Test
+    void update_nameTooLong_throws1002() {
+        assertThrows(BusinessException.class,
+                () -> service.update(7L, new ProjectUpdateReq("x".repeat(101), null)));
+    }
+
+    @Test
+    void update_projectNotFound_throws2001() {
+        when(projectMapper.selectById(99L)).thenReturn(null);
+        assertThrows(BusinessException.class,
+                () -> service.update(99L, new ProjectUpdateReq("new", null)));
     }
 }

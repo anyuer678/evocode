@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { deleteProject, listProjects } from '../../api/project'
+import { deleteProject, exportReport, listProjects, updateProject } from '../../api/project'
 import type { ProjectStatus, ProjectSummary } from '../../types/api'
 
 const router = useRouter()
@@ -20,6 +20,13 @@ const viewMode = ref<'card' | 'list'>(
 )
 const loading = ref(false)
 const error = ref('')
+
+// P9b：⋮ 操作菜单 + 重命名弹窗
+const menuId = ref<number | null>(null)
+const renameTarget = ref<ProjectSummary | null>(null)
+const renameName = ref('')
+const renameDesc = ref('')
+const saving = ref(false)
 
 const VIEW_KEY = 'evocode-view'
 
@@ -151,6 +158,7 @@ function scoreClass(score: number | null): string {
 }
 
 async function onDelete(item: ProjectSummary) {
+  menuId.value = null
   if (!window.confirm(`确定删除项目「${item.name}」？将同时清理磁盘目录与全部分析数据。`)) return
   try {
     await deleteProject(item.id)
@@ -172,7 +180,75 @@ function fmtDate(iso: string | null): string {
   return new Date(iso).toLocaleDateString('zh-CN')
 }
 
-onMounted(load)
+function toggleMenu(id: number) {
+  menuId.value = menuId.value === id ? null : id
+}
+
+function closeMenu() {
+  menuId.value = null
+}
+
+function openRename(item: ProjectSummary) {
+  renameTarget.value = item
+  renameName.value = item.name
+  renameDesc.value = item.description ?? ''
+  menuId.value = null
+}
+
+async function saveRename() {
+  const target = renameTarget.value
+  if (!target) return
+  const name = renameName.value.trim()
+  if (!name) {
+    window.alert('项目名不能为空')
+    return
+  }
+  saving.value = true
+  try {
+    await updateProject(target.id, { name, description: renameDesc.value.trim() })
+    renameTarget.value = null
+    load()
+  } catch (e) {
+    window.alert(e instanceof Error ? e.message : String(e))
+  } finally {
+    saving.value = false
+  }
+}
+
+async function onExport(item: ProjectSummary) {
+  menuId.value = null
+  try {
+    const blob = await exportReport(item.id)
+    if (blob.size === 0) {
+      window.alert('该项目暂无可用报告（需至少一次成功分析）')
+      return
+    }
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `${item.name}-report.md`
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+    URL.revokeObjectURL(url)
+  } catch (e) {
+    window.alert(e instanceof Error ? e.message : String(e))
+  }
+}
+
+// 点击页面其他区域关闭菜单
+function onDocClick() {
+  closeMenu()
+}
+
+onMounted(() => {
+  document.addEventListener('click', onDocClick)
+  load()
+})
+
+onUnmounted(() => {
+  document.removeEventListener('click', onDocClick)
+})
 </script>
 
 <template>
@@ -328,9 +404,19 @@ onMounted(load)
               {{ item.sourceType === 'GIT' ? 'GitHub 仓库' : 'zip 上传' }}
             </span>
           </div>
-          <button class="btn small icon-btn ops" type="button" title="操作" @click.stop="void 0">
+          <button
+            class="btn small icon-btn ops"
+            type="button"
+            title="操作"
+            @click.stop="toggleMenu(item.id)"
+          >
             ⋮
           </button>
+          <div v-if="menuId === item.id" class="ops-menu" @click.stop>
+            <button type="button" class="ops-item" @click="openRename(item)">重命名</button>
+            <button type="button" class="ops-item" @click="onExport(item)">导出报告</button>
+            <button type="button" class="ops-item danger" @click="onDelete(item)">删除</button>
+          </div>
         </div>
 
         <div class="card-meta">
@@ -414,6 +500,7 @@ onMounted(load)
             <button class="btn small" type="button" @click="router.push(`/projects/${item.id}`)">
               查看
             </button>
+            <button class="btn small" type="button" @click="onExport(item)">导出</button>
             <button class="btn small danger" type="button" @click="onDelete(item)">删除</button>
           </td>
         </tr>
@@ -435,6 +522,38 @@ onMounted(load)
       >
         下一页
       </button>
+    </div>
+
+    <!-- P9b：重命名/编辑描述弹窗 -->
+    <div v-if="renameTarget" class="modal-mask" @click.self="renameTarget = null">
+      <div class="modal" role="dialog" aria-modal="true" aria-label="重命名项目">
+        <h3 class="modal-title">重命名项目</h3>
+        <label class="field">
+          <span class="field-label">项目名 *</span>
+          <input v-model="renameName" class="input" maxlength="100" autofocus />
+        </label>
+        <label class="field">
+          <span class="field-label">描述</span>
+          <textarea
+            v-model="renameDesc"
+            class="input"
+            rows="3"
+            maxlength="500"
+            placeholder="可选"
+          />
+        </label>
+        <div class="modal-actions">
+          <button class="btn" type="button" @click="renameTarget = null">取消</button>
+          <button
+            class="btn-primary"
+            type="button"
+            :disabled="saving || !renameName.trim()"
+            @click="saveRename"
+          >
+            {{ saving ? '保存中…' : '保存' }}
+          </button>
+        </div>
+      </div>
     </div>
   </section>
 </template>
@@ -522,6 +641,81 @@ onMounted(load)
   font-size: 14px;
   line-height: 1;
 }
+
+/* ---- P9b：⋮ 操作菜单 ---- */
+.ops-menu {
+  position: absolute;
+  top: 44px;
+  right: 12px;
+  z-index: 20;
+  min-width: 128px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-md);
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+}
+.ops-item {
+  border: none;
+  background: none;
+  color: var(--text-primary);
+  font-size: 13px;
+  font-family: var(--font-family);
+  text-align: left;
+  padding: 8px 10px;
+  border-radius: var(--radius-xs);
+  cursor: pointer;
+}
+.ops-item:hover {
+  background: var(--bg-muted);
+}
+.ops-item.danger {
+  color: var(--fail-color);
+}
+
+/* ---- P9b：重命名弹窗 ---- */
+.modal-mask {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.modal {
+  width: min(420px, 92vw);
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  padding: var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+.modal-title {
+  margin: 0;
+  font-size: 15px;
+  color: var(--text-primary);
+}
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.field-label {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
 .btn-primary {
   height: 36px;
   padding: 0 18px;
@@ -545,6 +739,7 @@ onMounted(load)
   gap: var(--space-4);
 }
 .project-card {
+  position: relative;
   background: var(--bg-card);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
