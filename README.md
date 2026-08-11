@@ -44,32 +44,73 @@
 
 辅助目录：`docs/decisions/`（AD 决策记录）、`docs/devlog/`（周记）、`docs/screenshots/`（演示截图）。
 
-## 当前进度（P1 已完成，见 docs/devlog/2026-08-10-p1.md）
+## 当前进度（v1.0 全部完成，详见 docs/devlog/）
 
 ```
 ✅ P0 三端骨架 + 基础设施 + 脚本，三端门禁全绿（mvnw test / ruff+pytest / npm lint+build，init-db 实测通过）
 ✅ P1 项目+扫描（project CRUD / zip 上传 / GitHub clone / 档案快扫 / 文件地图，三端闭环联调通过）
-✅ P2 v0.1 MVP 完成（上传→扫描→AI 报告端到端）：P2a 分析任务链路 + P2b LLM/规则版报告 + P2c 报告前端（体检报告/分析历史/发起与重新生成）
-✅ P3 质量完成（P3a /analyze/v1/quality + P3b FULL 流程接入 + P3c 质量前端：issues 查询端点/聚合指标/详情页质量区；Sonar 不可用降级 N/A 不影响其他）
-✅ P4 架构完成（P4a /analyze/v1/architecture：tree-sitter 节点/调用边/分层违规 + 节点指标；P4b 落库 V003 + GET /architecture 查询端点；P4c 前端架构视图：ECharts 分层图 + 违规列表 + 2010 空态）
-✅ P5 演化完成（P5a /analyze/v1/evolution：git log 统计 + 周趋势/TOP 文件/作者 + 规则热点；P5b 落库 V004/V007 + GET /evolution 查询端点；P5c 前端演化页：趋势/TOP/作者三图 + 风险中心热点卡 + range 切换）
-⬜ P5 演化 → P6 AI 医生 → P7 技术债+Dashboard = v1.0
+✅ P2 v0.1 MVP 完成（上传→扫描→AI 报告端到端）：P2a 分析任务链路 + P2b LLM/规则版报告 + P2c 报告前端
+✅ P3 质量完成（/analyze/v1/quality + FULL 流程接入 + 质量前端；Sonar 不可用降级 N/A）
+✅ P4 架构完成（/analyze/v1/architecture：tree-sitter 节点/调用边/分层违规；落库 V003 + 查询端点；前端 ECharts 分层图）
+✅ P5 演化完成（/analyze/v1/evolution：git log 统计 + 周趋势/TOP 文件/作者 + 规则热点；V004/V007 落库 + 查询端点 + 前端演化页）
+✅ P6 AI 医生完成（v0.5）：RAG 切片/embedding/pgvector（V005/V006）+ /rag/index·search + /analyze/v1/chat SSE 生成端 + 会话 CRUD/SseEmitter 透传 + 前端 AI 医生页（流式/引用卡片/Monaco）
+✅ P7 技术债 + 文档完成（v0.6）：四源聚合（ARCH/QUALITY/EVOLUTION/DEPEND）+ 状态机接口 + 前端技术债区块；三类文档生成（README/架构/API）+ 前端文档区块
+✅ P8 Dashboard + 美化 + 深浅色完成（v1.0）：/dashboard 跨项目总览 + 设计 token 双主题 + 导航/一键切换
+✅ 端到端真库验证 + 两轮三端审查修复（v1.0 质量门禁全绿：analyzer 119 / backend 120 / frontend lint+build）
 ```
 
 ## 快速开始
 
-前置：JDK 17+、Node 20+、Python 3.11+（analyzer/.venv 需先建好）、Docker Desktop（postgres/redis）、Git。
+前置：JDK 17+、Node 20+、Python 3.11+（`analyzer/.venv` 需先建好：`cd analyzer && python -m venv .venv && .venv\Scripts\pip install -r requirements.txt`）、Docker Desktop（postgres/redis）、Git。
 
 **推荐：一键启动**（Windows，双击或命令行运行）
 
 ```bat
 scripts\start-dev.bat     :: 基础设施 → 数据库迁移 → analyzer → backend → frontend → 健康检查
-scripts\dev-down.bat      :: 停止（按端口停止 backend/analyzer/frontend）
+scripts\dev-down.bat      :: 停止（按端口停止 backend/analyzer/frontend；容器保留数据）
 ```
 
 - 各服务在**独立窗口**运行（`EvoCode-analyzer` / `EvoCode-backend` / `EvoCode-frontend`），关闭窗口即停；主窗口做健康检查，失败会停留显示错误原因（不闪退）。
-- 端口约定：**backend 18080**（默认 8080 与 polycode-gateway 冲突，须经 `BACKEND_PORT` 覆盖）、**analyzer 8081**（backend 的 `analyzer-url` 默认即此）、**frontend 5173**。
-- 数据库迁移自动执行（幂等，`init-db.ps1`，`schema_version` 记录跳过已应用）。
+- 端口约定：**backend 18080**、**analyzer 8081**（backend 的 `analyzer-url` 默认即此）、**frontend 5173**。
+- 数据库迁移自动执行（幂等，`init-db.ps1` 按序跑 `db/migration/V*.sql`，`schema_version` 记录跳过已应用；V001–V008）。
+
+**配置（可选，根目录 `.env`，复制 `.env.example` 后按需改）**
+
+```env
+# AI 医生 / 文档生成（不配则降级：报告走规则版、AI 医生返回 LLM_NO_KEY、文档无法生成）
+LLM_API_KEY=sk-xxx
+LLM_BASE_URL=http://127.0.0.1:11434/v1   # Ollama / DeepSeek 等 OpenAI 兼容端点
+# RAG 向量化（不配 embedding 网关则关键词检索兜底）
+LLM_EMBEDDING_MODEL=bge-m3
+# analyzer 直连 PG（start-dev.bat 已内置默认值；改过 DB 密码时在此覆盖）
+ANALYZER_PG_DSN=postgresql://evocode:evocode_dev@127.0.0.1:5432/evocode
+```
+
+- 配置文件优先级：进程环境变量 > `analyzer/.env` > **根 `.env`**（analyzer/backend 均从根 `.env` 读取，一处配置全局生效）。
+
+**手动分步**（等价，排查时用）
+
+```bash
+docker compose up -d                          # postgres(pgvector) / redis
+scripts/init-db.ps1                           # 执行 db/migration/V*.sql（幂等，win）
+cd analyzer && $env:ANALYZER_PG_DSN="postgresql://evocode:evocode_dev@127.0.0.1:5432/evocode"
+cd analyzer && .\.venv\Scripts\python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8081
+cd backend && $env:BACKEND_PORT=18080; java -jar target\evocode-backend-0.1.0-SNAPSHOT.jar
+# 注：backend 弃用 mvn spring-boot:run（本机报 ClassNotFound），统一 java -jar 打包产物
+cd frontend && npm install && npm run dev
+```
+
+打开 http://localhost:5173 → 创建项目（上传 zip 或 GitHub 地址）→ 发起分析 → 查看体检报告 / 架构 / 演化 / AI 医生 / 技术债 / 文档。
+
+## 常见问题
+
+| 症状 | 排查/解决 |
+|---|---|
+| 页面打开但**接口 500**（如项目列表加载失败） | 多半是 backend 未就绪（vite proxy 连不上 18080 会返回 500）：确认 `start-dev.bat` 主窗口健康检查里 `[backend] OK`；或 `curl http://127.0.0.1:18080/api/v1/health` |
+| `start-dev.bat` 卡在 `[1/5]` docker compose 失败 | Docker Desktop 引擎未启动/崩溃：启动 Docker Desktop 等引擎就绪后重跑；容器已在运行时 bat 会继续（不会卡死） |
+| 前端窗口报 `npm` 找不到 package.json | 子窗口 cd 失败：确保双击 `start-dev.bat`（不要手动在仓库根跑 npm）；前端窗口标题应为 `EvoCode-frontend` |
+| 分析结果里演化/技术债为空 | 项目是 zip 上传（非 git）→ 演化 `available=false` 属正常；技术债需架构/质量/演化数据支撑 |
+| AI 医生/文档生成报 LLM 未配置 | 根目录 `.env` 配 `LLM_API_KEY`（见上方配置节），重启服务 |
 
 **手动分步**（等价，排查时用）
 
@@ -81,8 +122,6 @@ cd backend && $env:BACKEND_PORT=18080; java -jar target\evocode-backend-0.1.0-SN
 # 注：backend 弃用 mvn spring-boot:run（本机报 ClassNotFound），统一 java -jar 打包产物
 cd frontend && npm install && npm run dev
 ```
-
-打开 http://localhost:5173 → 创建项目（上传 zip 或 GitHub 地址）→ 发起分析 → 查看体检报告。
 
 ## 仓库结构
 

@@ -20,7 +20,13 @@ rem ---------- 1. infra ----------
 echo.
 echo [1/5] starting postgres/redis (docker compose) ...
 docker compose -f docker-compose.yml up -d
-if errorlevel 1 goto :fail_docker
+if errorlevel 1 (
+    rem Docker Desktop 引擎瞬时抖动：容器已在运行时继续，不阻塞一键启动
+    echo   [warn] docker compose up failed, checking existing containers ...
+    docker ps --filter "name=evocode-postgres" | findstr /C:"evocode-postgres" >nul 2>&1
+    if errorlevel 1 goto :fail_docker
+    echo   [ok] evocode-postgres already running, continuing
+)
 
 set /a tries=0
 :waitpg
@@ -42,7 +48,9 @@ if errorlevel 1 goto :fail_migrate
 rem ---------- 3. analyzer ----------
 echo.
 echo [3/5] starting analyzer :8081 (own window, close to stop) ...
-start "EvoCode-analyzer" cmd /k "cd /d %~dp0..\analyzer & .venv\Scripts\python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8081"
+rem RAG vector search needs direct PG access; default matches docker-compose, overridable via env / root .env
+if not defined ANALYZER_PG_DSN set ANALYZER_PG_DSN=postgresql://evocode:evocode_dev@127.0.0.1:5432/evocode
+start "EvoCode-analyzer" cmd /k "set ANALYZER_PG_DSN=%ANALYZER_PG_DSN% & cd /d ""%~dp0..\analyzer"" & .venv\Scripts\python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8081"
 
 rem ---------- 4. backend ----------
 echo.
@@ -52,18 +60,19 @@ call mvnw.cmd -q -DskipTests package
 if errorlevel 1 popd & goto :fail_build
 popd
 if not exist backend\target\evocode-backend-0.1.0-SNAPSHOT.jar goto :fail_jar
-start "EvoCode-backend" cmd /k "set BACKEND_PORT=18080 & cd /d %~dp0..\backend & java -jar target\evocode-backend-0.1.0-SNAPSHOT.jar"
+start "EvoCode-backend" cmd /k "set BACKEND_PORT=18080 & cd /d ""%~dp0..\backend"" & java -jar target\evocode-backend-0.1.0-SNAPSHOT.jar"
 
 rem ---------- 5. frontend ----------
 where npm >nul 2>&1
-if not errorlevel 1 (
-    echo.
-    echo [5/5] starting frontend :5173 (own window, close to stop) ...
-    start "EvoCode-frontend" cmd /k "cd /d %~dp0..\frontend & npm run dev"
-) else (
-    echo.
-    echo [5/5] npm not found, skipping frontend
-)
+if errorlevel 1 goto :fe_skip
+echo.
+echo [5/5] starting frontend :5173 (own window, close to stop) ...
+start "EvoCode-frontend" cmd /k "cd /d ""%~dp0..\frontend"" & npm run dev"
+goto :fe_done
+:fe_skip
+echo.
+echo [5/5] npm not found, skipping frontend
+:fe_done
 
 rem ---------- 6. health check ----------
 echo.
@@ -80,6 +89,8 @@ goto :waitbe
 echo   [backend ] OK  http://127.0.0.1:18080/api/v1/health
 curl -s -o nul http://127.0.0.1:8081/health 2>nul
 if not errorlevel 1 (echo   [analyzer] OK  http://127.0.0.1:8081/health) else (echo   [analyzer] not ready, check the EvoCode-analyzer window)
+curl -s -o nul http://127.0.0.1:5173/ 2>nul
+if not errorlevel 1 (echo   [frontend] OK  http://localhost:5173) else (echo   [frontend] not ready, check the EvoCode-frontend window)
 
 echo.
 echo ================================================

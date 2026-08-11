@@ -7,10 +7,16 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    """分析服务配置。LLM 相关留空即可跑（报告走规则版降级）。"""
+    """分析服务配置。LLM 相关留空即可跑（报告走规则版降级）。
+
+    环境变量/文件优先级：进程环境变量 > .env（cwd）> ../.env（仓库根，
+    与 start-dev.bat / backend 约定一致，一处配置全局生效）。
+    """
 
     model_config = SettingsConfigDict(
-        env_file=".env", env_file_encoding="utf-8", extra="ignore"
+        env_file=(".env", "../.env"),
+        env_file_encoding="utf-8",
+        extra="ignore",
     )
 
     service_name: str = "evocode-analyzer"
