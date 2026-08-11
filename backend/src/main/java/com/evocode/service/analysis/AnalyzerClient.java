@@ -36,6 +36,7 @@ import java.util.Map;
 public class AnalyzerClient {
 
     private static final HttpClient STREAM_HTTP = HttpClient.newBuilder()
+            .version(HttpClient.Version.HTTP_1_1) // 端到端实测：默认 HTTP/2 与 uvicorn(h1) 协商丢 POST body → 422
             .connectTimeout(Duration.ofSeconds(5))
             .build();
 
@@ -175,8 +176,15 @@ public class AnalyzerClient {
             HttpResponse<InputStream> resp = STREAM_HTTP.send(
                     req, HttpResponse.BodyHandlers.ofInputStream());
             if (resp.statusCode() != 200) {
+                String errBody = "";
+                try (InputStream is = resp.body()) {
+                    errBody = new String(is.readAllBytes(), StandardCharsets.UTF_8);
+                } catch (Exception ignored) {
+                    // body 读取失败不影响主错误
+                }
+                log.error("chat 非 200 status={} body={}", resp.statusCode(), errBody);
                 throw new BusinessException(ErrorCode.ANALYZER_UNREACHABLE,
-                        "chat 服务错误：" + resp.statusCode());
+                        "chat 服务错误：" + resp.statusCode() + " " + errBody);
             }
             return new BufferedReader(
                     new InputStreamReader(resp.body(), StandardCharsets.UTF_8));
@@ -263,14 +271,18 @@ public class AnalyzerClient {
         }
     }
 
-    /** 从 analyzer 错误体提取 code；解析失败返回 null。 */
-    private String parseAnalyzerErrorCode(String body) {
+    /** 从 analyzer 错误体提取 code；兼容 FastAPI 的 {"detail": {"error": {...}}} 包装。 */
+    String parseAnalyzerErrorCode(String body) {
         if (body == null || body.isBlank()) {
             return null;
         }
         try {
             JsonNode node = objectMapper.readTree(body);
-            return node.path("error").path("code").asText(null);
+            JsonNode err = node.path("error");
+            if (err.isMissingNode() || err.isNull()) {
+                err = node.path("detail").path("error");
+            }
+            return err.path("code").asText(null);
         } catch (Exception e) {
             return null;
         }

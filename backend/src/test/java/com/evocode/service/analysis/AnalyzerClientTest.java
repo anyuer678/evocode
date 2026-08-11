@@ -66,4 +66,17 @@ class AnalyzerClientTest {
                 () -> client.scan(1L, "data/projects/1"));
         assertEquals(3001, e.getCode());
     }
+
+    @Test
+    void parseAnalyzerErrorCodeHandlesFastApiWrapper() {
+        // analyzer 错误体：FastAPI HTTPException detail 包装
+        assertEquals("LLM_NO_KEY", client.parseAnalyzerErrorCode(
+                "{\"detail\":{\"error\":{\"code\":\"LLM_NO_KEY\",\"message\":\"x\"}}}"));
+        // 直接 error 结构
+        assertEquals("RAG_UNAVAILABLE", client.parseAnalyzerErrorCode(
+                "{\"error\":{\"code\":\"RAG_UNAVAILABLE\",\"message\":\"x\"}}"));
+        // 无法解析 → null
+        assertEquals(null, client.parseAnalyzerErrorCode("not json"));
+        assertEquals(null, client.parseAnalyzerErrorCode("{\"ok\":true}"));
+    }
 }

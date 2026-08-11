@@ -71,7 +71,9 @@ public class UploadServiceImpl implements UploadService {
                 if (name == null || name.isEmpty()) {
                     continue;
                 }
-                if (entry.isDirectory()) {
+                // Windows Compress-Archive 生成的目录条目以 '\' 结尾，ZipInputStream.isDirectory()
+                // 只认 '/'——按结尾分隔符补判，否则目录会被当文件复制而报错（端到端实测发现）
+                if (entry.isDirectory() || name.endsWith("/") || name.endsWith("\\")) {
                     continue;
                 }
                 validateEntry(entry);

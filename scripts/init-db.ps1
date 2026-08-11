@@ -1,7 +1,9 @@
 ﻿# EvoCode 数据库初始化（win）：按序执行 db/migration/V*.sql
 # 依赖：docker compose up -d postgres（容器 evocode-postgres）
 # 用法：.\scripts\init-db.ps1
-$ErrorActionPreference = 'Stop'
+# 注意：不能用 $ErrorActionPreference='Stop'——docker/psql 写 stderr（NOTICE 级）
+# 会被 PowerShell 5.1 当成 NativeCommandError 终止脚本；脚本内已用 $LASTEXITCODE 显式检查。
+$ErrorActionPreference = 'Continue'
 $root   = Split-Path -Parent $PSScriptRoot
 $migDir = Join-Path $root 'db\migration'
 $container = 'evocode-postgres'

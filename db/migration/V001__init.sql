@@ -1,4 +1,4 @@
--- EvoCode V001__init.sql（v0.1：project / analysis / file_node）
+﻿-- EvoCode V001__init.sql（v0.1：project / analysis / file_node）
 -- 约定：UTF-8；主键 bigint；时间 TIMESTAMPTZ；逻辑删除 deleted；枚举存 varchar(20)；灵活结构 jsonb
 -- 注：analysis 表在 02 §5 基线之上新增 report_source / prompt_version / regenerated_at
 --     （05 第三轮审查 C-1/C-2：报告来源与重生成时间必须落库）
@@ -22,8 +22,8 @@ CREATE TABLE project (
   updated_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
   deleted          SMALLINT NOT NULL DEFAULT 0
 );
-CREATE INDEX idx_project_deleted ON project(deleted);
-CREATE INDEX idx_project_status ON project(status);
+CREATE INDEX IF NOT EXISTS idx_project_deleted ON project(deleted);
+CREATE INDEX IF NOT EXISTS idx_project_status ON project(status);
 
 -- 分析任务（状态机）
 CREATE TABLE analysis (
@@ -45,7 +45,7 @@ CREATE TABLE analysis (
   created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
   deleted       SMALLINT NOT NULL DEFAULT 0
 );
-CREATE INDEX idx_analysis_project ON analysis(project_id, id DESC);
+CREATE INDEX IF NOT EXISTS idx_analysis_project ON analysis(project_id, id DESC);
 
 -- 文件快照（项目地图）
 CREATE TABLE file_node (
@@ -58,4 +58,4 @@ CREATE TABLE file_node (
   size_bytes  INT,
   created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-CREATE INDEX idx_file_node ON file_node(project_id, analysis_id);
+CREATE INDEX IF NOT EXISTS idx_file_node ON file_node(project_id, analysis_id);

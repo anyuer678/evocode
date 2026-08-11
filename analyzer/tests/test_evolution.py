@@ -72,6 +72,23 @@ def test_non_git_dir_available_false(tmp_path: Path):
     assert data["hotspots"] == []
 
 
+def test_subdir_in_parent_git_repo_available_false(tmp_path: Path):
+    """端到端实测：项目目录位于父 git 仓库内时，git 会向上找 .git。
+    is_git_repo 必须拒绝——演化不串到父仓库历史。"""
+    repo = tmp_path / "parent-repo"
+    repo.mkdir()
+    _git(repo, "init", "-q", "-b", "main")
+    _git(repo, "config", "user.name", "t")
+    _git(repo, "config", "user.email", "t@t.local")
+    _git(repo, "commit", "-q", "--allow-empty", "-m", "parent commit")
+    subdir = repo / "data" / "projects" / "15"
+    subdir.mkdir(parents=True)
+    (subdir / "a.txt").write_text("x", encoding="utf-8")
+    data = evolution_scan(str(subdir))
+    assert data["available"] is False
+    assert data["commits"] == []
+
+
 def test_git_commits_count_and_fields(tmp_path: Path):
     repo = make_git_repo(
         tmp_path,

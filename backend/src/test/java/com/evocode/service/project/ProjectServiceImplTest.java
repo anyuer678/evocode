@@ -7,12 +7,17 @@ import com.evocode.mapper.AnalysisMapper;
 import com.evocode.mapper.ArchViolationMapper;
 import com.evocode.mapper.ArchitectureEdgeMapper;
 import com.evocode.mapper.ArchitectureNodeMapper;
+import com.evocode.mapper.ChatMessageMapper;
+import com.evocode.mapper.ChatSessionMapper;
 import com.evocode.mapper.CommitStatMapper;
 import com.evocode.mapper.FileChangeStatMapper;
 import com.evocode.mapper.FileNodeMapper;
+import com.evocode.mapper.GeneratedDocMapper;
 import com.evocode.mapper.HotspotMapper;
+import com.evocode.mapper.KnowledgeChunkMapper;
 import com.evocode.mapper.ProjectMapper;
 import com.evocode.mapper.QualityIssueMapper;
+import com.evocode.mapper.TechDebtMapper;
 import com.evocode.entity.Project;
 import com.evocode.service.analysis.QuickScanService;
 import org.junit.jupiter.api.BeforeEach;
@@ -58,6 +63,11 @@ class ProjectServiceImplTest {
     private CommitStatMapper commitStatMapper;
     private FileChangeStatMapper fileChangeStatMapper;
     private HotspotMapper hotspotMapper;
+    private ChatSessionMapper chatSessionMapper;
+    private ChatMessageMapper chatMessageMapper;
+    private KnowledgeChunkMapper knowledgeChunkMapper;
+    private TechDebtMapper techDebtMapper;
+    private GeneratedDocMapper generatedDocMapper;
     private EvocodeProperties props;
     private ProjectServiceImpl service;
 
@@ -78,10 +88,16 @@ class ProjectServiceImplTest {
         commitStatMapper = Mockito.mock(CommitStatMapper.class);
         fileChangeStatMapper = Mockito.mock(FileChangeStatMapper.class);
         hotspotMapper = Mockito.mock(HotspotMapper.class);
+        chatSessionMapper = Mockito.mock(ChatSessionMapper.class);
+        chatMessageMapper = Mockito.mock(ChatMessageMapper.class);
+        knowledgeChunkMapper = Mockito.mock(KnowledgeChunkMapper.class);
+        techDebtMapper = Mockito.mock(TechDebtMapper.class);
+        generatedDocMapper = Mockito.mock(GeneratedDocMapper.class);
         service = new ProjectServiceImpl(projectMapper, analysisMapper, fileNodeMapper,
                 qualityIssueMapper, architectureNodeMapper, architectureEdgeMapper,
                 archViolationMapper, commitStatMapper, fileChangeStatMapper, hotspotMapper,
-                uploadService, gitCloneService, quickScanService, props);
+                chatSessionMapper, chatMessageMapper, knowledgeChunkMapper, techDebtMapper,
+                generatedDocMapper, uploadService, gitCloneService, quickScanService, props);
         doAnswer(inv -> {
             Project p = inv.getArgument(0);
             p.setId(1L);

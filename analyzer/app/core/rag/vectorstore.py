@@ -160,10 +160,11 @@ class KnowledgeStore:
                         ["file_path ILIKE %s"] * len(keywords)
                         + ["content ILIKE %s"] * len(keywords)
                     )
+                    # 占位顺序：file×N 后 content×N——params 必须同序（端到端实测：
+                    # 原先按词交替追加导致多词时英文词全落到 file 条件而不命中）
                     params: list[Any] = [project_id]
-                    for k in like:
-                        params.append(k)
-                        params.append(k)
+                    params.extend(like)  # file_path 命中任一关键词
+                    params.extend(like)  # content 命中任一关键词
                     cur.execute(
                         f"""
                         SELECT file_path, chunk_index, content, meta, 0.5 AS score

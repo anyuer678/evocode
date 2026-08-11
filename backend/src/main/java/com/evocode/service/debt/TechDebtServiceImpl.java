@@ -103,9 +103,11 @@ public class TechDebtServiceImpl implements TechDebtService {
     @Transactional
     public void rebuildForAnalysis(Long projectId, Long analysisId,
                                    Map<String, Object> reportJson) {
+        // 项目级全量重建（与 knowledge_chunk 一致）：重新分析后旧分析产生的债
+        // 全部替换，避免残留引用旧 analysis 的债（端到端实测发现）。
+        // 注：MANUAL/AI_DOCTOR 源（无 ref_analysis_id）将来引入时需保留。
         techDebtMapper.delete(new LambdaQueryWrapper<TechDebt>()
-                .eq(TechDebt::getProjectId, projectId)
-                .eq(TechDebt::getRefAnalysisId, analysisId));
+                .eq(TechDebt::getProjectId, projectId));
         List<TechDebt> debts = new java.util.ArrayList<>();
         debts.addAll(fromArchitecture(projectId, analysisId));
         debts.addAll(fromQuality(projectId, analysisId));

@@ -1,4 +1,4 @@
--- V005__tech_doc.sql
+﻿-- V005__tech_doc.sql
 -- 技术债 + 生成文档（docs/07-数据字典.md §3.11/§3.12），P6 建表（功能留 P7）
 CREATE TABLE IF NOT EXISTS tech_debt (
     id             BIGSERIAL PRIMARY KEY,
@@ -16,8 +16,8 @@ CREATE TABLE IF NOT EXISTS tech_debt (
     resolved_at    TIMESTAMPTZ
 );
 
-CREATE INDEX idx_tech_debt_project ON tech_debt (project_id);
-CREATE INDEX idx_tech_debt_status ON tech_debt (project_id, status);
+CREATE INDEX IF NOT EXISTS idx_tech_debt_project ON tech_debt (project_id);
+CREATE INDEX IF NOT EXISTS idx_tech_debt_status ON tech_debt (project_id, status);
 
 CREATE TABLE IF NOT EXISTS generated_doc (
     id          BIGSERIAL PRIMARY KEY,
@@ -30,4 +30,4 @@ CREATE TABLE IF NOT EXISTS generated_doc (
     created_at  TIMESTAMPTZ  NOT NULL DEFAULT now()
 );
 
-CREATE INDEX idx_generated_doc_project ON generated_doc (project_id);
+CREATE INDEX IF NOT EXISTS idx_generated_doc_project ON generated_doc (project_id);

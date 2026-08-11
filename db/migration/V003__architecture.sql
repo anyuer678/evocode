@@ -1,4 +1,4 @@
--- V003__architecture.sql
+﻿-- V003__architecture.sql
 -- 架构分析结果（docs/07-数据字典.md §3.6/3.7/3.8），P4
 
 CREATE TABLE IF NOT EXISTS architecture_node (
@@ -14,8 +14,8 @@ CREATE TABLE IF NOT EXISTS architecture_node (
     CONSTRAINT uq_arch_node UNIQUE (analysis_id, node_key)
 );
 
-CREATE INDEX idx_arch_node_project ON architecture_node (project_id);
-CREATE INDEX idx_arch_node_analysis ON architecture_node (analysis_id);
+CREATE INDEX IF NOT EXISTS idx_arch_node_project ON architecture_node (project_id);
+CREATE INDEX IF NOT EXISTS idx_arch_node_analysis ON architecture_node (analysis_id);
 
 CREATE TABLE IF NOT EXISTS architecture_edge (
     id             BIGSERIAL PRIMARY KEY,
@@ -28,8 +28,8 @@ CREATE TABLE IF NOT EXISTS architecture_edge (
     CONSTRAINT uq_arch_edge UNIQUE (analysis_id, source_node_id, target_node_id, relation)
 );
 
-CREATE INDEX idx_arch_edge_project ON architecture_edge (project_id);
-CREATE INDEX idx_arch_edge_analysis ON architecture_edge (analysis_id);
+CREATE INDEX IF NOT EXISTS idx_arch_edge_project ON architecture_edge (project_id);
+CREATE INDEX IF NOT EXISTS idx_arch_edge_analysis ON architecture_edge (analysis_id);
 
 CREATE TABLE IF NOT EXISTS arch_violation (
     id              BIGSERIAL PRIMARY KEY,
@@ -45,5 +45,5 @@ CREATE TABLE IF NOT EXISTS arch_violation (
     created_at      TIMESTAMPTZ  NOT NULL DEFAULT now()
 );
 
-CREATE INDEX idx_arch_violation_project ON arch_violation (project_id);
-CREATE INDEX idx_arch_violation_analysis ON arch_violation (analysis_id);
+CREATE INDEX IF NOT EXISTS idx_arch_violation_project ON arch_violation (project_id);
+CREATE INDEX IF NOT EXISTS idx_arch_violation_analysis ON arch_violation (analysis_id);

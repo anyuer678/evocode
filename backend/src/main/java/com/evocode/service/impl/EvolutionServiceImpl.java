@@ -50,7 +50,16 @@ public class EvolutionServiceImpl implements EvolutionService {
     @Transactional
     public void replaceForAnalysis(Long projectId, Long analysisId, EvolutionResp result) {
         if (result == null || !result.available() || result.commits() == null || result.commits().isEmpty()) {
-            log.info("演化结果不可用，跳过落库 projectId={} analysisId={}", projectId, analysisId);
+            // 非 git 仓库（available=false）：清空该项目全部演化数据，避免旧分析残留
+            // 误导（zip 项目显示父仓库历史的端到端实测）。分析异常不走到这里，保留旧数据。
+            log.info("演化不可用，清空项目演化数据 projectId={} analysisId={}",
+                    projectId, analysisId);
+            commitStatMapper.delete(new LambdaQueryWrapper<CommitStat>()
+                    .eq(CommitStat::getProjectId, projectId));
+            fileChangeStatMapper.delete(new LambdaQueryWrapper<FileChangeStat>()
+                    .eq(FileChangeStat::getProjectId, projectId));
+            hotspotMapper.delete(new LambdaQueryWrapper<Hotspot>()
+                    .eq(Hotspot::getProjectId, projectId));
             return;
         }
         // 先删后插（同一分析重跑幂等）

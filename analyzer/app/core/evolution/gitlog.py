@@ -31,7 +31,12 @@ _NUMSTAT_RE = re.compile(r"^(\d+|-)\t(\d+|-)\t(.+)$")
 
 
 def is_git_repo(git_dir: str) -> bool:
-    """目录存在且 `git rev-parse --git-dir` 成功才算 git 仓库。"""
+    """目录存在且 `git rev-parse --git-dir` 指向**目录内**才算 git 仓库。
+
+    端到端实测：项目目录位于父 git 仓库内时（如 data/projects/15 在 evocode
+    仓库内），`rev-parse` 会向上找到父 .git → 演化统计串到整个仓库历史。
+    故校验 git-dir 输出必须以 git_dir 自身为根。
+    """
     if not Path(git_dir).is_dir():
         return False
     try:
@@ -39,11 +44,17 @@ def is_git_repo(git_dir: str) -> bool:
             ["git", "-C", git_dir, "rev-parse", "--git-dir"],
             capture_output=True,
             text=True,
+            encoding="utf-8",
+            errors="replace",
             timeout=15,
             **_SUBPROCESS_KW,
         )
-        return r.returncode == 0
-    except (OSError, subprocess.SubprocessError):
+        if r.returncode != 0 or not r.stdout:
+            return False
+        git_dir_out = r.stdout.strip().replace("\\", "/")
+        base = str(Path(git_dir).resolve()).replace("\\", "/").rstrip("/")
+        return git_dir_out == ".git" or git_dir_out.startswith(base + "/")
+    except (OSError, subprocess.SubprocessError, ValueError):
         return False
 
 
@@ -62,7 +73,7 @@ def _run_git(git_dir: str, args: list[str]) -> str | None:
             logger.warning("git %s failed: %s", args[0], r.stderr[:300])
             return None
         return r.stdout
-    except (OSError, subprocess.SubprocessError) as e:
+    except (OSError, subprocess.SubprocessError, ValueError) as e:
         logger.warning("git run failed: %s", e)
         return None
 

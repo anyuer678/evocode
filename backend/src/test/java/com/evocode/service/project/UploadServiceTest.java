@@ -103,6 +103,34 @@ class UploadServiceTest {
         assertEquals(tempDir.normalize(), root.normalize());
     }
 
+    @Test
+    void backslashDirectoryEntriesSkipped() throws Exception {
+        // Windows Compress-Archive 的目录条目以 '\' 结尾，ZipInputStream.isDirectory() 不认
+        byte[] bytes = nestedBackslashZip();
+        Path root = service.extractZip(tempDir, zipFile("win.zip", bytes));
+        assertTrue(Files.exists(root.resolve("src/main/java/com/demo/App.java")));
+        assertTrue(Files.exists(root.resolve("service.py")));
+    }
+
+    /** 模拟 Compress-Archive：目录条目 '\\' 结尾 + 嵌套文件（正斜杠）。 */
+    private static byte[] nestedBackslashZip() throws IOException {
+        var bos = new java.io.ByteArrayOutputStream();
+        try (ZipOutputStream zos = new ZipOutputStream(bos)) {
+            for (String dir : new String[]{"src\\", "src\\main\\", "src\\main\\java\\",
+                    "src\\main\\java\\com\\", "src\\main\\java\\com\\demo\\"}) {
+                zos.putNextEntry(new ZipEntry(dir));
+                zos.closeEntry();
+            }
+            zos.putNextEntry(new ZipEntry("src/main/java/com/demo/App.java"));
+            zos.write("public class App {}".getBytes());
+            zos.closeEntry();
+            zos.putNextEntry(new ZipEntry("service.py"));
+            zos.write("class S: pass".getBytes());
+            zos.closeEntry();
+        }
+        return bos.toByteArray();
+    }
+
     private boolean isDirEmpty(Path dir) throws IOException {
         try (var stream = Files.list(dir)) {
             return stream.findAny().isEmpty();

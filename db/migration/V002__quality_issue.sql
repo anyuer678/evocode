@@ -1,4 +1,4 @@
--- V002: 质量 issue 落库（docs/07-数据字典.md §3.5）
+﻿-- V002: 质量 issue 落库（docs/07-数据字典.md §3.5）
 -- ai_explanation/ai_suggestion 由 P3d（/analyze/v1/explain）异步回填
 CREATE TABLE quality_issue (
     id            BIGSERIAL PRIMARY KEY,
@@ -18,4 +18,4 @@ CREATE TABLE quality_issue (
     created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE INDEX idx_quality_issue_analysis ON quality_issue (project_id, analysis_id);
+CREATE INDEX IF NOT EXISTS idx_quality_issue_analysis ON quality_issue (project_id, analysis_id);
