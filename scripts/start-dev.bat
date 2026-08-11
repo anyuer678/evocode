@@ -42,7 +42,7 @@ echo       postgres ready
 rem ---------- 2. migration (idempotent) ----------
 echo.
 echo [2/5] db migration (idempotent) ...
-powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\init-db.ps1"
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0init-db.ps1"
 if errorlevel 1 goto :fail_migrate
 
 rem ---------- 3. analyzer ----------
