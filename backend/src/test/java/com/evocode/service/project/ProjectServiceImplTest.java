@@ -161,6 +161,12 @@ class ProjectServiceImplTest {
         service.delete(7L);
 
         verify(projectMapper).deleteById(7L);
+        // 审查修订：P6/P7 新表级联（chat_message 先于 chat_session；knowledge_chunk 物理删）
+        verify(chatMessageMapper).delete(any());
+        verify(chatSessionMapper).delete(any());
+        verify(knowledgeChunkMapper).deleteByProjectId(7L);
+        verify(techDebtMapper).delete(any());
+        verify(generatedDocMapper).delete(any());
         assertFalse(Files.exists(dir), "删除后磁盘目录应移除");
     }
 

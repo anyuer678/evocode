@@ -1,4 +1,4 @@
-﻿-- V003__architecture.sql
+-- V003__architecture.sql
 -- 架构分析结果（docs/07-数据字典.md §3.6/3.7/3.8），P4
 
 CREATE TABLE IF NOT EXISTS architecture_node (

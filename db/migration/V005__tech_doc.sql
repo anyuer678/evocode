@@ -1,4 +1,4 @@
-﻿-- V005__tech_doc.sql
+-- V005__tech_doc.sql
 -- 技术债 + 生成文档（docs/07-数据字典.md §3.11/§3.12），P6 建表（功能留 P7）
 CREATE TABLE IF NOT EXISTS tech_debt (
     id             BIGSERIAL PRIMARY KEY,

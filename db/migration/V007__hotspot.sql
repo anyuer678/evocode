@@ -1,4 +1,4 @@
-﻿-- V007__hotspot.sql
+-- V007__hotspot.sql
 -- 演化热点（docs/07-数据字典.md §3.16），P5
 -- evidence 结构见 07 §5.6：["变更 45 次", ...]；ai_conclusion 由 v1.0 AI 医生可选填充
 

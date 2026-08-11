@@ -1,4 +1,4 @@
-﻿-- EvoCode V001__init.sql（v0.1：project / analysis / file_node）
+-- EvoCode V001__init.sql（v0.1：project / analysis / file_node）
 -- 约定：UTF-8；主键 bigint；时间 TIMESTAMPTZ；逻辑删除 deleted；枚举存 varchar(20)；灵活结构 jsonb
 -- 注：analysis 表在 02 §5 基线之上新增 report_source / prompt_version / regenerated_at
 --     （05 第三轮审查 C-1/C-2：报告来源与重生成时间必须落库）

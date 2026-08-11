@@ -49,9 +49,14 @@ public class EvolutionServiceImpl implements EvolutionService {
     @Override
     @Transactional
     public void replaceForAnalysis(Long projectId, Long analysisId, EvolutionResp result) {
-        if (result == null || !result.available() || result.commits() == null || result.commits().isEmpty()) {
+        if (result == null) {
+            // analyzer 故障/不可达（null）→ 保留旧数据（审查：分析异常不清空）
+            log.info("演化结果为空，跳过 projectId={} analysisId={}", projectId, analysisId);
+            return;
+        }
+        if (!result.available() || result.commits() == null || result.commits().isEmpty()) {
             // 非 git 仓库（available=false）：清空该项目全部演化数据，避免旧分析残留
-            // 误导（zip 项目显示父仓库历史的端到端实测）。分析异常不走到这里，保留旧数据。
+            // 误导（zip 项目显示父仓库历史的端到端实测）。仅确定性'非 git'才清空。
             log.info("演化不可用，清空项目演化数据 projectId={} analysisId={}",
                     projectId, analysisId);
             commitStatMapper.delete(new LambdaQueryWrapper<CommitStat>()

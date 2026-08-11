@@ -50,6 +50,7 @@ Get-ChildItem $migDir -Filter 'V*.sql' | Sort-Object Name | ForEach-Object {
     docker exec -i $container psql -U $user -d $db -v ON_ERROR_STOP=1 -f "/tmp/${ver}.sql"
     if ($LASTEXITCODE -ne 0) { throw "迁移失败：$ver" }
     docker exec -i $container psql -U $user -d $db -q -c "INSERT INTO schema_version(version) VALUES ('$ver')" | Out-Null
+    if ($LASTEXITCODE -ne 0) { throw "记录迁移版本失败：$ver" }
     Write-Host "完成：$ver" -ForegroundColor Green
 }
 

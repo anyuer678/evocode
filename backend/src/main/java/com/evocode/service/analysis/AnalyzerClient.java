@@ -178,7 +178,11 @@ public class AnalyzerClient {
             if (resp.statusCode() != 200) {
                 String errBody = "";
                 try (InputStream is = resp.body()) {
-                    errBody = new String(is.readAllBytes(), StandardCharsets.UTF_8);
+                    byte[] raw = is.readAllBytes();
+                    errBody = new String(raw, StandardCharsets.UTF_8);
+                    if (errBody.length() > 300) {
+                        errBody = errBody.substring(0, 300) + "...(截断)"; // 防刷屏（审查 nit）
+                    }
                 } catch (Exception ignored) {
                     // body 读取失败不影响主错误
                 }

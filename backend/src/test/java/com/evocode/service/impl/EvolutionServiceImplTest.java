@@ -52,12 +52,24 @@ class EvolutionServiceImplTest {
     }
 
     @Test
-    void replaceSkipsWhenUnavailable() {
+    void replaceUnavailableClearsProjectData() {
+        // 审查修订：available=false（确定性非 git）→ 清空该项目全部演化数据
         service.replaceForAnalysis(1L, 10L,
                 new EvolutionResp(false, List.of(), List.of(), List.of(), List.of(), List.of()));
+        verify(commitStatMapper).delete(any());
+        verify(fileChangeStatMapper).delete(any());
+        verify(hotspotMapper).delete(any());
         verify(commitStatMapper, never()).insert(any(CommitStat.class));
-        verify(fileChangeStatMapper, never()).insert(any(FileChangeStat.class));
-        verify(hotspotMapper, never()).insert(any(Hotspot.class));
+    }
+
+    @Test
+    void replaceNullKeepsExistingData() {
+        // 审查修订：analyzer 故障/不可达（null）→ 保留旧数据，不清空
+        service.replaceForAnalysis(1L, 10L, null);
+        verify(commitStatMapper, never()).delete(any());
+        verify(fileChangeStatMapper, never()).delete(any());
+        verify(hotspotMapper, never()).delete(any());
+        verify(commitStatMapper, never()).insert(any(CommitStat.class));
     }
 
     @Test

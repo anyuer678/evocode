@@ -1,4 +1,4 @@
-﻿-- V006__chat_rag.sql
+-- V006__chat_rag.sql
 -- 会话 + RAG 知识块（docs/07-数据字典.md §3.13/§3.14/§3.15），P6
 -- pgvector 扩展：镜像内置 vector 类型，但需显式启用
 CREATE EXTENSION IF NOT EXISTS vector;

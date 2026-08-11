@@ -1,4 +1,4 @@
-﻿-- V004__evolution.sql
+-- V004__evolution.sql
 -- 演化统计结果（docs/07-数据字典.md §3.9/3.10），P5
 -- 注：07 字典未列 analysis_id，本实现按分析维度落库（与 arch_* 一致），同 analysis 重跑先删后插
 
