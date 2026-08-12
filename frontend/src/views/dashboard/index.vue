@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <section class="dash">
     <h2 class="dash__title">全局总览</h2>
 
