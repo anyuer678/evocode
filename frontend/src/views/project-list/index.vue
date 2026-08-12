@@ -39,10 +39,10 @@ const STATUS_META: Record<ProjectStatus, { label: string; cls: string }> = {
 
 const SORT_OPTIONS = [
   { value: 'lastAnalyzedAt', label: '最近分析' },
+  { value: 'healthScore', label: '健康分' },
   { value: 'locTotal', label: '代码量' },
   { value: 'createdAt', label: '创建时间' },
 ]
-// 注：healthScore 排序需后端白名单补充（P9e 加入，见 p9-design.md §E2）
 
 /** 固定语言色板（P9a）：浅色主色，深色用弱化变体 */
 const LANG_COLORS: Record<string, string> = {

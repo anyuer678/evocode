@@ -454,7 +454,20 @@
 
 // DELETE /api/v1/chats/{id}   → 级联删除该会话全部消息
 // 200：{ "code": 0, "data": null }
-// 404：{ "code": 2006, "message": "会话不存在" }
+
+### 3.17 分析进度 SSE（P9e）
+
+#### GET /api/v1/projects/{id}/analyses/events
+
+```jsonc
+// 200 text/event-stream（复用 §4 SSE 帧格式；event 名 = analysis-progress）
+// data 载荷（AnalysisProgressPublisher.ProgressEvent）：
+//   { "analysisId": 26, "status": "RUNNING", "stage": "SCAN", "progress": 30,
+//     "message": "扫描中…" }
+// 触发点：AnalysisRunner 状态机变更——RUNNING(SCAN,5) / RUNNING(SCAN_DONE,70) /
+//         RUNNING(REPORT,75) / SUCCEEDED(DONE,100) / FAILED
+// 断线：不重放历史（前端回退 GET /analyses/{id} 2s 轮询）；无订阅者时 no-op
+// 用途：详情页 EventSource 实时进度条 + 完成/失败 Toast
 ```
 
 ---
@@ -659,7 +672,7 @@ data: {"messageId": 9527}
 
 - 分页响应统一：`data = { total, page, size, items }`（列表类）
 - `sort` 白名单（后端校验，不在白名单返回 1002，防注入）：
-  - projects: `createdAt / lastAnalyzedAt / locTotal / name`
+  - projects: `createdAt / lastAnalyzedAt / locTotal / name / healthScore`（P9e 起含 healthScore，复用列表子查询 health_score 列）
   - files: `path / loc / sizeBytes`
   - quality-issues: `severity / line / filePath`
 - 排序默认值：时间类 `desc`，其余 `asc`

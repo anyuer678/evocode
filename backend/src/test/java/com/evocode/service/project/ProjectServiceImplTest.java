@@ -230,4 +230,22 @@ class ProjectServiceImplTest {
         assertThrows(BusinessException.class,
                 () -> service.update(99L, new ProjectUpdateReq("new", null)));
     }
+
+    // ---- P9e：排序白名单 ----
+
+    @Test
+    void list_healthScoreSortMapsNullsLast() {
+        // healthScore → health_score NULLS LAST（PG 默认 NULLS FIRST，无报告项目需垫底）
+        service.list(1, 10, null, null, null, "healthScore", "desc");
+        verify(projectMapper).selectSummaryPage(any(), any(), any(), any(),
+                org.mockito.ArgumentMatchers.eq("health_score NULLS LAST"),
+                org.mockito.ArgumentMatchers.eq("desc"));
+    }
+
+    @Test
+    void list_unknownSortThrows1002() {
+        BusinessException e = assertThrows(BusinessException.class,
+                () -> service.list(1, 10, null, null, null, "evil; DROP", "desc"));
+        assertEquals(1002, e.getCode());
+    }
 }

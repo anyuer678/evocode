@@ -111,6 +111,23 @@ class QualityResult(BaseModel):
     issues: list[QualityIssue] = []
 
 
+# ---- P9e TD-01：issue 解释（06 §5.4） ----
+
+
+class ExplainRequest(BaseModel):
+    """质量 issue 解释请求（06 §5.4）。"""
+
+    issue: QualityIssue
+    fileSnippet: str | None = None
+
+
+class ExplainResponse(BaseModel):
+    explanation: str
+    suggestion: str
+    codeExample: str = ""
+    source: str = "RULES"  # RULES（规则版）/ LLM（增强）
+
+
 class ArchRequest(BaseModel):
     """架构分析请求（06 §5.5）。"""
 

@@ -7,6 +7,7 @@ import com.evocode.dto.analysis.AnalysisStatusResp;
 import com.evocode.dto.analysis.ReportDetailResp;
 import com.evocode.enums.AnalysisStatus;
 import com.evocode.enums.Stage;
+import com.evocode.service.analysis.AnalysisProgressPublisher;
 import com.evocode.service.analysis.AnalysisService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -29,11 +30,12 @@ import static org.mockito.Mockito.when;
 class AnalysisControllerTest {
 
     private final AnalysisService service = Mockito.mock(AnalysisService.class);
+    private final AnalysisProgressPublisher publisher = Mockito.mock(AnalysisProgressPublisher.class);
     private AnalysisController controller;
 
     @BeforeEach
     void setUp() {
-        controller = new AnalysisController(service);
+        controller = new AnalysisController(service, publisher);
     }
 
     @Test
@@ -121,5 +123,15 @@ class AnalysisControllerTest {
                 com.evocode.common.ErrorCode.PARAM_INVALID, "v0.1 仅支持 FULL 分析"));
         BusinessException e = assertThrows(BusinessException.class, () -> controller.create(1L, null));
         assertEquals(1002, e.getCode());
+    }
+
+    @Test
+    void progressEventsDelegatesToPublisher() {
+        // P9e：SSE 端点返回 publisher 订阅的 emitter
+        var emitter = new org.springframework.web.servlet.mvc.method.annotation.SseEmitter();
+        when(publisher.subscribe(1L)).thenReturn(emitter);
+        var result = controller.progressEvents(1L,
+                new org.springframework.mock.web.MockHttpServletResponse());
+        assertEquals(emitter, result);
     }
 }

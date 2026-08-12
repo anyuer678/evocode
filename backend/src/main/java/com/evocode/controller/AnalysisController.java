@@ -11,8 +11,10 @@ import com.evocode.dto.analysis.AnalysisStatusResp;
 import com.evocode.dto.analysis.ReportDetailResp;
 import com.evocode.dto.analysis.ReportHistoryListResp;
 import com.evocode.dto.analysis.ReportHistoryResp;
+import com.evocode.service.analysis.AnalysisProgressPublisher;
 import com.evocode.service.analysis.AnalysisService;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -21,6 +23,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 /**
  * 分析任务（docs/06-API契约.md §3.5/3.6）。
@@ -30,9 +33,12 @@ import org.springframework.web.bind.annotation.RestController;
 public class AnalysisController {
 
     private final AnalysisService analysisService;
+    private final AnalysisProgressPublisher progressPublisher;
 
-    public AnalysisController(AnalysisService analysisService) {
+    public AnalysisController(AnalysisService analysisService,
+                              AnalysisProgressPublisher progressPublisher) {
         this.analysisService = analysisService;
+        this.progressPublisher = progressPublisher;
     }
 
     /** 发起分析：202 接受（异步执行，前端轮询 GET /analyses/{id}）。 */
@@ -42,6 +48,15 @@ public class AnalysisController {
         String type = req == null ? null : req.type();
         return ResponseEntity.status(HttpStatus.ACCEPTED)
                 .body(Result.ok(analysisService.create(id, type)));
+    }
+
+    /** 分析进度 SSE（P9e E1）：EventSource 订阅项目分析进度，状态机变更点推送。 */
+    @GetMapping(value = "/projects/{id}/analyses/events",
+            produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public SseEmitter progressEvents(@PathVariable Long id,
+                                     jakarta.servlet.http.HttpServletResponse response) {
+        response.setHeader("X-Accel-Buffering", "no"); // 契约 §4.3：禁用中间层缓冲
+        return progressPublisher.subscribe(id);
     }
 
     /** 分析历史（分页）。 */

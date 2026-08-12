@@ -51,12 +51,13 @@ public class AnalysisRunner {
     private final EvolutionService evolutionService;
     private final DependencyService dependencyService;
     private final TechDebtService techDebtService;
+    private final AnalysisProgressPublisher progressPublisher;
 
     public AnalysisRunner(AnalysisMapper analysisMapper, ProjectMapper projectMapper,
                           AnalyzerClient analyzerClient, FileNodeService fileNodeService,
                           QualityIssueMapper qualityIssueMapper, ArchitectureService architectureService,
                           EvolutionService evolutionService, DependencyService dependencyService,
-                          TechDebtService techDebtService) {
+                          TechDebtService techDebtService, AnalysisProgressPublisher progressPublisher) {
         this.analysisMapper = analysisMapper;
         this.projectMapper = projectMapper;
         this.analyzerClient = analyzerClient;
@@ -66,6 +67,7 @@ public class AnalysisRunner {
         this.evolutionService = evolutionService;
         this.dependencyService = dependencyService;
         this.techDebtService = techDebtService;
+        this.progressPublisher = progressPublisher;
     }
 
     @Async("quickScanExecutor")
@@ -86,6 +88,7 @@ public class AnalysisRunner {
         analysis.setProgress(5);
         analysis.setStartedAt(OffsetDateTime.now());
         analysisMapper.updateById(analysis);
+        publishProgress(project, analysis, "RUNNING", Stage.SCAN.name(), 5, "开始扫描…");
 
         project.setStatus(ProjectStatus.ANALYZING.name());
         projectMapper.updateById(project);
@@ -107,6 +110,7 @@ public class AnalysisRunner {
             analysis.setStage(Stage.SCAN_DONE.name());
             analysis.setProgress(70);
             analysisMapper.updateById(analysis);
+            publishProgress(project, analysis, "RUNNING", Stage.SCAN_DONE.name(), 70, "扫描完成，开始深度分析…");
 
             Map<String, Object> qualityMetrics = runQuality(project, codeDir);
             runArchitecture(project, analysis, codeDir);
@@ -162,6 +166,7 @@ public class AnalysisRunner {
         analysis.setStage(Stage.REPORT.name());
         analysis.setProgress(75);
         analysisMapper.updateById(analysis);
+        publishProgress(project, analysis, "RUNNING", Stage.REPORT.name(), 75, "生成健康报告…");
 
         AnalyzerClient.ReportResp report = analyzerClient.report(
                 project.getId(), scan, qualityMetrics, historySummaries(project.getId(), analysis.getId()));
@@ -181,6 +186,7 @@ public class AnalysisRunner {
         analysis.setProgress(100);
         analysis.setFinishedAt(OffsetDateTime.now());
         analysisMapper.updateById(analysis);
+        publishProgress(project, analysis, "SUCCEEDED", Stage.DONE.name(), 100, "分析完成");
         log.info("分析完成 analysisId={} projectId={} source={}",
                 analysis.getId(), project.getId(), report.source());
     }
@@ -311,6 +317,18 @@ public class AnalysisRunner {
         analysis.setErrorMessage(message);
         analysis.setFinishedAt(OffsetDateTime.now());
         analysisMapper.updateById(analysis);
+        Project project = projectMapper.selectById(analysis.getProjectId());
+        if (project != null) {
+            publishProgress(project, analysis, "FAILED", analysis.getStage(),
+                    analysis.getProgress() == null ? 0 : analysis.getProgress(),
+                    "分析失败：" + (message == null ? "未知错误" : message));
+        }
+    }
+
+    /** 进度广播（有订阅者才推送）。 */
+    private void publishProgress(Project project, Analysis analysis, String status, String stage,
+                                 int progress, String message) {
+        progressPublisher.publish(project.getId(), analysis.getId(), status, stage, progress, message);
     }
 
     /** 扫描成功后回填项目档案（与 QuickScanService 语义一致）。 */

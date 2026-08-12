@@ -173,6 +173,9 @@ public class ProjectServiceImpl implements ProjectService {
             case "lastAnalyzedAt" -> "p.last_analyzed_at";
             case "locTotal" -> "p.loc_total";
             case "name" -> "p.name";
+            // P9e：healthScore 排序（复用列表子查询 health_score 列，数值已防御）。
+            // PG 默认 NULLS FIRST（降序时无报告项目排最前）→ 显式 NULLS LAST 垫底
+            case "healthScore" -> "health_score NULLS LAST";
             default -> throw new BusinessException(ErrorCode.PARAM_INVALID, "sort 不在白名单");
         };
         String orderDir = "desc".equalsIgnoreCase(order) ? "desc" : "asc";

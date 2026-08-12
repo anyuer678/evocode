@@ -13,7 +13,7 @@ export interface ProjectListParams {
   keyword?: string
   language?: string
   status?: string
-  sort?: 'createdAt' | 'lastAnalyzedAt' | 'locTotal' | 'name'
+  sort?: 'createdAt' | 'lastAnalyzedAt' | 'locTotal' | 'name' | 'healthScore'
   order?: 'asc' | 'desc'
 }
 

@@ -14,6 +14,7 @@ import com.evocode.mapper.ProjectMapper;
 import com.evocode.mapper.QualityIssueMapper;
 import com.evocode.service.ArchitectureService;
 import com.evocode.service.EvolutionService;
+import com.evocode.service.analysis.AnalysisProgressPublisher;
 import com.evocode.service.debt.TechDebtService;
 import com.evocode.service.dependency.DependencyService;
 import com.evocode.service.scan.FileNodeService;
@@ -54,11 +55,13 @@ class AnalysisRunnerTest {
     private final EvolutionService evolutionService = mock(EvolutionService.class);
     private final DependencyService dependencyService = mock(DependencyService.class);
     private final TechDebtService techDebtService = mock(TechDebtService.class);
+    private final AnalysisProgressPublisher progressPublisher = mock(AnalysisProgressPublisher.class);
 
     private AnalysisRunner newRunner() {
         return new AnalysisRunner(
                 analysisMapper, projectMapper, analyzerClient, fileNodeService, qualityIssueMapper,
-                architectureService, evolutionService, dependencyService, techDebtService);
+                architectureService, evolutionService, dependencyService, techDebtService,
+                progressPublisher);
     }
 
     private Analysis newAnalysis() {

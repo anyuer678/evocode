@@ -57,3 +57,37 @@ export async function getReportHistory(
   )
   return data.items
 }
+
+// ---------------- P9e：分析进度 SSE ----------------
+
+export interface AnalysisProgressEvent {
+  analysisId: number
+  status: 'PENDING' | 'RUNNING' | 'SUCCEEDED' | 'FAILED' | 'CANCELLED'
+  stage: string | null
+  progress: number
+  message: string | null
+}
+
+/**
+ * 订阅项目分析进度（P9e E1）：GET /projects/{id}/analyses/events（text/event-stream）。
+ * 断线 → onError 回调（前端回退现有 2s 轮询）；返回关闭函数。
+ * 注：进度 SSE 无需自定义 header（与 chat 不同），可用原生 EventSource。
+ */
+export function subscribeAnalysisProgress(
+  projectId: number,
+  handlers: { onEvent: (e: AnalysisProgressEvent) => void; onError?: () => void },
+): () => void {
+  const source = new EventSource(`/api/v1/projects/${projectId}/analyses/events`)
+  source.addEventListener('analysis-progress', (ev) => {
+    try {
+      handlers.onEvent(JSON.parse((ev as MessageEvent).data) as AnalysisProgressEvent)
+    } catch {
+      // 解析失败忽略（下一条事件仍会到达）
+    }
+  })
+  source.onerror = () => {
+    source.close()
+    handlers.onError?.()
+  }
+  return () => source.close()
+}

@@ -16,6 +16,8 @@ import {
   getReport,
   listAnalyses,
   regenerateReport,
+  subscribeAnalysisProgress,
+  type AnalysisProgressEvent,
 } from '../../api/analysis'
 import { getQualityIssues } from '../../api/quality'
 import type {
@@ -111,6 +113,49 @@ const langBars = computed(() => {
 
 let timer: number | undefined
 
+// ---- P9e：实时进度 SSE ----
+let closeProgress: (() => void) | null = null
+const liveProgress = ref<AnalysisProgressEvent | null>(null)
+const toast = ref('')
+let toastTimer: number | undefined
+
+function showToast(msg: string): void {
+  toast.value = msg
+  if (toastTimer) window.clearTimeout(toastTimer)
+  toastTimer = window.setTimeout(() => {
+    toast.value = ''
+  }, 4000)
+}
+
+/** 订阅项目分析进度；SUCCEEDED/FAILED → Toast + 刷新数据并关闭连接。 */
+function connectProgress(): void {
+  closeProgress?.()
+  closeProgress = subscribeAnalysisProgress(projectId, {
+    onEvent: (e) => {
+      liveProgress.value = e
+      if (e.status === 'SUCCEEDED' || e.status === 'FAILED' || e.status === 'CANCELLED') {
+        // 终态：关 SSE、清轮询、Toast + 刷新（避免 ≤2s 后轮询重复刷新）
+        if (timer) {
+          window.clearInterval(timer)
+          timer = undefined
+        }
+        closeProgress?.()
+        closeProgress = null
+        liveProgress.value = null
+        showToast(e.message ?? (e.status === 'SUCCEEDED' ? '分析完成' : '分析失败'))
+        void loadDetail()
+        void loadHistory()
+        void loadQuality()
+      }
+    },
+    onError: () => {
+      // 断线：关闭 SSE，回退现有 2s 轮询（pollAnalysis 已有），并清除实时进度提示
+      closeProgress = null
+      liveProgress.value = null
+    },
+  })
+}
+
 async function loadDetail() {
   try {
     detail.value = await getProjectDetail(projectId)
@@ -187,6 +232,7 @@ async function startAnalysis() {
   try {
     const created = await createAnalysis(projectId)
     await loadDetail()
+    connectProgress()
     pollAnalysis(created.id)
   } catch (e) {
     loadError.value = e instanceof Error ? e.message : String(e)
@@ -351,6 +397,10 @@ onMounted(async () => {
     loadFiles()
     await loadHistory()
     await loadQuality()
+  } else if (st === 'ANALYZING') {
+    // P9e：仅 FULL/REGENERATE 分析中订阅 SSE（CREATED 快扫无事件流，避免空挂）
+    connectProgress()
+    pollIfRunning()
   } else {
     pollIfRunning()
   }
@@ -358,6 +408,9 @@ onMounted(async () => {
 
 onBeforeUnmount(() => {
   if (timer) window.clearInterval(timer)
+  closeProgress?.()
+  closeProgress = null
+  if (toastTimer) window.clearTimeout(toastTimer)
 })
 </script>
 
@@ -466,6 +519,23 @@ onBeforeUnmount(() => {
       </button>
       <span class="hint">完整分析 = 重新扫描 + AI 健康报告（约 1-3 分钟）</span>
     </div>
+
+    <!-- P9e：实时进度（SSE 驱动；断线回退轮询后此块消失） -->
+    <div v-if="liveProgress" class="live-progress">
+      <div class="live-row">
+        <span class="live-label">分析中 · {{ liveProgress.stage ?? '' }}</span>
+        <span class="live-pct">{{ liveProgress.progress }}%</span>
+      </div>
+      <div class="progress-track">
+        <div class="progress-bar" :style="{ width: liveProgress.progress + '%' }"></div>
+      </div>
+      <p v-if="liveProgress.message" class="hint">{{ liveProgress.message }}</p>
+    </div>
+
+    <!-- P9e：Toast（完成/失败提示） -->
+    <Transition name="toast">
+      <div v-if="toast" class="toast">{{ toast }}</div>
+    </Transition>
 
     <!-- P9c：历史趋势折叠区（默认收起） -->
     <ReportHistoryView :project-id="projectId" />
@@ -920,6 +990,66 @@ onBeforeUnmount(() => {
 .hint {
   font-size: 12px;
   color: var(--text-secondary);
+}
+
+/* ---- P9e：实时进度 + Toast ---- */
+.live-progress {
+  margin-top: 14px;
+  padding: 10px 14px;
+  border: 1px solid var(--border-color, #e2e8f0);
+  border-radius: var(--radius-sm, 6px);
+  background: var(--bg-sub, #f8fafc);
+}
+.live-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 13px;
+}
+.live-label {
+  color: var(--text-primary, #1e293b);
+}
+.live-pct {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--accent, #5b8def);
+}
+.progress-track {
+  height: 6px;
+  margin-top: 8px;
+  border-radius: 3px;
+  background: var(--bg-muted, #eef2f7);
+  overflow: hidden;
+}
+.progress-bar {
+  height: 100%;
+  border-radius: 3px;
+  background: var(--accent, #5b8def);
+  transition: width 0.3s ease;
+}
+.toast {
+  position: fixed;
+  top: 18px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1000;
+  padding: 10px 18px;
+  border-radius: var(--radius-sm, 6px);
+  background: #1e293b;
+  color: #fff;
+  font-size: 13px;
+  box-shadow: 0 4px 14px rgb(0 0 0 / 0.18);
+}
+.toast-enter-active,
+.toast-leave-active {
+  transition:
+    opacity 0.25s,
+    transform 0.25s;
+}
+.toast-enter-from,
+.toast-leave-to {
+  opacity: 0;
+  transform: translateX(-50%) translateY(-8px);
 }
 /* ---- 体检报告 ---- */
 .report {

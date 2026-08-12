@@ -12,6 +12,7 @@ from .core.arch.archscan import architecture_scan
 from .core.dependency.depscan import scan_dependencies
 from .core.docgen import generate_doc
 from .core.evolution import evolution_scan
+from .core.explain import explain
 from .core.filescanner import scan_project
 from .core.llm import OpenAICompatClient
 from .core.prompts import REPORT_PROMPT_VERSION
@@ -33,6 +34,8 @@ from .schemas import (
     DocResponse,
     EvolutionRequest,
     EvolutionResult,
+    ExplainRequest,
+    ExplainResponse,
     QualityIssue,
     QualityMetrics,
     QualityRequest,
@@ -197,6 +200,23 @@ def quality(req: QualityRequest) -> QualityResult:
         metrics=QualityMetrics(**result["metrics"]),
         issues=[QualityIssue(**i) for i in result["issues"]],
     )
+
+
+@app.post("/analyze/v1/explain")
+def explain_issue(req: ExplainRequest) -> ExplainResponse:
+    """质量 issue 解释（06 §5.4，TD-01）：规则版模板（无 Key/失败降级）+ LLM 增强。"""
+    data = explain(
+        req.issue.model_dump(),
+        req.fileSnippet,
+        _llm,
+    )
+    logger.info(
+        "explain done ruleKey=%s severity=%s source=%s",
+        req.issue.ruleKey,
+        req.issue.severity,
+        data["source"],
+    )
+    return ExplainResponse(**data)
 
 
 @app.post("/analyze/v1/architecture")

@@ -44,7 +44,7 @@
 
 辅助目录：`docs/decisions/`（AD 决策记录）、`docs/devlog/`（周记）、`docs/screenshots/`（演示截图）。
 
-## 当前进度（P9 v1.1 进行中：P9a~P9d 完成，详见 docs/devlog/）
+## 当前进度（P9 v1.1 全部完成，详见 docs/devlog/）
 
 ```
 ✅ P0 三端骨架 + 基础设施 + 脚本，三端门禁全绿（mvnw test / ruff+pytest / npm lint+build，init-db 实测通过）
@@ -61,7 +61,7 @@
 ✅ P9b 项目操作/导出完成：backend PATCH /projects/{id}（重命名/描述）+ GET /projects/{id}/report/export（Markdown 下载）；前端 ⋮ 操作菜单；TD-08 docgen 规则版降级（无 Key 也可生成）
 ✅ P9c 历史报告对比完成：backend GET /projects/{id}/report/history（SUCCEEDED 聚合摘要，healthScore 数值防御）；前端报告区「历史趋势」折叠区（健康分折线 + 参考线 + 两期维度对比 + 风险 diff 三色 + 点击切换基准期）
 ✅ P9d 依赖分析完成：analyzer /analyze/v1/dependency（pom/package 解析 + EOL 规则表）+ V009 dependency 表落库 + 前端依赖区块（风险分组/依赖表/EOL 徽标/统计卡）；TD-04 DEPEND 源改读表
-⬜ P9e 进度 SSE/搜索（backend SSE 推送 + 前端实时进度 + healthScore 排序，TD-01/12）
+✅ P9e 进度通知/搜索完成（v1.1 收官）：backend GET /projects/{id}/analyses/events SSE（AnalysisProgressPublisher 按 projectId 广播，状态机变更点推送）+ 前端详情页实时进度条/完成 Toast/断线轮询兜底；healthScore 排序白名单；TD-01 analyzer /analyze/v1/explain（规则版 + LLM 增强）；TD-12 README 启动命令收敛
 ```
 
 ## 快速开始
@@ -117,16 +117,7 @@ cd frontend && npm install && npm run dev
 | 分析结果里演化/技术债为空 | 项目是 zip 上传（非 git）→ 演化 `available=false` 属正常；技术债需架构/质量/演化数据支撑 |
 | AI 医生/文档生成报 LLM 未配置 | 根目录 `.env` 配 `LLM_API_KEY`（见上方配置节），重启服务 |
 
-**手动分步**（等价，排查时用）
-
-```bash
-docker compose up -d                          # postgres(pgvector) / redis
-scripts/init-db.ps1                           # 执行 db/migration/V*.sql（幂等，win）
-cd analyzer && .\.venv\Scripts\python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8081
-cd backend && $env:BACKEND_PORT=18080; java -jar target\evocode-backend-0.1.0-SNAPSHOT.jar
-# 注：backend 弃用 mvn spring-boot:run（本机报 ClassNotFound），统一 java -jar 打包产物
-cd frontend && npm install && npm run dev
-```
+> 手动分步（等价）仅一处：见上方「快速开始 → 手动分步」——统一以 `scripts/` 入口为准（start-dev.bat / init-db.ps1），不在此重复命令。
 
 ## 仓库结构
 
@@ -196,3 +187,4 @@ v0.1 代码体检 MVP（上传→扫描→AI 报告）→ v0.2 质量(Sonar) →
 | v3.14 | 2026-08 | **P9b 项目操作与报告导出 + TD-08**：backend PATCH /projects/{id}（重命名/描述，1001/1002/2001）+ GET /projects/{id}/report/export（ReportExportService 纯字符串 Markdown + Content-Disposition 下载）；前端 ⋮ 操作菜单（重命名弹窗/导出下载/删除确认）；TD-08 docgen 规则版降级（无 Key 按 README/ARCH/API 模板产出 source=RULES，不再 400）；DocResp.source 透传；三端测试 backend 128 / analyzer 全量 / frontend lint+build+vitest 12/12 全绿（详见 docs/devlog/2026-08-11-p9b.md） |
 | v3.15 | 2026-08 | **P9c 历史报告对比完成**：backend `GET /projects/{id}/report/history?limit=10`（聚合 SUCCEEDED + report_json 摘要：healthScore/level/dimensions/risks/source，healthScore 数值防御、limit 1~20、data.items 包裹）；前端报告区「历史趋势」折叠区——健康分折线（≥80/≥60 参考线）+ 两期维度对比条形 + 风险 diff 三色（新增/消失/持续）+ 折线点点击切换基准期 + 空态；契约 06 §3.7 补充；三端测试 backend 135 / analyzer 全绿 / frontend lint+build+vitest 12/12，无头 Edge 冒烟（趋势/对比/风险 diff/基准切换）通过（详见 docs/devlog/2026-08-11-p9c.md） |
 | v3.16 | 2026-08 | **P9d 依赖分析完成**：analyzer `POST /analyze/v1/dependency`（pom.xml 跨行正则 + package.json 解析，剥离 dependencyManagement；`dep_eol_rules.py` 内置 EOL 规则表：Spring Boot 2.5-2.7/Spring 5.3/Vue 2/React 16-17/Node 14-17/Python 3.7-3.8/Django 2，未命中 → risk:null 不误报）；**V009 dependency 表**（07 §3.4 13 字段，TD-02 迁移-字典对齐）；backend DependencyService 落库（available=false 清空）+ `GET /projects/{id}/dependencies` + AnalysisRunner 接入 FULL（失败降级）；**TD-04** 技术债 DEPEND 源改读 dependency 表（替代 report_json.risks 临时方案）；前端依赖区块（统计卡/风险分组/依赖表/EOL 徽标/未知版本/空态）；三端测试 backend 141 / analyzer 全量 / frontend 全绿，无头 Edge 冒烟（统计卡 3/2/2、分组、空态）通过（详见 docs/devlog/2026-08-11-p9d.md） |
+| v3.17 | 2026-08 | **P9e 进度通知/搜索完成（P9 v1.1 收官）**：backend `GET /projects/{id}/analyses/events` SSE（`AnalysisProgressPublisher` 按 projectId 广播，AnalysisRunner 状态机 5 变更点推送，断线不重放、前端轮询兜底）；healthScore 排序白名单（复用列表子查询列）；**TD-01** analyzer `POST /analyze/v1/explain`（规则版按 ruleKey/severity 模板 + LLM 增强，source 区分）；**TD-12** README 启动命令收敛到 scripts 入口；前端 EventSource 实时进度条 + 完成/失败 Toast；三端测试 backend 149 / analyzer 全量 / frontend 全绿（详见 docs/devlog/2026-08-11-p9e.md） |
