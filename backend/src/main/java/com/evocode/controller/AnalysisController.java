@@ -9,6 +9,8 @@ import com.evocode.dto.analysis.AnalysisHistoryResp;
 import com.evocode.dto.analysis.AnalysisResp;
 import com.evocode.dto.analysis.AnalysisStatusResp;
 import com.evocode.dto.analysis.ReportDetailResp;
+import com.evocode.dto.analysis.ReportHistoryListResp;
+import com.evocode.dto.analysis.ReportHistoryResp;
 import com.evocode.service.analysis.AnalysisService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -58,6 +60,17 @@ public class AnalysisController {
     @GetMapping("/analyses/{id}")
     public Result<AnalysisStatusResp> status(@PathVariable Long id) {
         return Result.ok(analysisService.status(id));
+    }
+
+    /** 报告历史（P9c）：聚合 SUCCEEDED + report_json 摘要，limit 默认 10 上限 20。 */
+    @GetMapping("/projects/{id}/report/history")
+    public Result<ReportHistoryListResp> reportHistory(
+            @PathVariable Long id,
+            @RequestParam(defaultValue = "10") int limit) {
+        if (limit < 1 || limit > 20) {
+            throw new BusinessException(ErrorCode.PAGE_PARAM_INVALID, "limit 须在 1~20");
+        }
+        return Result.ok(new ReportHistoryListResp(analysisService.reportHistory(id, limit)));
     }
 
     /** 报告详情（§3.7）。 */

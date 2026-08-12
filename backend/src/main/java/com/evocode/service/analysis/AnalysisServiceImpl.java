@@ -10,6 +10,7 @@ import com.evocode.dto.analysis.AnalysisHistoryResp;
 import com.evocode.dto.analysis.AnalysisResp;
 import com.evocode.dto.analysis.AnalysisStatusResp;
 import com.evocode.dto.analysis.ReportDetailResp;
+import com.evocode.dto.analysis.ReportHistoryResp;
 import com.evocode.entity.Analysis;
 import com.evocode.entity.Project;
 import com.evocode.enums.AnalysisStatus;
@@ -20,6 +21,8 @@ import com.evocode.mapper.ProjectMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import java.time.OffsetDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -135,6 +138,79 @@ public class AnalysisServiceImpl implements AnalysisService {
         analysisRunner.regenerateReport(analysisId);
         return new AnalysisStatusResp(analysisId, AnalysisStatus.RUNNING.name(), 75,
                 Stage.REPORT.name(), null);
+    }
+
+    /**
+     * P9c：报告历史（SUCCEEDED + report_json 非空，按 id 倒序，limit 1~20）。
+     * 从 report_json 提取 healthScore/level/dimensions/risks 摘要；数值防御同 P8 列表。
+     */
+    @Override
+    @SuppressWarnings("unchecked")
+    public List<ReportHistoryResp> reportHistory(Long projectId, int limit) {
+        if (projectMapper.selectById(projectId) == null) {
+            throw new BusinessException(ErrorCode.PROJECT_NOT_FOUND, null);
+        }
+        List<Analysis> list = analysisMapper.selectList(new QueryWrapper<Analysis>()
+                .eq("project_id", projectId)
+                .eq("status", AnalysisStatus.SUCCEEDED.name())
+                .isNotNull("report_json")
+                .orderByDesc("id")
+                .last("LIMIT " + Math.max(1, Math.min(limit, 20))));
+        List<ReportHistoryResp> result = new ArrayList<>(list.size());
+        for (Analysis a : list) {
+            result.add(toReportHistoryResp(a));
+        }
+        return result;
+    }
+
+    @SuppressWarnings("unchecked")
+    private ReportHistoryResp toReportHistoryResp(Analysis a) {
+        Map<String, Object> report = a.getReportJson();
+        Integer healthScore = null;
+        String level = null;
+        List<ReportHistoryResp.Dimension> dims = List.of();
+        List<ReportHistoryResp.Risk> risks = List.of();
+        if (report != null) {
+            Object score = report.get("healthScore");
+            if (score instanceof Number n) {
+                healthScore = n.intValue();
+            }
+            Object lv = report.get("level");
+            if (lv != null) {
+                level = lv.toString();
+            }
+            Object dimsObj = report.get("dimensions");
+            if (dimsObj instanceof List<?> dimList) {
+                dims = new ArrayList<>(dimList.size());
+                for (Object o : dimList) {
+                    if (o instanceof Map<?, ?> m) {
+                        Object key = m.get("key");
+                        Object s = m.get("score");
+                        Object stars = m.get("stars");
+                        dims.add(new ReportHistoryResp.Dimension(
+                                key == null ? null : key.toString(),
+                                s instanceof Number sn ? sn.intValue() : null,
+                                stars instanceof Number st ? st.intValue() : null));
+                    }
+                }
+            }
+            Object risksObj = report.get("risks");
+            if (risksObj instanceof List<?> riskList) {
+                risks = new ArrayList<>(riskList.size());
+                for (Object o : riskList) {
+                    if (o instanceof Map<?, ?> m) {
+                        Object lvl = m.get("level");
+                        Object title = m.get("title");
+                        risks.add(new ReportHistoryResp.Risk(
+                                lvl == null ? null : lvl.toString(),
+                                title == null ? null : title.toString()));
+                    }
+                }
+            }
+        }
+        OffsetDateTime createdAt = a.getFinishedAt() != null ? a.getFinishedAt() : a.getCreatedAt();
+        return new ReportHistoryResp(a.getId(), createdAt, healthScore, level, dims, risks,
+                a.getReportSource());
     }
 
     private AnalysisHistoryResp toHistoryResp(Analysis a) {

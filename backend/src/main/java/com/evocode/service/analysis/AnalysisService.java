@@ -5,6 +5,9 @@ import com.evocode.dto.analysis.AnalysisHistoryResp;
 import com.evocode.dto.analysis.AnalysisResp;
 import com.evocode.dto.analysis.AnalysisStatusResp;
 import com.evocode.dto.analysis.ReportDetailResp;
+import com.evocode.dto.analysis.ReportHistoryResp;
+
+import java.util.List;
 
 /**
  * 分析任务管理（docs/06-API契约.md §3.5/3.6/3.7）。
@@ -17,6 +20,9 @@ public interface AnalysisService {
 
     /** 分析历史（分页，按 id 倒序）。 */
     PageResultResp<AnalysisHistoryResp> history(Long projectId, int page, int size);
+
+    /** P9c：报告历史（SUCCEEDED + report_json 非空，按 id 倒序，limit 1~20）。 */
+    List<ReportHistoryResp> reportHistory(Long projectId, int limit);
 
     /** 单任务状态轮询（前端 2s 间隔）。 */
     AnalysisStatusResp status(Long analysisId);

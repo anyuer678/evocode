@@ -6,6 +6,7 @@ import DocView from './doc-view.vue'
 import DoctorView from './doctor-view.vue'
 import EvolutionView from './evolution-view.vue'
 import TechDebtView from './tech-debt-view.vue'
+import ReportHistoryView from './report-history-view.vue'
 import { deleteProject, getProjectDetail } from '../../api/project'
 import { getFileContent, listFiles } from '../../api/file'
 import {
@@ -464,6 +465,9 @@ onBeforeUnmount(() => {
       </button>
       <span class="hint">完整分析 = 重新扫描 + AI 健康报告（约 1-3 分钟）</span>
     </div>
+
+    <!-- P9c：历史趋势折叠区（默认收起） -->
+    <ReportHistoryView :project-id="projectId" />
 
     <!-- 体检报告 -->
     <div v-if="reportLoading" class="report loading">报告加载中…</div>

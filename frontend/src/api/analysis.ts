@@ -6,6 +6,7 @@ import type {
   ApiResponse,
   PageResult,
   ReportDetail,
+  ReportHistoryItem,
 } from '../types/api'
 
 /**
@@ -41,4 +42,18 @@ export async function regenerateReport(analysisId: number): Promise<AnalysisStat
   return getData(
     request.post<ApiResponse<AnalysisStatus>>(`/analyses/${analysisId}/report/regenerate`),
   )
+}
+
+/** P9c：报告历史（SUCCEEDED + report_json 摘要，limit 默认 10 上限 20） */
+export async function getReportHistory(
+  projectId: number,
+  limit = 10,
+): Promise<ReportHistoryItem[]> {
+  const data = await getData(
+    request.get<ApiResponse<{ items: ReportHistoryItem[] }>>(
+      `/projects/${projectId}/report/history`,
+      { params: { limit } },
+    ),
+  )
+  return data.items
 }

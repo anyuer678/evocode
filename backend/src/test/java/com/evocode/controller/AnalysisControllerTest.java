@@ -63,6 +63,30 @@ class AnalysisControllerTest {
     }
 
     @Test
+    void reportHistoryRejectsLimitOutOfRange() {
+        // P9c：limit 默认 10 上限 20，超界 → 1003（Controller 侧校验，service 不被调用）
+        BusinessException low = assertThrows(BusinessException.class,
+                () -> controller.reportHistory(1L, 0));
+        assertEquals(1003, low.getCode());
+        BusinessException high = assertThrows(BusinessException.class,
+                () -> controller.reportHistory(1L, 21));
+        assertEquals(1003, high.getCode());
+    }
+
+    @Test
+    void reportHistoryWrapsItems() {
+        // P9c：data.items 包裹（契约 06 §3.7 扩展）
+        when(service.reportHistory(1L, 10)).thenReturn(java.util.List.of(
+                new com.evocode.dto.analysis.ReportHistoryResp(
+                        30L, OffsetDateTime.now(), 82, "GOOD",
+                        java.util.List.of(), java.util.List.of(), "RULES")));
+        var data = controller.reportHistory(1L, 10).getData();
+        assertEquals(1, data.items().size());
+        assertEquals(30L, data.items().get(0).analysisId());
+        assertEquals(82, data.items().get(0).healthScore());
+    }
+
+    @Test
     void statusReturnsPollingPayload() {
         when(service.status(10L)).thenReturn(new AnalysisStatusResp(
                 10L, AnalysisStatus.RUNNING.name(), 45, Stage.SCAN.name(), null));

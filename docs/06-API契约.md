@@ -257,6 +257,20 @@
 // 400：{ "code": 2008, "message": "该分析正在重新生成报告中" }
 ```
 
+#### GET /api/v1/projects/{id}/report/history（P9c）
+
+```jsonc
+// 报告历史：聚合 SUCCEEDED + report_json 非空的分析摘要（按 id 倒序，最新在前）
+// 参数：limit（默认 10，上限 20；非法 → 400/1003）
+// 200：{ "code": 0, "data": { "items": [
+//   { "analysisId": 27, "createdAt": "2026-08-10T10:01:00Z", "healthScore": 82, "level": "GOOD",
+//     "dimensions": [ { "key": "quality", "score": 76, "stars": 4 }, … ],
+//     "risks": [ { "level": "HIGH", "title": "Spring Boot 2.5 已停止官方支持" }, … ],
+//     "source": "RULES" }, … ] } }
+// 404：{ "code": 2001, "message": "项目不存在" }；无 SUCCEEDED 分析 → items: []
+// 注：healthScore 有数值防御（非数字历史脏数据 → null，前端显示 —）；risks 为摘要（不含 detail/引用），供两期 diff
+```
+
 ### 3.8 项目地图与文件内容
 
 #### GET /api/v1/projects/{id}/files

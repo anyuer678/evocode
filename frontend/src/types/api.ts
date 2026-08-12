@@ -177,6 +177,18 @@ export interface ReportDetail {
   report: HealthReport
 }
 
+// ---------------- 报告历史（P9c） ----------------
+
+export interface ReportHistoryItem {
+  analysisId: number
+  createdAt: string
+  healthScore: number | null
+  level: 'EXCELLENT' | 'GOOD' | 'FAIR' | 'POOR' | null
+  dimensions: { key: string; score: number | null; stars: number | null }[]
+  risks: { level: string | null; title: string | null }[]
+  source: 'LLM' | 'RULES' | null
+}
+
 // ---------------- 质量 issues（06 §3.10） ----------------
 
 export interface QualityMetrics {

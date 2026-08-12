@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.evocode.common.BusinessException;
 import com.evocode.dto.analysis.AnalysisResp;
 import com.evocode.dto.analysis.AnalysisStatusResp;
+import com.evocode.dto.analysis.ReportHistoryResp;
 import com.evocode.entity.Analysis;
 import com.evocode.entity.Project;
 import com.evocode.enums.AnalysisStatus;
@@ -12,11 +13,15 @@ import com.evocode.mapper.AnalysisMapper;
 import com.evocode.mapper.ProjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 
+import java.time.OffsetDateTime;
+import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -164,5 +169,100 @@ class AnalysisServiceTest {
         assertEquals(AnalysisStatus.RUNNING.name(), resp.status());
         assertEquals(Stage.REPORT.name(), resp.stage());
         verify(runner).regenerateReport(10L);
+    }
+
+    // ---- P9c：报告历史 ----
+
+    @Test
+    void reportHistoryRejectsUnknownProject() {
+        when(projectMapper.selectById(7L)).thenReturn(null);
+        BusinessException e = assertThrows(BusinessException.class, () -> service.reportHistory(7L, 10));
+        assertEquals(2001, e.getCode());
+    }
+
+    @Test
+    void reportHistoryQueriesSucceededWithReport() {
+        when(projectMapper.selectById(7L)).thenReturn(newProject());
+        when(analysisMapper.selectList(any(QueryWrapper.class))).thenReturn(List.of());
+
+        List<ReportHistoryResp> resp = service.reportHistory(7L, 10);
+        assertEquals(0, resp.size());
+        // 校验查询条件：project_id + SUCCEEDED + report_json 非空 + 倒序
+        @SuppressWarnings("unchecked")
+        var captor = ArgumentCaptor.forClass(QueryWrapper.class);
+        verify(analysisMapper).selectList(captor.capture());
+        QueryWrapper<?> wrapper = captor.getValue();
+        assertTrue(wrapper.getSqlSegment().contains("project_id ="));
+        assertTrue(wrapper.getSqlSegment().contains("status ="));
+        assertTrue(wrapper.getSqlSegment().contains("report_json IS NOT NULL"));
+        assertTrue(wrapper.getSqlSegment().contains("ORDER BY id DESC"));
+        assertTrue(wrapper.getSqlSegment().contains("LIMIT"));
+    }
+
+    @Test
+    void reportHistoryExtractsSummary() {
+        when(projectMapper.selectById(7L)).thenReturn(newProject());
+        Analysis a = newAnalysis();
+        a.setStatus(AnalysisStatus.SUCCEEDED.name());
+        a.setFinishedAt(OffsetDateTime.parse("2026-08-10T10:01:00Z"));
+        a.setReportSource("RULES");
+        a.setReportJson(Map.of(
+                "healthScore", 82,
+                "level", "GOOD",
+                "dimensions", List.of(
+                        Map.of("key", "quality", "score", 76, "stars", 4),
+                        Map.of("key", "structure", "score", 88, "stars", 4)),
+                "risks", List.of(
+                        Map.of("level", "HIGH", "title", "Spring Boot 2.5 已停止官方支持"))));
+        when(analysisMapper.selectList(any(QueryWrapper.class))).thenReturn(List.of(a));
+
+        List<ReportHistoryResp> resp = service.reportHistory(7L, 10);
+        assertEquals(1, resp.size());
+        ReportHistoryResp item = resp.get(0);
+        assertEquals(10L, item.analysisId());
+        assertEquals(82, item.healthScore());
+        assertEquals("GOOD", item.level());
+        assertEquals(2, item.dimensions().size());
+        assertEquals("quality", item.dimensions().get(0).key());
+        assertEquals(76, item.dimensions().get(0).score());
+        assertEquals(4, item.dimensions().get(0).stars());
+        assertEquals(1, item.risks().size());
+        assertEquals("HIGH", item.risks().get(0).level());
+        assertEquals("Spring Boot 2.5 已停止官方支持", item.risks().get(0).title());
+        assertEquals("RULES", item.source());
+    }
+
+    @Test
+    void reportHistoryDefendsNonNumericHealthScore() {
+        when(projectMapper.selectById(7L)).thenReturn(newProject());
+        Analysis a = newAnalysis();
+        a.setStatus(AnalysisStatus.SUCCEEDED.name());
+        // 历史脏数据：healthScore 为字符串
+        a.setReportJson(Map.of("healthScore", "82", "level", "GOOD"));
+        when(analysisMapper.selectList(any(QueryWrapper.class))).thenReturn(List.of(a));
+
+        List<ReportHistoryResp> resp = service.reportHistory(7L, 10);
+        assertEquals(1, resp.size());
+        // 非 Number → null（前端显示 —）
+        assertEquals(null, resp.get(0).healthScore());
+        assertEquals("GOOD", resp.get(0).level());
+    }
+
+    @Test
+    void reportHistoryClampsLimit() {
+        // P9c：limit 二次钳制（service 兜底）——0 → 1，100 → 20
+        when(projectMapper.selectById(7L)).thenReturn(newProject());
+        when(analysisMapper.selectList(any(QueryWrapper.class))).thenReturn(List.of());
+
+        service.reportHistory(7L, 0);
+        service.reportHistory(7L, 100);
+
+        @SuppressWarnings("unchecked")
+        var captor = ArgumentCaptor.forClass(QueryWrapper.class);
+        verify(analysisMapper, org.mockito.Mockito.times(2)).selectList(captor.capture());
+        var sqls = captor.getAllValues().stream()
+                .map(QueryWrapper::getSqlSegment).toList();
+        assertTrue(sqls.get(0).contains("LIMIT 1"));
+        assertTrue(sqls.get(1).contains("LIMIT 20"));
     }
 }
