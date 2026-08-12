@@ -2,17 +2,20 @@
   <section class="debt">
     <div class="debt__head">
       <h3>技术债</h3>
-      <div class="debt__filters">
-        <button
-          v-for="s in statusOptions"
-          :key="s.value"
-          type="button"
-          class="debt__filter"
-          :class="{ 'debt__filter--active': statusFilter === s.value }"
-          @click="onFilter(s.value)"
-        >
-          {{ s.label }}
-        </button>
+      <div class="debt__head-right">
+        <button type="button" class="debt__btn" @click="openCreate">＋ 手动登记</button>
+        <div class="debt__filters">
+          <button
+            v-for="s in statusOptions"
+            :key="s.value"
+            type="button"
+            class="debt__filter"
+            :class="{ 'debt__filter--active': statusFilter === s.value }"
+            @click="onFilter(s.value)"
+          >
+            {{ s.label }}
+          </button>
+        </div>
       </div>
     </div>
 
@@ -41,6 +44,45 @@
         <p v-if="d.status === 'WONTFIX'" class="debt__meta">不修复</p>
       </li>
     </ul>
+
+    <!-- 手动登记弹层（TD-04） -->
+    <Teleport to="body">
+      <div v-if="creating" class="debt__modal" @click.self="creating = false">
+        <div class="debt__modal-box">
+          <h4>手动登记技术债</h4>
+          <input v-model="createForm.title" class="debt__input" placeholder="标题（必填）" />
+          <select v-model="createForm.level" class="debt__input">
+            <option value="HIGH">HIGH</option>
+            <option value="MEDIUM">MEDIUM</option>
+            <option value="LOW">LOW</option>
+          </select>
+          <textarea
+            v-model="createForm.description"
+            class="debt__input debt__note"
+            rows="2"
+            placeholder="描述（可选）"
+          />
+          <textarea
+            v-model="createForm.suggestion"
+            class="debt__input debt__note"
+            rows="2"
+            placeholder="建议（可选）"
+          />
+          <div class="debt__modal-actions">
+            <button type="button" class="debt__btn" @click="creating = false">取消</button>
+            <button
+              type="button"
+              class="debt__btn debt__btn--ok"
+              :disabled="submitting"
+              @click="submitCreate"
+            >
+              {{ submitting ? '提交中…' : '登记' }}
+            </button>
+          </div>
+          <p v-if="createError" class="debt__error">{{ createError }}</p>
+        </div>
+      </div>
+    </Teleport>
 
     <!-- 状态操作弹层 -->
     <Teleport to="body">
@@ -84,7 +126,7 @@
 
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
-import { fetchTechDebts, updateTechDebtStatus } from '../../api/debt'
+import { createTechDebt, fetchTechDebts, updateTechDebtStatus } from '../../api/debt'
 import type { TechDebtItem, TechDebtStatus } from '../../types/api'
 
 const props = defineProps<{ projectId: number }>()
@@ -105,6 +147,40 @@ const actionTarget = ref<TechDebtStatus>('DOING')
 const actionNote = ref('')
 const submitting = ref(false)
 const actionError = ref('')
+
+// ---- TD-04：手动登记 ----
+const creating = ref(false)
+const createError = ref('')
+const createForm = ref({ title: '', level: 'MEDIUM', description: '', suggestion: '' })
+
+function openCreate() {
+  createForm.value = { title: '', level: 'MEDIUM', description: '', suggestion: '' }
+  createError.value = ''
+  creating.value = true
+}
+
+async function submitCreate() {
+  const title = createForm.value.title.trim()
+  if (!title) {
+    createError.value = '标题必填'
+    return
+  }
+  submitting.value = true
+  try {
+    await createTechDebt(props.projectId, {
+      title,
+      level: createForm.value.level,
+      description: createForm.value.description.trim() || undefined,
+      suggestion: createForm.value.suggestion.trim() || undefined,
+    })
+    creating.value = false
+    await load()
+  } catch (err) {
+    createError.value = err instanceof Error ? err.message : '登记失败'
+  } finally {
+    submitting.value = false
+  }
+}
 
 const sourceLabel = (s: TechDebtItem['source']): string =>
   ({
@@ -197,6 +273,11 @@ onMounted(load)
 .debt__head h3 {
   margin: 0;
   font-size: 15px;
+}
+.debt__head-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 .debt__filters {
   display: flex;

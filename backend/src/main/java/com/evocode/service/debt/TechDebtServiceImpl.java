@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.evocode.common.BusinessException;
 import com.evocode.common.ErrorCode;
+import com.evocode.dto.debt.TechDebtCreateReq;
 import com.evocode.dto.debt.TechDebtResp;
 import com.evocode.entity.ArchViolation;
 import com.evocode.entity.Dependency;
@@ -104,11 +105,13 @@ public class TechDebtServiceImpl implements TechDebtService {
     @Transactional
     public void rebuildForAnalysis(Long projectId, Long analysisId,
                                    Map<String, Object> reportJson) {
-        // 项目级全量重建（与 knowledge_chunk 一致）：重新分析后旧分析产生的债
+        // 只删四聚合源（ARCH/QUALITY/EVOLUTION/DEPEND）：重新分析后旧分析产生的债
         // 全部替换，避免残留引用旧 analysis 的债（端到端实测发现）。
-        // 注：MANUAL/AI_DOCTOR 源（无 ref_analysis_id）将来引入时需保留。
+        // TD-04：MANUAL/AI_DOCTOR 源（无 ref_analysis_id）保留——手动登记/AI 确认
+        // 的债是用户资产，不被重新分析清空。
         techDebtMapper.delete(new LambdaQueryWrapper<TechDebt>()
-                .eq(TechDebt::getProjectId, projectId));
+                .eq(TechDebt::getProjectId, projectId)
+                .in(TechDebt::getSource, "ARCH", "QUALITY", "EVOLUTION", "DEPEND"));
         List<TechDebt> debts = new java.util.ArrayList<>();
         debts.addAll(fromArchitecture(projectId, analysisId));
         debts.addAll(fromQuality(projectId, analysisId));
@@ -222,5 +225,42 @@ public class TechDebtServiceImpl implements TechDebtService {
         return new TechDebtResp(d.getId(), d.getSource(), d.getTitle(), d.getLevel(),
                 d.getDescription(), d.getSuggestion(), d.getStatus(), d.getRefAnalysisId(),
                 d.getCreatedAt(), d.getResolvedAt());
+    }
+
+    // ---- TD-04：手动 / AI 医生登记 ----
+
+    @Override
+    @Transactional
+    public TechDebtResp create(Long projectId, TechDebtCreateReq req) {
+        requireProject(projectId);
+        if (req == null || req.title() == null || req.title().isBlank()) {
+            throw new BusinessException(ErrorCode.PARAM_MISSING, "title 必填");
+        }
+        if (req.title().length() > 200) {
+            throw new BusinessException(ErrorCode.PARAM_INVALID, "title 过长（≤200）");
+        }
+        String source = req.source() == null ? "MANUAL" : req.source().toUpperCase(Locale.ROOT);
+        if (!Set.of("MANUAL", "AI_DOCTOR").contains(source)) {
+            throw new BusinessException(ErrorCode.PARAM_INVALID, "source 仅支持 MANUAL/AI_DOCTOR");
+        }
+        TechDebt debt = new TechDebt()
+                .setProjectId(projectId)
+                .setSource(source)
+                .setTitle(req.title().trim())
+                .setLevel(normalizeLevel(req.level()))
+                .setDescription(req.description())
+                .setSuggestion(req.suggestion())
+                .setStatus("OPEN")
+                .setRefAnalysisId(null); // 手动/AI 登记不绑定具体分析
+        techDebtMapper.insert(debt);
+        return toResp(debt);
+    }
+
+    private static String normalizeLevel(String level) {
+        if (level == null || level.isBlank()) {
+            return "MEDIUM";
+        }
+        String l = level.toUpperCase(Locale.ROOT);
+        return Set.of("HIGH", "MEDIUM", "LOW").contains(l) ? l : "MEDIUM";
     }
 }

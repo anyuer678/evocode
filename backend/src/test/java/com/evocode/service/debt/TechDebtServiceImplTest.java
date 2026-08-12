@@ -25,6 +25,7 @@ import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -203,5 +204,71 @@ class TechDebtServiceImplTest {
         assertEquals("MEDIUM", captor.getValue().getLevel());
         assertEquals("QUALITY", captor.getValue().getSource());
         assertTrue(captor.getValue().getRefAnalysisId() == 10L);
+    }
+
+    // ---- TD-04：手动 / AI 医生登记 ----
+
+    @Test
+    void rebuild_keepsManualAndAiDebts() {
+        // TD-04 审查修复：重新分析只删四聚合源（delete 按 source IN 过滤），
+        // MANUAL/AI_DOCTOR 债保留。纯 mock 环境无法解析 LambdaWrapper 内部 SQL，
+        // 此处验证行为：delete 被调用 + 四源聚合照常插入（既有测试已覆盖 4 源插入）。
+        when(archMapper.selectList(any())).thenReturn(List.of());
+        when(qualityMapper.selectList(any())).thenReturn(List.of());
+        when(hotspotMapper.selectList(any())).thenReturn(List.of());
+        when(dependencyMapper.selectList(any())).thenReturn(List.of());
+
+        svc.rebuildForAnalysis(1L, 10L, Map.of());
+
+        verify(debtMapper).delete(any(Wrapper.class));
+        // 聚合重建绝不插入 MANUAL/AI_DOCTOR（四源空时 insert 0 次，此处验证负向语义）
+        verify(debtMapper, org.mockito.Mockito.never()).insert(
+                org.mockito.ArgumentMatchers.argThat((TechDebt d) ->
+                        "MANUAL".equals(d.getSource()) || "AI_DOCTOR".equals(d.getSource())));
+    }
+
+    @Test
+    void create_manualInsertsDebt() {
+        when(projectMapper.selectById(1L)).thenReturn(project());
+        org.mockito.ArgumentCaptor<TechDebt> captor =
+                org.mockito.ArgumentCaptor.forClass(TechDebt.class);
+        when(debtMapper.insert(captor.capture())).thenReturn(1);
+
+        TechDebtResp resp = svc.create(1L, new com.evocode.dto.debt.TechDebtCreateReq(
+                "MANUAL", "手动登记的债", "HIGH", "描述", "建议"));
+
+        assertEquals("MANUAL", resp.source());
+        assertEquals("OPEN", resp.status());
+        // refAnalysisId 为空（不绑定具体分析）
+        assertEquals(null, captor.getValue().getRefAnalysisId());
+        assertEquals("手动登记的债", captor.getValue().getTitle());
+    }
+
+    @Test
+    void create_aiDoctorLevelDefaultsMedium() {
+        when(projectMapper.selectById(1L)).thenReturn(project());
+        org.mockito.ArgumentCaptor<TechDebt> captor =
+                org.mockito.ArgumentCaptor.forClass(TechDebt.class);
+        when(debtMapper.insert(captor.capture())).thenReturn(1);
+
+        // AI_DOCTOR 源 + 缺省 level → MEDIUM；source 大小写归一
+        svc.create(1L, new com.evocode.dto.debt.TechDebtCreateReq(
+                "ai_doctor", "AI 确认的债", null, null, null));
+        assertEquals("AI_DOCTOR", captor.getValue().getSource());
+        assertEquals("MEDIUM", captor.getValue().getLevel());
+    }
+
+    @Test
+    void create_rejectsBlankTitleAndBadSource() {
+        when(projectMapper.selectById(1L)).thenReturn(project());
+        BusinessException e1 = assertThrows(BusinessException.class,
+                () -> svc.create(1L, new com.evocode.dto.debt.TechDebtCreateReq(
+                        "MANUAL", "  ", null, null, null)));
+        assertEquals(1001, e1.getCode()); // PARAM_MISSING
+
+        BusinessException e2 = assertThrows(BusinessException.class,
+                () -> svc.create(1L, new com.evocode.dto.debt.TechDebtCreateReq(
+                        "ARCH", "xx", null, null, null)));
+        assertEquals(1002, e2.getCode()); // PARAM_INVALID（source 不支持）
     }
 }

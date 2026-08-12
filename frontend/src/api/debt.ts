@@ -15,6 +15,18 @@ export async function fetchTechDebts(
   return resp.data.data
 }
 
+/** TD-04：手动登记技术债（source=MANUAL） */
+export async function createTechDebt(
+  projectId: number,
+  data: { title: string; level?: string; description?: string; suggestion?: string },
+): Promise<TechDebtItem> {
+  const resp = await request.post<ApiResponse<TechDebtItem>>(`/projects/${projectId}/tech-debts`, {
+    source: 'MANUAL',
+    ...data,
+  })
+  return resp.data.data
+}
+
 /** 更新技术债状态（06 §3.12 状态机；DONE 必填 resolveNote、WONTFIX 必填 wonfixReason） */
 export async function updateTechDebtStatus(
   id: number,

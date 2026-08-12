@@ -5,9 +5,12 @@ import com.evocode.common.BusinessException;
 import com.evocode.common.ErrorCode;
 import com.evocode.common.PageResultResp;
 import com.evocode.common.Result;
+import com.evocode.dto.debt.TechDebtCreateReq;
 import com.evocode.dto.debt.TechDebtResp;
 import com.evocode.dto.debt.TechDebtStatusReq;
 import com.evocode.service.debt.TechDebtService;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -50,5 +53,14 @@ public class DebtController {
         }
         techDebtService.updateStatus(id, req.status(), req.resolveNote(), req.wonfixReason());
         return Result.ok(null);
+    }
+
+    /** TD-04：手动（MANUAL）/ AI 医生确认（AI_DOCTOR）登记技术债。 */
+    @PostMapping("/projects/{projectId}/tech-debts")
+    public ResponseEntity<Result<TechDebtResp>> create(
+            @PathVariable Long projectId,
+            @RequestBody TechDebtCreateReq req) {
+        TechDebtResp resp = techDebtService.create(projectId, req);
+        return ResponseEntity.status(HttpStatus.CREATED).body(Result.ok(resp));
     }
 }

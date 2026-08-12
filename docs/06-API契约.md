@@ -375,6 +375,15 @@
 //        "resolveNote": "已拆分验证…",       // DONE 必填
 //        "wonfixReason": "优先级低…" }        // WONTFIX 必填
 // 200：{ "code": 0, "data": null }
+
+// POST /api/v1/projects/{id}/tech-debts  手动/AI 登记（TD-04）
+// req: { "source": "MANUAL" | "AI_DOCTOR",   // 手动登记 / AI 医生确认
+//        "title": "…",                        // 必填 ≤200
+//        "level": "HIGH"|"MEDIUM"|"LOW",      // 缺省 MEDIUM
+//        "description": "…", "suggestion": "…" }
+// 201：{ "code": 0, "data": { "id": 102, "source": "MANUAL", "title": "…",
+//        "level": "HIGH", "status": "OPEN", "refAnalysisId": null, … } }
+// 400：1001 title 必填；1002 source 仅支持 MANUAL/AI_DOCTOR 或 title 超长；404 2001 项目不存在
 ```
 
 状态机约束：仅允许 OPEN→DOING、OPEN→DONE、OPEN→WONTFIX、DOING→DONE；非法迁移返回 2xxx。

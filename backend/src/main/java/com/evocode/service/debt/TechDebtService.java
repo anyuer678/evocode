@@ -1,12 +1,13 @@
 package com.evocode.service.debt;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.evocode.dto.debt.TechDebtCreateReq;
 import com.evocode.dto.debt.TechDebtResp;
 
 import java.util.Map;
 
 /**
- * 技术债（06 §3.12）：分析聚合 + 列表 + 状态机。
+ * 技术债（06 §3.12）：分析聚合 + 手动/AI 登记 + 列表 + 状态机。
  */
 public interface TechDebtService {
 
@@ -21,4 +22,7 @@ public interface TechDebtService {
      * DEPEND 从 report_json.risks（EOL/依赖关键词）提取；同 analysis 幂等重建。
      */
     void rebuildForAnalysis(Long projectId, Long analysisId, Map<String, Object> reportJson);
+
+    /** TD-04：手动（MANUAL）/ AI 医生确认（AI_DOCTOR）登记技术债；返回新债 ID。 */
+    TechDebtResp create(Long projectId, TechDebtCreateReq req);
 }
