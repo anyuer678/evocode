@@ -9,6 +9,7 @@ from fastapi.testclient import TestClient
 
 from app.core.rag.chunker import chunk_source, normalize_language
 from app.core.rag.vectorstore import extract_keywords
+from app.core.tokenizer import estimate_tokens
 from app.main import app
 
 client = TestClient(app)
@@ -47,7 +48,8 @@ class TestChunker:
         chunks = chunk_source("long.py", "Python", src)
         long = [c for c in chunks if c.symbol == "long_fn"]
         assert len(long) > 1
-        assert all(len(c.content) <= 3200 for c in long)
+        # TD-10：每片 token 估算 ≤ 滑窗预算（400），整段 ≤800 时不切
+        assert all(estimate_tokens(c.content) <= 400 for c in long)
 
     def test_unsupported_language_fallback(self) -> None:
         chunks = chunk_source("app.js", "OTHER", "const x = 1;\n" * 100)

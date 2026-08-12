@@ -1,7 +1,7 @@
 """RAG 切片（docs/02-开发指导.md §9.1，P6；AD-P6-3）。
 
-单元 = tree-sitter 符号（函数/类/方法等顶层符号）；≤800 token/块；
-超长符号按 1600 字符窗口滑切（overlap 200 ≈ 50 token）。
+单元 = tree-sitter 符号（函数/类/方法等顶层符号）；≤800 token/块（估算）；
+超长符号按 ≤400 token 窗口滑切（overlap 50 token，TD-10）。
 未支持语言 / 无符号文件 → 整文件切片兜底（模块级，symbol=None）。
 """
 
@@ -13,10 +13,12 @@ import tree_sitter_java
 import tree_sitter_python
 from tree_sitter import Language, Parser
 
-# token 估算：无 tiktoken 依赖，按 ~4 chars/token 保守近似
-_MAX_CHARS = 3200  # ≈800 token
-_SLIDE_WINDOW = 1600  # ≈400 token
-_SLIDE_OVERLAP = 200  # ≈50 token
+from ..tokenizer import estimate_tokens, split_at_token_budget
+
+# token 预算（TD-10：估算驱动，替换 4 chars/token 近似——见 tokenizer.py）
+_MAX_TOKENS = 800
+_SLIDE_WINDOW_TOKENS = 400
+_SLIDE_OVERLAP_TOKENS = 50
 
 _PARSERS: dict[str, Parser] = {
     "python": Parser(Language(tree_sitter_python.language())),
@@ -64,15 +66,29 @@ def supported_language(language: str) -> bool:
 
 
 def _slide(text: str) -> list[str]:
-    """超长文本按固定窗口滑切；返回的每片 ≤1600 chars（≈400 token）。"""
-    if len(text) <= _MAX_CHARS:
+    """按 token 预算滑切：每片 ≤ _SLIDE_WINDOW_TOKENS token（估算），overlap 同预算。
+
+    整段 ≤ _MAX_TOKENS（≈800）不切；超长按估算窗口滑切（TD-10，替代固定字符窗口）。
+    """
+    if estimate_tokens(text) <= _MAX_TOKENS:
         return [text]
     parts: list[str] = []
-    start = 0
     n = len(text)
+    start = 0
     while start < n:
-        parts.append(text[start : start + _SLIDE_WINDOW])
-        start += _SLIDE_WINDOW - _SLIDE_OVERLAP
+        # 窗口大小：从 start 起 ≤ _SLIDE_WINDOW_TOKENS 的最大前缀
+        window = split_at_token_budget(text[start:], _SLIDE_WINDOW_TOKENS)
+        if window <= 0:
+            # 单个字符即超预算（几乎不会出现，防死循环）
+            window = 1
+        end = start + window
+        parts.append(text[start:end])
+        # 前进 = 窗口 - overlap（以 token 估算近似字符步长）
+        step = split_at_token_budget(text[end:], _SLIDE_OVERLAP_TOKENS)
+        next_start = end - max(1, min(step, window - 1))
+        if next_start <= start:
+            next_start = start + 1
+        start = next_start
     return parts
 
 
