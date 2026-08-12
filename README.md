@@ -44,7 +44,7 @@
 
 辅助目录：`docs/decisions/`（AD 决策记录）、`docs/devlog/`（周记）、`docs/screenshots/`（演示截图）。
 
-## 当前进度（P9 v1.1 进行中：P9a/P9b/P9c 完成，详见 docs/devlog/）
+## 当前进度（P9 v1.1 进行中：P9a~P9d 完成，详见 docs/devlog/）
 
 ```
 ✅ P0 三端骨架 + 基础设施 + 脚本，三端门禁全绿（mvnw test / ruff+pytest / npm lint+build，init-db 实测通过）
@@ -60,7 +60,7 @@
 ✅ P9a UI 精致化完成（v1.1）：设计 token 精修 + 项目列表卡片化（健康分环形/语言徽章/筛选工具栏/视图切换）+ 空态/骨架/动效 + vitest 单测（TD-06，12/12）
 ✅ P9b 项目操作/导出完成：backend PATCH /projects/{id}（重命名/描述）+ GET /projects/{id}/report/export（Markdown 下载）；前端 ⋮ 操作菜单；TD-08 docgen 规则版降级（无 Key 也可生成）
 ✅ P9c 历史报告对比完成：backend GET /projects/{id}/report/history（SUCCEEDED 聚合摘要，healthScore 数值防御）；前端报告区「历史趋势」折叠区（健康分折线 + 参考线 + 两期维度对比 + 风险 diff 三色 + 点击切换基准期）
-⬜ P9d 依赖分析（analyzer 解析 pom/package + V009 落库 + 前端依赖区块，TD-02/04）
+✅ P9d 依赖分析完成：analyzer /analyze/v1/dependency（pom/package 解析 + EOL 规则表）+ V009 dependency 表落库 + 前端依赖区块（风险分组/依赖表/EOL 徽标/统计卡）；TD-04 DEPEND 源改读表
 ⬜ P9e 进度 SSE/搜索（backend SSE 推送 + 前端实时进度 + healthScore 排序，TD-01/12）
 ```
 
@@ -195,3 +195,4 @@ v0.1 代码体检 MVP（上传→扫描→AI 报告）→ v0.2 质量(Sonar) →
 | v3.13 | 2026-08 | **P9a UI 精致化完成（v1.1）**：设计 token 精修（字体栈/3 级阴影/4pt 间距/tabular-nums/焦点环/过渡）+ 项目列表卡片化（健康分环形 SVG/语言徽章/状态点/筛选工具栏/卡片-列表视图切换 localStorage）+ 空态三态内联 SVG + 骨架屏 + 卡片入场 stagger 动效 + App.vue 导航下划线/毛玻璃 + dashboard 空态与图表条件渲染；TD-06 引入 vitest（`npm run test` 进门禁，12/12）；frontend lint+build 全绿 + 无头渲染冒烟（详见 `docs/devlog/2026-08-11-p9a.md`） |
 | v3.14 | 2026-08 | **P9b 项目操作与报告导出 + TD-08**：backend PATCH /projects/{id}（重命名/描述，1001/1002/2001）+ GET /projects/{id}/report/export（ReportExportService 纯字符串 Markdown + Content-Disposition 下载）；前端 ⋮ 操作菜单（重命名弹窗/导出下载/删除确认）；TD-08 docgen 规则版降级（无 Key 按 README/ARCH/API 模板产出 source=RULES，不再 400）；DocResp.source 透传；三端测试 backend 128 / analyzer 全量 / frontend lint+build+vitest 12/12 全绿（详见 docs/devlog/2026-08-11-p9b.md） |
 | v3.15 | 2026-08 | **P9c 历史报告对比完成**：backend `GET /projects/{id}/report/history?limit=10`（聚合 SUCCEEDED + report_json 摘要：healthScore/level/dimensions/risks/source，healthScore 数值防御、limit 1~20、data.items 包裹）；前端报告区「历史趋势」折叠区——健康分折线（≥80/≥60 参考线）+ 两期维度对比条形 + 风险 diff 三色（新增/消失/持续）+ 折线点点击切换基准期 + 空态；契约 06 §3.7 补充；三端测试 backend 135 / analyzer 全绿 / frontend lint+build+vitest 12/12，无头 Edge 冒烟（趋势/对比/风险 diff/基准切换）通过（详见 docs/devlog/2026-08-11-p9c.md） |
+| v3.16 | 2026-08 | **P9d 依赖分析完成**：analyzer `POST /analyze/v1/dependency`（pom.xml 跨行正则 + package.json 解析，剥离 dependencyManagement；`dep_eol_rules.py` 内置 EOL 规则表：Spring Boot 2.5-2.7/Spring 5.3/Vue 2/React 16-17/Node 14-17/Python 3.7-3.8/Django 2，未命中 → risk:null 不误报）；**V009 dependency 表**（07 §3.4 13 字段，TD-02 迁移-字典对齐）；backend DependencyService 落库（available=false 清空）+ `GET /projects/{id}/dependencies` + AnalysisRunner 接入 FULL（失败降级）；**TD-04** 技术债 DEPEND 源改读 dependency 表（替代 report_json.risks 临时方案）；前端依赖区块（统计卡/风险分组/依赖表/EOL 徽标/未知版本/空态）；三端测试 backend 141 / analyzer 全量 / frontend 全绿，无头 Edge 冒烟（统计卡 3/2/2、分组、空态）通过（详见 docs/devlog/2026-08-11-p9d.md） |

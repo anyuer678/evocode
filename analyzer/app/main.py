@@ -9,6 +9,7 @@ from fastapi.responses import StreamingResponse
 
 from .config import get_settings
 from .core.arch.archscan import architecture_scan
+from .core.dependency.depscan import scan_dependencies
 from .core.docgen import generate_doc
 from .core.evolution import evolution_scan
 from .core.filescanner import scan_project
@@ -25,6 +26,9 @@ from .schemas import (
     ArchResult,
     ArchViolation,
     ChatRequest,
+    DependencyItem,
+    DependencyRequest,
+    DependencyResult,
     DocRequest,
     DocResponse,
     EvolutionRequest,
@@ -231,6 +235,28 @@ def evolution(req: EvolutionRequest) -> EvolutionResult:
         len(data["hotspots"]),
     )
     return EvolutionResult(**data)
+
+
+@app.post("/analyze/v1/dependency")
+def dependency(req: DependencyRequest) -> DependencyResult:
+    """依赖清单分析（06 §5.10，P9d）：pom.xml / package.json 解析 + EOL 判定。
+
+    无 Maven/npm 依赖文件 → 200 + available=false（非错误）。
+    """
+    code_dir = Path(req.codeDir)
+    if not code_dir.is_dir():
+        raise HTTPException(status_code=404, detail="codeDir not found")
+    data = scan_dependencies(str(code_dir))
+    logger.info(
+        "dependency done project=%s available=%s deps=%s",
+        req.projectId,
+        data["available"],
+        len(data["dependencies"]),
+    )
+    return DependencyResult(
+        available=data["available"],
+        dependencies=[DependencyItem(**d) for d in data["dependencies"]],
+    )
 
 
 @app.post("/analyze/v1/rag/index")

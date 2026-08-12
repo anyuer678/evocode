@@ -4,6 +4,7 @@ import com.evocode.common.BusinessException;
 import com.evocode.common.ErrorCode;
 import com.evocode.config.EvocodeProperties;
 import com.evocode.dto.architecture.ArchResultResp;
+import com.evocode.dto.dependency.DependencyResp;
 import com.evocode.dto.evolution.EvolutionResp;
 import com.evocode.dto.scan.ScanResultResp;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -157,6 +158,24 @@ public class AnalyzerClient {
     }
 
     /**
+     * 调 /analyze/v1/dependency（06 §5.10，P9d）。无 Maven/npm 依赖文件 analyzer
+     * 返回 available=false；不可达/5xx → 3001（AnalysisRunner.runDependency 捕获降级）。
+     */
+    public DependencyResp dependency(Long projectId, String codeDir) {
+        try {
+            return client.post()
+                    .uri("/analyze/v1/dependency")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(new DependencyRequest(projectId, codeDir))
+                    .retrieve()
+                    .body(DependencyResp.class);
+        } catch (Exception e) {
+            throw new BusinessException(ErrorCode.ANALYZER_UNREACHABLE,
+                    "依赖分析服务不可达或内部错误：" + e.getMessage());
+        }
+    }
+
+    /**
      * 调 /analyze/v1/chat（06 §5.7）：SSE 生成端。
      * 返回 analyzer 响应体输入流（text/event-stream），由调用方逐行读取；
      * 非 200 / 不可达 → 3001。
@@ -204,6 +223,9 @@ public class AnalyzerClient {
     }
 
     public record ArchitectureRequest(Long projectId, String codeDir) {
+    }
+
+    public record DependencyRequest(Long projectId, String codeDir) {
     }
 
     public record EvolutionRequest(Long projectId, String gitDir, Integer rangeDays) {

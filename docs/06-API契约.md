@@ -398,7 +398,28 @@
 // 注：topFiles 为最新一次分析的全量 TOP-N（落库窗口 365d），不受 range 过滤
 ```
 
-### 3.14 文档（P7）
+### 3.14 依赖（P9d）
+
+#### GET /api/v1/projects/{id}/dependencies
+
+```jsonc
+{ "code": 0, "data": {
+  "available": true,
+  "dependencies": [
+    { "name": "org.springframework.boot:spring-boot-starter-web", "version": "2.5.14",
+      "type": "MAVEN", "file": "pom.xml", "risk": "HIGH",
+      "reason": "Spring Boot 2.5 已 EOL（OSS 支持 2023-11 结束）", "latest": "3.2+", "isEol": true },
+    { "name": "vue", "version": "2.6.14", "type": "NPM", "file": "package.json",
+      "risk": "HIGH", "reason": "Vue 2 已 EOL（2023-12-31 结束支持）", "latest": "3.x", "isEol": true },
+    { "name": "axios", "version": "1.7.0", "type": "NPM", "file": "package.json",
+      "risk": null, "reason": null, "latest": null, "isEol": false } ] } }
+// 200 + available=false：无 Maven/npm 依赖文件（缺 pom.xml/package.json）→ 非错误
+// 404：{ "code": 2001, "message": "项目不存在" }
+// 注：risk=null 表示未命中 EOL 规则表（"未知版本，建议人工确认"，不误报）；
+//     数据来源 dependency 表（FULL 分析落库，07 §3.4），取最新分析
+```
+
+### 3.15 文档（P7）
 
 ```jsonc
 // GET /api/v1/projects/{id}/docs?type=README|ARCH|API
@@ -420,7 +441,7 @@
 // 200：{ "code": 0, "data": { "id": 201, "version": 2, "edited": true } }
 ```
 
-### 3.15 会话管理（AI 医生，P6）
+### 3.16 会话管理（AI 医生，P6）
 
 ```jsonc
 // GET /api/v1/projects/{id}/chats   （按 lastMessageAt desc）
@@ -611,7 +632,22 @@ data: {"messageId": 9527}
 //   502 {"error":{"code":"LLM_FAILED","message":"文档生成失败：…"}}  LLM 调用失败
 ```
 
-### 5.10 错误体与降级语义（P6-P7 审查修订）
+### 5.10 POST /analyze/v1/dependency（P9d 契约新增）
+
+```jsonc
+// req: { "projectId": 1, "codeDir": "data/projects/1" }
+// 200: { "available": true, "dependencies": [
+//   { "name": "org.springframework.boot:spring-boot-starter-web", "version": "2.5.14",
+//     "type": "MAVEN", "file": "pom.xml",
+//     "risk": "HIGH", "reason": "Spring Boot 2.5 已 EOL（OSS 支持 2023-11 结束）",
+//     "latest": "3.2+", "isEol": true }, … ] }
+// 无 Maven/npm 依赖文件（缺 pom.xml/package.json）→ 200 + { "available": false, "dependencies": [] }（非错误）
+// 404: {"error":{"code":"…","message":"codeDir not found"}}  codeDir 不存在
+// 注：risk=null 表示未命中 EOL 规则表（"未知版本，建议人工确认"，不误报）；
+//     EOL 规则表内置常量（dep_eol_rules.py），可扩展
+```
+
+### 5.11 错误体与降级语义（P6-P7 审查修订）
 
 - analyzer 内部 API 非 200 一律 `{"error": {"code": "…", "message": "…"}}`（§4.5 前为裸字符串/缺包装处已统一）
 - `/analyze/v1/chat` 的 `done` 事件 data 为 `{}`（analyzer 无 messageId 概念），由 backend 落库后补发 `{"messageId": id}`（§4.2 对前端保持原样）

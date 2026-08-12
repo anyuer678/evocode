@@ -7,11 +7,13 @@ import com.evocode.common.BusinessException;
 import com.evocode.common.ErrorCode;
 import com.evocode.dto.debt.TechDebtResp;
 import com.evocode.entity.ArchViolation;
+import com.evocode.entity.Dependency;
 import com.evocode.entity.Hotspot;
 import com.evocode.entity.Project;
 import com.evocode.entity.QualityIssue;
 import com.evocode.entity.TechDebt;
 import com.evocode.mapper.ArchViolationMapper;
+import com.evocode.mapper.DependencyMapper;
 import com.evocode.mapper.HotspotMapper;
 import com.evocode.mapper.ProjectMapper;
 import com.evocode.mapper.QualityIssueMapper;
@@ -24,7 +26,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
-import java.util.regex.Pattern;
 
 /**
  * 技术债（06 §3.12）。
@@ -38,24 +39,24 @@ public class TechDebtServiceImpl implements TechDebtService {
             "OPEN", Set.of("DOING", "DONE", "WONTFIX"),
             "DOING", Set.of("DONE"));
 
-    private static final Pattern DEPEND_PATTERN =
-            Pattern.compile("EOL|依赖|版本|升级", Pattern.CASE_INSENSITIVE);
-
     private final TechDebtMapper techDebtMapper;
     private final ProjectMapper projectMapper;
     private final ArchViolationMapper archViolationMapper;
     private final QualityIssueMapper qualityIssueMapper;
     private final HotspotMapper hotspotMapper;
+    private final DependencyMapper dependencyMapper;
 
     public TechDebtServiceImpl(TechDebtMapper techDebtMapper, ProjectMapper projectMapper,
                                ArchViolationMapper archViolationMapper,
                                QualityIssueMapper qualityIssueMapper,
-                               HotspotMapper hotspotMapper) {
+                               HotspotMapper hotspotMapper,
+                               DependencyMapper dependencyMapper) {
         this.techDebtMapper = techDebtMapper;
         this.projectMapper = projectMapper;
         this.archViolationMapper = archViolationMapper;
         this.qualityIssueMapper = qualityIssueMapper;
         this.hotspotMapper = hotspotMapper;
+        this.dependencyMapper = dependencyMapper;
     }
 
     @Override
@@ -112,7 +113,7 @@ public class TechDebtServiceImpl implements TechDebtService {
         debts.addAll(fromArchitecture(projectId, analysisId));
         debts.addAll(fromQuality(projectId, analysisId));
         debts.addAll(fromEvolution(projectId, analysisId));
-        debts.addAll(fromReportDepend(projectId, analysisId, reportJson));
+        debts.addAll(fromDepend(projectId, analysisId));
         for (TechDebt debt : debts) {
             techDebtMapper.insert(debt);
         }
@@ -172,30 +173,20 @@ public class TechDebtServiceImpl implements TechDebtService {
         return out;
     }
 
-    @SuppressWarnings("unchecked")
-    private List<TechDebt> fromReportDepend(Long projectId, Long analysisId,
-                                            Map<String, Object> reportJson) {
-        if (reportJson == null) {
-            return List.of();
-        }
-        Object risksObj = reportJson.get("risks");
-        if (!(risksObj instanceof List<?> risks)) {
-            return List.of();
-        }
-        List<TechDebt> out = new java.util.ArrayList<>();
-        for (Object item : risks) {
-            if (!(item instanceof Map<?, ?> risk)) {
-                continue;
-            }
-            String title = str(risk.get("title"));
-            if (title == null || !DEPEND_PATTERN.matcher(title).find()) {
-                continue;
-            }
+    /** TD-04（P9d）：DEPEND 源改读 dependency 表（替代 P7 从 report_json.risks 提取的临时方案）。 */
+    private List<TechDebt> fromDepend(Long projectId, Long analysisId) {
+        List<Dependency> deps = dependencyMapper.selectList(
+                new LambdaQueryWrapper<Dependency>()
+                        .eq(Dependency::getAnalysisId, analysisId)
+                        .in(Dependency::getRiskLevel, "HIGH", "MEDIUM"));
+        List<TechDebt> out = new java.util.ArrayList<>(deps.size());
+        for (Dependency d : deps) {
             TechDebt debt = base(projectId, "DEPEND", analysisId);
-            debt.setTitle(clip(title, 60));
-            debt.setLevel(normalizeLevel(str(risk.get("level"))));
-            debt.setDescription(str(risk.get("detail")));
-            debt.setSuggestion(str(risk.get("suggestion")));
+            debt.setTitle(clip(d.getName() + " 存在 EOL/版本风险", 60));
+            debt.setLevel(d.getRiskLevel());
+            debt.setDescription(d.getRiskReason());
+            debt.setSuggestion(d.getLatestVersion() == null
+                    ? d.getSuggestion() : "建议升级至 " + d.getLatestVersion());
             out.add(debt);
         }
         return out;
@@ -218,18 +209,6 @@ public class TechDebtServiceImpl implements TechDebtService {
         }
         String trimmed = s.trim();
         return trimmed.length() <= max ? trimmed : trimmed.substring(0, max) + "…";
-    }
-
-    private static String normalizeLevel(String level) {
-        if (level == null) {
-            return "MEDIUM";
-        }
-        String l = level.toUpperCase(Locale.ROOT);
-        return Set.of("HIGH", "MEDIUM", "LOW").contains(l) ? l : "MEDIUM";
-    }
-
-    private static String str(Object o) {
-        return o == null ? null : String.valueOf(o);
     }
 
     private void requireProject(Long projectId) {

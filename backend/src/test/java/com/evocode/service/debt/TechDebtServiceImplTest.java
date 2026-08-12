@@ -7,11 +7,13 @@ import com.evocode.common.BusinessException;
 import com.evocode.common.ErrorCode;
 import com.evocode.dto.debt.TechDebtResp;
 import com.evocode.entity.ArchViolation;
+import com.evocode.entity.Dependency;
 import com.evocode.entity.Hotspot;
 import com.evocode.entity.Project;
 import com.evocode.entity.QualityIssue;
 import com.evocode.entity.TechDebt;
 import com.evocode.mapper.ArchViolationMapper;
+import com.evocode.mapper.DependencyMapper;
 import com.evocode.mapper.HotspotMapper;
 import com.evocode.mapper.ProjectMapper;
 import com.evocode.mapper.QualityIssueMapper;
@@ -38,6 +40,7 @@ class TechDebtServiceImplTest {
     private ArchViolationMapper archMapper;
     private QualityIssueMapper qualityMapper;
     private HotspotMapper hotspotMapper;
+    private DependencyMapper dependencyMapper;
     private TechDebtServiceImpl svc;
 
     @BeforeEach
@@ -47,8 +50,9 @@ class TechDebtServiceImplTest {
         archMapper = mock(ArchViolationMapper.class);
         qualityMapper = mock(QualityIssueMapper.class);
         hotspotMapper = mock(HotspotMapper.class);
+        dependencyMapper = mock(DependencyMapper.class);
         svc = new TechDebtServiceImpl(debtMapper, projectMapper, archMapper,
-                qualityMapper, hotspotMapper);
+                qualityMapper, hotspotMapper, dependencyMapper);
     }
 
     private Project project() {
@@ -166,11 +170,15 @@ class TechDebtServiceImplTest {
         h.setEvidence(List.of("变更 45 次"));
         when(hotspotMapper.selectList(any())).thenReturn(List.of(h));
 
-        Map<String, Object> report = Map.of("risks", List.of(
-                Map.of("level", "HIGH", "title", "Spring Boot 2.5 EOL", "detail", "支持已结束"),
-                Map.of("level", "MEDIUM", "title", "接口文档缺失"))); // 第二条非依赖风险，跳过
+        // TD-04：DEPEND 源改读 dependency 表（替代 report_json.risks）
+        Dependency dep = new Dependency();
+        dep.setName("org.springframework.boot:spring-boot");
+        dep.setRiskLevel("HIGH");
+        dep.setRiskReason("Spring Boot 2.5 已 EOL");
+        dep.setLatestVersion("3.2+");
+        when(dependencyMapper.selectList(any())).thenReturn(List.of(dep));
 
-        svc.rebuildForAnalysis(1L, 10L, report);
+        svc.rebuildForAnalysis(1L, 10L, Map.of());
 
         verify(debtMapper).delete(any(Wrapper.class));
         // ARCH 1 + QUALITY 1 + EVOLUTION 1 + DEPEND 1 = 4
@@ -185,6 +193,7 @@ class TechDebtServiceImplTest {
         when(qualityMapper.selectList(any())).thenReturn(List.of(q));
         when(archMapper.selectList(any())).thenReturn(List.of());
         when(hotspotMapper.selectList(any())).thenReturn(List.of());
+        when(dependencyMapper.selectList(any())).thenReturn(List.of());
         svc.rebuildForAnalysis(1L, 10L, Map.of());
         verify(debtMapper, org.mockito.Mockito.times(1)).insert(any(TechDebt.class));
         // 断言 level 映射：CRITICAL → MEDIUM（通过捕获参数校验）

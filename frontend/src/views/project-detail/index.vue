@@ -2,6 +2,7 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import ArchitectureView from './architecture-view.vue'
+import DependencyView from './dependency-view.vue'
 import DocView from './doc-view.vue'
 import DoctorView from './doctor-view.vue'
 import EvolutionView from './evolution-view.vue'
@@ -643,6 +644,8 @@ onBeforeUnmount(() => {
       </p>
     </div>
 
+    <!-- 依赖分析（P9d） -->
+    <DependencyView v-if="detail?.status === 'READY'" :project-id="projectId" />
     <!-- 架构分析（P4c） -->
     <ArchitectureView v-if="detail?.status === 'READY'" :project-id="projectId" />
     <!-- 演化分析（P5c） -->

@@ -205,6 +205,34 @@ class EvolutionResult(BaseModel):
     hotspots: list[EvolutionHotspot] = []
 
 
+# ---- P9d 依赖分析（06 §5.10） ----
+
+
+class DependencyRequest(BaseModel):
+    """依赖清单请求（P9d D1）。"""
+
+    projectId: int
+    codeDir: str
+
+
+class DependencyItem(BaseModel):
+    """单个依赖（07 §3.4 dependency 表对应字段）。"""
+
+    name: str
+    version: str | None = None
+    type: str = "MAVEN"  # MAVEN / NPM
+    file: str | None = None
+    risk: str | None = None  # HIGH / MEDIUM / None（未命中规则=未知，不误报）
+    reason: str | None = None
+    latest: str | None = None
+    isEol: bool = False
+
+
+class DependencyResult(BaseModel):
+    available: bool = False
+    dependencies: list[DependencyItem] = []
+
+
 # ---- P6 RAG（06 §5.8）----
 
 

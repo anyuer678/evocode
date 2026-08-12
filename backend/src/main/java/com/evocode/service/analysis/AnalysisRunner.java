@@ -16,6 +16,7 @@ import com.evocode.mapper.QualityIssueMapper;
 import com.evocode.service.ArchitectureService;
 import com.evocode.service.EvolutionService;
 import com.evocode.service.debt.TechDebtService;
+import com.evocode.service.dependency.DependencyService;
 import com.evocode.service.scan.FileNodeService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Async;
@@ -48,12 +49,14 @@ public class AnalysisRunner {
     private final QualityIssueMapper qualityIssueMapper;
     private final ArchitectureService architectureService;
     private final EvolutionService evolutionService;
+    private final DependencyService dependencyService;
     private final TechDebtService techDebtService;
 
     public AnalysisRunner(AnalysisMapper analysisMapper, ProjectMapper projectMapper,
                           AnalyzerClient analyzerClient, FileNodeService fileNodeService,
                           QualityIssueMapper qualityIssueMapper, ArchitectureService architectureService,
-                          EvolutionService evolutionService, TechDebtService techDebtService) {
+                          EvolutionService evolutionService, DependencyService dependencyService,
+                          TechDebtService techDebtService) {
         this.analysisMapper = analysisMapper;
         this.projectMapper = projectMapper;
         this.analyzerClient = analyzerClient;
@@ -61,6 +64,7 @@ public class AnalysisRunner {
         this.qualityIssueMapper = qualityIssueMapper;
         this.architectureService = architectureService;
         this.evolutionService = evolutionService;
+        this.dependencyService = dependencyService;
         this.techDebtService = techDebtService;
     }
 
@@ -107,6 +111,7 @@ public class AnalysisRunner {
             Map<String, Object> qualityMetrics = runQuality(project, codeDir);
             runArchitecture(project, analysis, codeDir);
             runEvolution(project, analysis, codeDir);
+            runDependency(project, analysis, codeDir);
             generateAndStoreReport(analysis, project, scan, qualityMetrics);
         } catch (Exception e) {
             log.error("分析失败 analysisId={} projectId={}", analysis.getId(), project.getId(), e);
@@ -228,6 +233,22 @@ public class AnalysisRunner {
                     evolution == null ? 0 : evolution.commits().size());
         } catch (Exception e) {
             log.warn("演化统计不可用，跳过 projectId={}：{}", project.getId(), e.getMessage());
+        }
+    }
+
+    /**
+     * 依赖分析（06 §5.10，P9d）：pom/package 解析 + EOL 判定，以 analysisId 落库。
+     * 失败只记录，不阻塞报告生成（可承受降级）。
+     */
+    private void runDependency(Project project, Analysis analysis, String codeDir) {
+        try {
+            var deps = analyzerClient.dependency(project.getId(), codeDir);
+            dependencyService.replaceForAnalysis(project.getId(), analysis.getId(), deps);
+            log.info("依赖分析落库完成 analysisId={} available={} deps={}",
+                    analysis.getId(), deps == null || deps.available(),
+                    deps == null ? 0 : deps.dependencies().size());
+        } catch (Exception e) {
+            log.warn("依赖分析不可用，跳过 projectId={}：{}", project.getId(), e.getMessage());
         }
     }
 

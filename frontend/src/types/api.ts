@@ -309,7 +309,25 @@ export interface EvolutionResult {
   hotspots: EvolutionHotspot[]
 }
 
-// ---------- P6 AI 医生（06 §3.15 / §4） ----------
+// ---------- P9d 依赖分析（06 §3.14） ----------
+
+export interface DependencyItem {
+  name: string
+  version: string | null
+  type: 'MAVEN' | 'NPM' | 'PIP' | 'GO' | 'OTHER'
+  file: string | null
+  risk: 'HIGH' | 'MEDIUM' | 'LOW' | null
+  reason: string | null
+  latest: string | null
+  isEol: boolean
+}
+
+export interface DependencyResult {
+  available: boolean
+  dependencies: DependencyItem[]
+}
+
+// ---------- P6 AI 医生（06 §3.16 / §4） ----------
 
 export interface ChatSessionItem {
   id: number
