@@ -57,16 +57,22 @@ export async function sendChatMessage(
   handlers: SseChatHandlers = {},
 ): Promise<void> {
   let resp: Response
+  // 审查 M7：180s 全程超时 + AbortController（避免流挂死泄漏连接；组件卸载由上层 signal 联动）
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), 180_000)
   try {
     resp = await fetch(`/api/v1/chats/${sessionId}/messages`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream' },
       body: JSON.stringify({ content, fileRef }),
+      signal: controller.signal,
     })
   } catch {
-    handlers.onError?.('CONNECTION_LOST', '网络错误，请重试')
+    clearTimeout(timeout)
+    handlers.onError?.('CONNECTION_LOST', '网络错误或超时，请重试')
     return
   }
+  clearTimeout(timeout)
   if (!resp.ok || !resp.body) {
     let code = `HTTP_${resp.status}`
     let message = `请求失败（${resp.status}）`

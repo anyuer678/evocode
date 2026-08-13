@@ -27,7 +27,7 @@ class GitCloneServiceTest {
     private final FakeGitExecutor executor = new FakeGitExecutor();
 
     private GitCloneService newService() {
-        return new GitCloneServiceImpl(executor, "git", 300, "");
+        return new GitCloneServiceImpl(executor, "git", 300, "", 500L * 1024 * 1024);
     }
 
     @Test

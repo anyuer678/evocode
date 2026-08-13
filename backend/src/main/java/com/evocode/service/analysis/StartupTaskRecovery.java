@@ -1,6 +1,7 @@
 package com.evocode.service.analysis;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.evocode.common.ErrorCode;
 import com.evocode.entity.Analysis;
 import com.evocode.entity.Project;
 import com.evocode.enums.AnalysisStatus;
@@ -42,6 +43,8 @@ public class StartupTaskRecovery implements ApplicationRunner {
         int recovered = 0;
         for (Analysis a : stuck) {
             a.setStatus(AnalysisStatus.FAILED.name());
+            // 审查：落 TASK_INTERRUPTED(5003) 到 error_code（此前 5003 定义了未引用，契约漂移）
+            a.setErrorCode(String.valueOf(ErrorCode.TASK_INTERRUPTED.getCode()));
             a.setErrorMessage("服务重启导致任务中断，请重新发起分析");
             a.setFinishedAt(OffsetDateTime.now());
             analysisMapper.updateById(a);

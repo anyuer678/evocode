@@ -116,11 +116,20 @@ public class AnalysisRunner {
             analysisMapper.updateById(analysis);
             publishProgress(project, analysis, "RUNNING", Stage.SCAN_DONE.name(), 70, "扫描完成，开始深度分析…");
 
-            Map<String, Object> qualityMetrics = runQuality(project, codeDir);
-            runArchitecture(project, analysis, codeDir);
-            runEvolution(project, analysis, codeDir);
-            runDependency(project, analysis, codeDir);
-            generateAndStoreReport(analysis, project, scan, qualityMetrics);
+            Map<String, Object> qualityMetrics = runQuality(project, analysis, codeDir);
+            // 审查：REPORT 阶段各子阶段前检查取消（删除项目/取消任务后不再写入孤儿数据）
+            if (!isCancelled(analysis.getId())) {
+                runArchitecture(project, analysis, codeDir);
+            }
+            if (!isCancelled(analysis.getId())) {
+                runEvolution(project, analysis, codeDir);
+            }
+            if (!isCancelled(analysis.getId())) {
+                runDependency(project, analysis, codeDir);
+            }
+            if (!isCancelled(analysis.getId())) {
+                generateAndStoreReport(analysis, project, scan, qualityMetrics);
+            }
         } catch (Exception e) {
             log.error("分析失败 analysisId={} projectId={}", analysis.getId(), project.getId(), e);
             fail(analysis, e.getMessage());
@@ -199,7 +208,7 @@ public class AnalysisRunner {
      * 质量分析（06 §5.3）：Sonar 可用时把 issues 落库并返回 metrics 供报告使用；
      * 不可用返回 null（报告质量维度走代理指标）。
      */
-    private Map<String, Object> runQuality(Project project, String codeDir) {
+    private Map<String, Object> runQuality(Project project, Analysis analysis, String codeDir) {
         AnalyzerClient.QualityResp quality;
         try {
             quality = analyzerClient.quality(project.getId(), codeDir);
@@ -211,8 +220,19 @@ public class AnalysisRunner {
                 || !Boolean.TRUE.equals(quality.metrics().get("available"))) {
             return null;
         }
-        replaceQualityIssues(project.getId(), quality.issues());
+        try {
+            // 审查：issues 落库带 analysisId（V002 NOT NULL），失败降级不阻塞报告
+            replaceQualityIssues(project.getId(), analysis.getId(), quality.issues());
+        } catch (Exception e) {
+            log.warn("质量 issues 落库失败，降级跳过 projectId={}：{}", project.getId(), e.getMessage());
+        }
         return quality.metrics();
+    }
+
+    /** 取消检查：任务被取消/项目被删除后停止后续阶段写入。 */
+    private boolean isCancelled(Long analysisId) {
+        Analysis current = analysisMapper.selectById(analysisId);
+        return current != null && AnalysisStatus.CANCELLED.name().equals(current.getStatus());
     }
 
     /**
@@ -263,7 +283,7 @@ public class AnalysisRunner {
     }
 
     /** 快照重建：同 analysis_id 二次写入先删后插。 */
-    private void replaceQualityIssues(Long projectId, List<Map<String, Object>> issues) {
+    private void replaceQualityIssues(Long projectId, Long analysisId, List<Map<String, Object>> issues) {
         qualityIssueMapper.delete(new LambdaQueryWrapper<QualityIssue>()
                 .eq(QualityIssue::getProjectId, projectId));
         if (issues == null || issues.isEmpty()) {
@@ -272,6 +292,7 @@ public class AnalysisRunner {
         issues.forEach(raw -> {
             QualityIssue issue = new QualityIssue();
             issue.setProjectId(projectId);
+            issue.setAnalysisId(analysisId);
             issue.setSource(String.valueOf(raw.getOrDefault("source", "SONAR")));
             issue.setSeverity(String.valueOf(raw.getOrDefault("severity", "INFO")));
             issue.setKind(String.valueOf(raw.getOrDefault("kind", "SMELL")));

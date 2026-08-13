@@ -16,12 +16,12 @@ _RULE_HINTS: dict[str, dict[str, str]] = {
     "java:S112": {
         "name": "Generic exceptions should never be thrown",
         "why": "抛通用异常（Exception/Throwable）会掩盖错误类型，调用方无法"
-               "针对性处理，也不利于日志排查。",
+        "针对性处理，也不利于日志排查。",
     },
     "java:S106": {
         "name": "Standard outputs should not be used directly to log anything",
         "why": "System.out/err 直出日志无级别、无格式、难检索，"
-               "应改用日志框架（SLF4J/Logback）。",
+        "应改用日志框架（SLF4J/Logback）。",
     },
     "java:S1172": {
         "name": "Unused method parameters should be removed",
@@ -89,8 +89,9 @@ _EXPLAIN_SYSTEM = (
 )
 
 
-def explain(issue: dict[str, Any], file_snippet: str | None,
-            llm: Any | None = None) -> dict[str, Any]:
+def explain(
+    issue: dict[str, Any], file_snippet: str | None, llm: Any | None = None
+) -> dict[str, Any]:
     """解释质量 issue：LLM 可用 → 增强；否则规则版模板。返回
     {explanation, suggestion, codeExample, source}。
     """
@@ -117,20 +118,28 @@ def explain(issue: dict[str, Any], file_snippet: str | None,
     if hint is None:
         # 未命中规则表 → 按语言前缀 + severity 兜底
         prefix_hint = next(
-            (label for prefix, label in _RULE_PREFIX_HINTS
-             if rule_key.startswith(prefix)),
+            (
+                label
+                for prefix, label in _RULE_PREFIX_HINTS
+                if rule_key.startswith(prefix)
+            ),
             "静态分析",
         )
-        hint = {"name": f"{prefix_hint}规则 {rule_key or '（未知）'}",
-                "why": _SEVERITY_HINTS.get(severity, _SEVERITY_HINTS["MAJOR"])["why"]}
+        hint = {
+            "name": f"{prefix_hint}规则 {rule_key or '（未知）'}",
+            "why": _SEVERITY_HINTS.get(severity, _SEVERITY_HINTS["MAJOR"])["why"],
+        }
 
     loc = f"{file_path}" + (f":{line}" if line else "")
-    explanation = (f"【{hint['name']}】{message or '未提供规则消息'}。"
-                   f"{hint['why']}"
-                   + (f"（位置：{loc}）" if loc else ""))
-    suggestion = (f"参考规则 {rule_key or '—'} 的修复约定；"
-                  f"若为 {severity} 级，优先安排修复。"
-                  f"{_SEVERITY_HINTS.get(severity, _SEVERITY_HINTS['MAJOR'])['why']}")
+    explanation = (
+        f"【{hint['name']}】{message or '未提供规则消息'}。"
+        f"{hint['why']}" + (f"（位置：{loc}）" if loc else "")
+    )
+    suggestion = (
+        f"参考规则 {rule_key or '—'} 的修复约定；"
+        f"若为 {severity} 级，优先安排修复。"
+        f"{_SEVERITY_HINTS.get(severity, _SEVERITY_HINTS['MAJOR'])['why']}"
+    )
     return {
         "explanation": explanation,
         "suggestion": suggestion,

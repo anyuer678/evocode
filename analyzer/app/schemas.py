@@ -290,12 +290,12 @@ class RagSearchResponse(BaseModel):
 
 class ChatHistoryItem(BaseModel):
     role: str  # user / assistant
-    content: str
+    content: str = Field(max_length=8000)  # 审查 L5：后端已截断，前端防御
 
 
 class ChatFileRef(BaseModel):
-    path: str
-    content: str = ""
+    path: str = Field(max_length=2000)  # 审查 L5：防超大 path/content 撑爆 prompt
+    content: str = Field(default="", max_length=4000)
 
 
 class ChatRequest(BaseModel):

@@ -19,12 +19,59 @@ logger = logging.getLogger("evocode.analyzer.rag.store")
 
 _STOP_WORDS = frozenset(
     {
-        "the", "a", "an", "and", "or", "of", "to", "in", "on", "for", "with",
-        "is", "are", "was", "were", "be", "been", "this", "that", "these",
-        "those", "it", "its", "as", "at", "by", "from", "how", "why", "what",
-        "which", "who", "when", "where", "do", "does", "did", "can", "could",
-        "should", "would", "will", "not", "no", "please", "get", "got", "make",
-        "code", "project", "file", "class", "function",
+        "the",
+        "a",
+        "an",
+        "and",
+        "or",
+        "of",
+        "to",
+        "in",
+        "on",
+        "for",
+        "with",
+        "is",
+        "are",
+        "was",
+        "were",
+        "be",
+        "been",
+        "this",
+        "that",
+        "these",
+        "those",
+        "it",
+        "its",
+        "as",
+        "at",
+        "by",
+        "from",
+        "how",
+        "why",
+        "what",
+        "which",
+        "who",
+        "when",
+        "where",
+        "do",
+        "does",
+        "did",
+        "can",
+        "could",
+        "should",
+        "would",
+        "will",
+        "not",
+        "no",
+        "please",
+        "get",
+        "got",
+        "make",
+        "code",
+        "project",
+        "file",
+        "class",
+        "function",
     }
 )
 
@@ -68,50 +115,51 @@ class KnowledgeStore:
     ) -> int:
         """全量重建：删同 analysis 旧块 → 批量插入。返回插入条数。"""
         if not self.available():
-            raise RuntimeError(
-                "RAG 存储不可用：ANALYZER_PG_DSN 未配置"
-            )
+            raise RuntimeError("RAG 存储不可用：ANALYZER_PG_DSN 未配置")
         has_vector = embeddings is not None and len(embeddings) == len(chunks)
         with self._connect() as conn, conn.cursor() as cur:
             # 项目级全量重建（analysis_id 仅记录来源；
             # 手动索引 analysis_id=None 同样幂等）
-                cur.execute(
-                    "DELETE FROM knowledge_chunk WHERE project_id = %s",
-                    (project_id,),
-                )
-                rows = []
-                for idx, chunk in enumerate(chunks):
-                    embedding = embeddings[idx] if has_vector else None
-                    rows.append(
-                        (
-                            project_id,
-                            analysis_id,
-                            chunk.file_path,
-                            chunk.chunk_index,
-                            chunk.content,
-                            _json_dumps(
-                                {
-                                    "symbol": chunk.symbol,
-                                    "lang": chunk.language,
-                                    "startLine": chunk.start_line,
-                                    "endLine": chunk.end_line,
-                                }
-                            ),
-                            _vector_literal(embedding) if embedding else None,
-                        )
+            cur.execute(
+                "DELETE FROM knowledge_chunk WHERE project_id = %s",
+                (project_id,),
+            )
+            rows = []
+            for idx, chunk in enumerate(chunks):
+                embedding = embeddings[idx] if has_vector else None
+                rows.append(
+                    (
+                        project_id,
+                        analysis_id,
+                        chunk.file_path,
+                        chunk.chunk_index,
+                        chunk.content,
+                        _json_dumps(
+                            {
+                                "symbol": chunk.symbol,
+                                "lang": chunk.language,
+                                "startLine": chunk.start_line,
+                                "endLine": chunk.end_line,
+                            }
+                        ),
+                        _vector_literal(embedding) if embedding else None,
                     )
-                cur.executemany(
-                    "INSERT INTO knowledge_chunk "
-                    "(project_id, analysis_id, file_path, chunk_index, content, "
-                    "meta, embedding) VALUES (%s, %s, %s, %s, %s, %s, %s::vector)",
-                    rows,
                 )
-                conn.commit()
-                logger.info(
-                    "RAG rebuild project=%s analysis=%s chunks=%s vector=%s",
-                    project_id, analysis_id, len(rows), has_vector,
-                )
-                return len(rows)
+            cur.executemany(
+                "INSERT INTO knowledge_chunk "
+                "(project_id, analysis_id, file_path, chunk_index, content, "
+                "meta, embedding) VALUES (%s, %s, %s, %s, %s, %s, %s::vector)",
+                rows,
+            )
+            conn.commit()
+            logger.info(
+                "RAG rebuild project=%s analysis=%s chunks=%s vector=%s",
+                project_id,
+                analysis_id,
+                len(rows),
+                has_vector,
+            )
+            return len(rows)
 
     def search(
         self,
@@ -124,18 +172,16 @@ class KnowledgeStore:
         score 降序取 top_k。
         """
         if not self.available():
-            raise RuntimeError(
-                "RAG 存储不可用：ANALYZER_PG_DSN 未配置"
-            )
+            raise RuntimeError("RAG 存储不可用：ANALYZER_PG_DSN 未配置")
         keywords = extract_keywords(query)
         vector_hits: list[dict[str, Any]] = []
         keyword_hits: list[dict[str, Any]] = []
 
         with self._connect() as conn, conn.cursor() as cur:
             # 1) 向量检索：查询向量可用时按 cosine 排序
-                if query_embedding:
-                    cur.execute(
-                        """
+            if query_embedding:
+                cur.execute(
+                    """
                         SELECT file_path, chunk_index, content, meta,
                                1 - (embedding <=> %s::vector) AS score
                         FROM knowledge_chunk
@@ -143,39 +189,39 @@ class KnowledgeStore:
                         ORDER BY embedding <=> %s::vector
                         LIMIT %s
                         """,
-                        (
-                            _vector_literal(query_embedding),
-                            project_id,
-                            _vector_literal(query_embedding),
-                            top_k,
-                        ),
-                    )
-                    vector_hits = [
-                        _row_to_hit(row) for row in cur.fetchall() if row[4] is not None
-                    ]
-                # 2) 关键词检索（LIKE）
-                if keywords:
-                    like = [f"%{k}%".lower() for k in keywords]
-                    where = " OR ".join(
-                        ["file_path ILIKE %s"] * len(keywords)
-                        + ["content ILIKE %s"] * len(keywords)
-                    )
-                    # 占位顺序：file×N 后 content×N——params 必须同序（端到端实测：
-                    # 原先按词交替追加导致多词时英文词全落到 file 条件而不命中）
-                    params: list[Any] = [project_id]
-                    params.extend(like)  # file_path 命中任一关键词
-                    params.extend(like)  # content 命中任一关键词
-                    cur.execute(
-                        f"""
+                    (
+                        _vector_literal(query_embedding),
+                        project_id,
+                        _vector_literal(query_embedding),
+                        top_k,
+                    ),
+                )
+                vector_hits = [
+                    _row_to_hit(row) for row in cur.fetchall() if row[4] is not None
+                ]
+            # 2) 关键词检索（LIKE）
+            if keywords:
+                like = [f"%{k}%".lower() for k in keywords]
+                where = " OR ".join(
+                    ["file_path ILIKE %s"] * len(keywords)
+                    + ["content ILIKE %s"] * len(keywords)
+                )
+                # 占位顺序：file×N 后 content×N——params 必须同序（端到端实测：
+                # 原先按词交替追加导致多词时英文词全落到 file 条件而不命中）
+                params: list[Any] = [project_id]
+                params.extend(like)  # file_path 命中任一关键词
+                params.extend(like)  # content 命中任一关键词
+                cur.execute(
+                    f"""
                         SELECT file_path, chunk_index, content, meta, 0.5 AS score
                         FROM knowledge_chunk
                         WHERE project_id = %s AND ({where})
                         ORDER BY chunk_index
                         LIMIT %s
                         """,
-                        (*params, top_k),
-                    )
-                    keyword_hits = [_row_to_hit(row) for row in cur.fetchall()]
+                    (*params, top_k),
+                )
+                keyword_hits = [_row_to_hit(row) for row in cur.fetchall()]
 
         # 合并去重（file_path + chunk_index 为键），score 降序
         merged: dict[tuple[str, int], dict[str, Any]] = {}

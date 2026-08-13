@@ -27,19 +27,23 @@ public class GitCloneServiceImpl implements GitCloneService {
     private final String gitExecutable;
     private final long timeoutSeconds;
     private final String gitProxy;
+    private final long maxExtractBytes;
 
     @Autowired
     public GitCloneServiceImpl(GitExecutor gitExecutor,
                                com.evocode.config.EvocodeProperties props) {
-        this(gitExecutor, props.getGitExecutable(), props.getGitCloneTimeoutSeconds(), props.getGitProxy());
+        this(gitExecutor, props.getGitExecutable(), props.getGitCloneTimeoutSeconds(),
+                props.getGitProxy(), props.getUploadMaxExtractBytes());
     }
 
     /** 可注入执行器与超时，便于单测（T-U-23~26）。 */
-    GitCloneServiceImpl(GitExecutor gitExecutor, String gitExecutable, long timeoutSeconds, String gitProxy) {
+    GitCloneServiceImpl(GitExecutor gitExecutor, String gitExecutable, long timeoutSeconds,
+                        String gitProxy, long maxExtractBytes) {
         this.gitExecutor = gitExecutor;
         this.gitExecutable = gitExecutable;
         this.timeoutSeconds = timeoutSeconds;
         this.gitProxy = gitProxy == null ? "" : gitProxy.trim();
+        this.maxExtractBytes = maxExtractBytes;
     }
 
     @Override
@@ -81,6 +85,26 @@ public class GitCloneServiceImpl implements GitCloneService {
             }
             throw new BusinessException(ErrorCode.GIT_CLONE_FAILED,
                     "仓库克隆失败（exit=" + result.exitCode() + "）");
+        }
+        // 审查 L2：克隆后落盘大小上限（同 zip 解压 500MB），防巨型仓库磁盘/网络 DoS
+        long size;
+        try {
+            size = Files.walk(targetDir).filter(Files::isRegularFile)
+                    .mapToLong(p -> {
+                        try {
+                            return Files.size(p);
+                        } catch (IOException ignored) {
+                            return 0L;
+                        }
+                    })
+                    .sum();
+        } catch (IOException e) {
+            size = 0;
+        }
+        if (size > maxExtractBytes) {
+            cleanup(targetDir);
+            throw new BusinessException(ErrorCode.FILE_ILLEGAL,
+                    "克隆后仓库超过体积上限 " + (maxExtractBytes / 1024 / 1024) + "MB");
         }
     }
 

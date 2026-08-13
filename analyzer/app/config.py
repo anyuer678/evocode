@@ -38,6 +38,10 @@ class Settings(BaseSettings):
     # 留空 = RAG 向量不可用（关键词兜底）
     pg_dsn: str = Field(default="", validation_alias="ANALYZER_PG_DSN")
 
+    # 审查 H2：codeDir 允许根白名单（逗号分隔绝对路径）。默认空 = 不启用（向后兼容）；
+    # 配置后各分析端点强制校验 codeDir 位于允许根内，防任意路径扫描/读取
+    allowed_roots: str = Field(default="", validation_alias="ANALYZER_ALLOWED_ROOTS")
+
     # Sonar（P3；留空/不可达 → 质量维度降级 N/A）
     sonar_host_url: str = "http://127.0.0.1:9000"
     sonar_token: str = ""

@@ -23,9 +23,7 @@ logger = logging.getLogger("evocode.analyzer.dependency")
 _POM_DEPENDENCY_BLOCK_RE = re.compile(
     r"<dependency>\s*(.*?)\s*</dependency>", re.DOTALL
 )
-_POM_TAG_RE = re.compile(
-    r"<(\w+)>\s*(.*?)\s*</\1>", re.DOTALL
-)
+_POM_TAG_RE = re.compile(r"<(\w+)>\s*(.*?)\s*</\1>", re.DOTALL)
 
 
 def scan_dependencies(code_dir: str) -> dict:
@@ -84,10 +82,7 @@ def _parse_pom(pom: Path) -> list[dict]:
     out: list[dict] = []
     seen: set[tuple[str, str]] = set()
     for block in _POM_DEPENDENCY_BLOCK_RE.findall(stripped):
-        tags = {
-            m.group(1): m.group(2).strip()
-            for m in _POM_TAG_RE.finditer(block)
-        }
+        tags = {m.group(1): m.group(2).strip() for m in _POM_TAG_RE.finditer(block)}
         group = tags.get("groupId")
         artifact = tags.get("artifactId")
         if not group or not artifact:
@@ -150,9 +145,7 @@ def _npm_version(raw: object) -> str | None:
 
 
 def _build_item(name: str, version: str | None, dep_type: str, file: str) -> dict:
-    rule: EolRule | None = find_eol_rule(
-        _ecosystem(dep_type), name, version
-    )
+    rule: EolRule | None = find_eol_rule(_ecosystem(dep_type), name, version)
     if rule is not None:
         return {
             "name": name,

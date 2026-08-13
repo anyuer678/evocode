@@ -60,6 +60,28 @@ logging.basicConfig(
 settings = get_settings()
 logger = logging.getLogger("evocode.analyzer")
 
+
+def _assert_allowed_root(code_dir: Path) -> None:
+    """审查 H2：配置 ANALYZER_ALLOWED_ROOTS 后，强制 codeDir 位于允许根内。
+
+    防任意路径扫描/读取；默认空 = 不启用（向后兼容），配置为逗号分隔绝对路径列表。
+    """
+    roots = settings.allowed_roots
+    if not roots:
+        return
+    allowed = [Path(r.strip()).resolve() for r in roots.split(",") if r.strip()]
+    if not allowed:
+        return
+    try:
+        resolved = code_dir.resolve()
+    except OSError:
+        raise HTTPException(status_code=403, detail="codeDir 校验失败") from None
+    for a in allowed:
+        if resolved == a or a in resolved.parents:
+            return
+    raise HTTPException(status_code=403, detail="codeDir 不在允许根内")
+
+
 app = FastAPI(title="EvoCode Analyzer", version=settings.version)
 
 # AD-9：无 Key 时 available()=False，report 自动走规则版
@@ -85,8 +107,11 @@ def root() -> dict:
         "version": settings.version,
         "message": "这是 analyzer 内部 API 服务，前端页面请访问 http://localhost:5173",
         "endpoints": [
-            "/health", "/analyze/v1/scan", "/analyze/v1/quality",
-            "/analyze/v1/architecture", "/analyze/v1/report",
+            "/health",
+            "/analyze/v1/scan",
+            "/analyze/v1/quality",
+            "/analyze/v1/architecture",
+            "/analyze/v1/report",
         ],
     }
 
@@ -107,6 +132,7 @@ def scan(req: ScanRequest) -> ScanResult:
     code_dir = Path(req.codeDir)
     if not code_dir.is_dir():
         raise HTTPException(status_code=404, detail="codeDir not found")
+    _assert_allowed_root(code_dir)
     try:
         scanned = scan_project(code_dir)
     except OSError as exc:
@@ -189,6 +215,7 @@ def quality(req: QualityRequest) -> QualityResult:
     code_dir = Path(req.codeDir)
     if not code_dir.is_dir():
         raise HTTPException(status_code=404, detail="codeDir not found")
+    _assert_allowed_root(code_dir)
     result = quality_scan(req.projectId, str(code_dir), settings)
     if result is None:
         logger.info("quality N/A project=%s", req.projectId)
@@ -229,6 +256,7 @@ def architecture(req: ArchRequest) -> ArchResult:
     code_dir = Path(req.codeDir)
     if not code_dir.is_dir():
         raise HTTPException(status_code=404, detail="codeDir not found")
+    _assert_allowed_root(code_dir)
     data = architecture_scan(str(code_dir), req.languages)
     logger.info(
         "architecture done project=%s nodes=%s edges=%s violations=%s",
@@ -250,6 +278,7 @@ def evolution(req: EvolutionRequest) -> EvolutionResult:
     git_dir = Path(req.gitDir)
     if not git_dir.is_dir():
         raise HTTPException(status_code=404, detail="gitDir not found")
+    _assert_allowed_root(git_dir)
     data = evolution_scan(str(git_dir), req.rangeDays)
     logger.info(
         "evolution done project=%s available=%s commits=%s hotspots=%s",
@@ -270,6 +299,7 @@ def dependency(req: DependencyRequest) -> DependencyResult:
     code_dir = Path(req.codeDir)
     if not code_dir.is_dir():
         raise HTTPException(status_code=404, detail="codeDir not found")
+    _assert_allowed_root(code_dir)
     data = scan_dependencies(str(code_dir))
     logger.info(
         "dependency done project=%s available=%s deps=%s",
@@ -289,6 +319,7 @@ def rag_index(req: RagIndexRequest) -> RagIndexResponse:
     code_dir = Path(req.codeDir)
     if not code_dir.is_dir():
         raise HTTPException(status_code=404, detail="codeDir not found")
+    _assert_allowed_root(code_dir)
     result = _rag.index(req.projectId, str(code_dir), req.languages, req.analysisId)
     logger.info(
         "rag index project=%s chunks=%s model=%s stored=%s",
@@ -363,6 +394,10 @@ def analyze_doc(req: DocRequest) -> DocResponse:
             status_code=400 if code == "LLM_NO_KEY" else 502,
             detail={"error": {"code": code, "message": f"文档生成失败：{exc}"}},
         ) from exc
-    logger.info("doc done project=%s type=%s title=%s", req.projectId,
-                result["docType"], result["title"][:40])
+    logger.info(
+        "doc done project=%s type=%s title=%s",
+        req.projectId,
+        result["docType"],
+        result["title"][:40],
+    )
     return DocResponse(**result)

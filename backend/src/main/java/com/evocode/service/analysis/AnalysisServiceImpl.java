@@ -79,7 +79,12 @@ public class AnalysisServiceImpl implements AnalysisService {
         analysis.setStatus(AnalysisStatus.PENDING.name());
         analysis.setProgress(0);
         analysis.setStage(Stage.QUEUED.name());
-        analysisMapper.insert(analysis);
+        try {
+            analysisMapper.insert(analysis);
+        } catch (org.springframework.dao.DuplicateKeyException e) {
+            // 审查 TOCTOU：V011 部分唯一索引兜底，并发双 RUNNING 时后者转 ANALYSIS_BUSY
+            throw new BusinessException(ErrorCode.ANALYSIS_BUSY, null);
+        }
 
         // 跨 bean 调用，@Async 生效
         analysisRunner.run(analysis.getId());

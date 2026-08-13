@@ -40,36 +40,68 @@ class EolRule:
 # 规则表（顺序优先：靠前者先匹配）
 EOL_RULES: list[EolRule] = [
     # ---- Maven / Spring Boot ----
-    EolRule("maven", "org.springframework.boot:spring-boot", "2.5.", "3.2+",
-            "Spring Boot 2.5 已 EOL（OSS 支持 2023-11 结束，需升级 3.x "
-            "并迁移 javax→jakarta）", prefix=True),
-    EolRule("maven", "org.springframework.boot:spring-boot", "2.6.", "3.2+",
-            "Spring Boot 2.6 已 EOL（OSS 支持 2022-11 结束）", prefix=True),
-    EolRule("maven", "org.springframework.boot:spring-boot", "2.7.", "3.2+",
-            "Spring Boot 2.7 已 EOL（OSS 支持 2023-11 结束）", prefix=True),
-    EolRule("maven", "org.springframework:spring-core", "5.3.", "6.x",
-            "Spring 5.3 已于 2026-12 结束 OSS 支持（Spring Framework 6.x 需 JDK17+）",
-            prefix=True),
+    EolRule(
+        "maven",
+        "org.springframework.boot:spring-boot",
+        "2.5.",
+        "3.2+",
+        "Spring Boot 2.5 已 EOL（OSS 支持 2023-11 结束，需升级 3.x "
+        "并迁移 javax→jakarta）",
+        prefix=True,
+    ),
+    EolRule(
+        "maven",
+        "org.springframework.boot:spring-boot",
+        "2.6.",
+        "3.2+",
+        "Spring Boot 2.6 已 EOL（OSS 支持 2022-11 结束）",
+        prefix=True,
+    ),
+    EolRule(
+        "maven",
+        "org.springframework.boot:spring-boot",
+        "2.7.",
+        "3.2+",
+        "Spring Boot 2.7 已 EOL（OSS 支持 2023-11 结束）",
+        prefix=True,
+    ),
+    EolRule(
+        "maven",
+        "org.springframework:spring-core",
+        "5.3.",
+        "6.x",
+        "Spring 5.3 已于 2026-12 结束 OSS 支持（Spring Framework 6.x 需 JDK17+）",
+        prefix=True,
+    ),
     # ---- npm ----
-    EolRule("npm", "vue", "2.", "3.x",
-            "Vue 2 已 EOL（2023-12-31 结束支持，官方建议升级 Vue 3）"),
-    EolRule("npm", "react", "16.", "18+",
-            "React 16 已 EOL（React 17/18 为当前支持线）"),
-    EolRule("npm", "react", "17.", "18+",
-            "React 17 已 EOL（2024-03 结束支持，建议升级 18/19）"),
-    EolRule("npm", "node", "14.", "18+",
-            "Node 14 已 EOL（2023-04 结束支持）"),
-    EolRule("npm", "node", "16.", "18+",
-            "Node 16 已 EOL（2023-09 结束支持）"),
-    EolRule("npm", "node", "17.", "18+",
-            "Node 17 已 EOL（2022-06 结束支持）"),
+    EolRule(
+        "npm",
+        "vue",
+        "2.",
+        "3.x",
+        "Vue 2 已 EOL（2023-12-31 结束支持，官方建议升级 Vue 3）",
+    ),
+    EolRule(
+        "npm", "react", "16.", "18+", "React 16 已 EOL（React 17/18 为当前支持线）"
+    ),
+    EolRule(
+        "npm",
+        "react",
+        "17.",
+        "18+",
+        "React 17 已 EOL（2024-03 结束支持，建议升级 18/19）",
+    ),
+    EolRule("npm", "node", "14.", "18+", "Node 14 已 EOL（2023-04 结束支持）"),
+    EolRule("npm", "node", "16.", "18+", "Node 16 已 EOL（2023-09 结束支持）"),
+    EolRule("npm", "node", "17.", "18+", "Node 17 已 EOL（2022-06 结束支持）"),
     # ---- pip ----
-    EolRule("pip", "python", "3.7", "3.10+",
-            "Python 3.7 已 EOL（2023-06 结束安全支持）"),
-    EolRule("pip", "python", "3.8", "3.10+",
-            "Python 3.8 已 EOL（2024-10 结束安全支持）"),
-    EolRule("pip", "django", "2.", "4.x",
-            "Django 2.x 已 EOL（2022-04 结束支持）"),
+    EolRule(
+        "pip", "python", "3.7", "3.10+", "Python 3.7 已 EOL（2023-06 结束安全支持）"
+    ),
+    EolRule(
+        "pip", "python", "3.8", "3.10+", "Python 3.8 已 EOL（2024-10 结束安全支持）"
+    ),
+    EolRule("pip", "django", "2.", "4.x", "Django 2.x 已 EOL（2022-04 结束支持）"),
 ]
 
 

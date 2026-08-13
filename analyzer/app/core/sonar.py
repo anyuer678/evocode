@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import logging
+import os
 import shutil
 import subprocess
 import time
@@ -102,7 +103,7 @@ class SonarClient:
         args = [
             self._scanner,
             f"-Dsonar.host.url={self._host}",
-            f"-Dsonar.token={self._token}",
+            # 审查 L3：token 改环境变量注入（避免出现在进程命令行，同机进程可读）
             f"-Dsonar.projectKey={project_key}",
             f"-Dsonar.projectName={project_key}",
             "-Dsonar.sources=.",
@@ -110,9 +111,13 @@ class SonarClient:
             "-Dsonar.sourceEncoding=UTF-8",
             "-Dsonar.scm.disabled=true",  # 单仓扫描不需要 git 元信息
         ]
+        env = dict(os.environ)
+        if self._token:
+            env["SONAR_TOKEN"] = self._token
         result = subprocess.run(
             args,
             cwd=code_dir,
+            env=env,
             capture_output=True,
             text=True,
             timeout=self._timeout * 4,  # scanner 本身耗时较长

@@ -34,21 +34,21 @@ README_SYSTEM = (
     "你是技术文档专家。基于项目分析结果生成 README（markdown），"
     "包含：项目简介、技术栈、目录结构、快速开始、运行要求。"
     "只输出 markdown，不加围栏。输出 JSON "
-    "{ \"title\": \"...\", \"content\": \"markdown字符串\" }。"
+    '{ "title": "...", "content": "markdown字符串" }。'
 )
 
 ARCH_SYSTEM = (
     "你是架构文档专家。基于架构分析结果生成架构说明文档（markdown）："
     "模块划分、分层说明、核心调用流程、部署方式（含 ASCII 图）。"
     "只输出 markdown，不加围栏。输出 JSON "
-    "{ \"title\": \"...\", \"content\": \"markdown字符串\" }。"
+    '{ "title": "...", "content": "markdown字符串" }。'
 )
 
 API_SYSTEM = (
     "你是 API 文档专家。基于控制器/路由解析结果生成 API 文档（markdown）："
     "每个端点的方法、路径、入参、出参、用途说明（表格形式）。"
     "只输出 markdown，不加围栏。输出 JSON "
-    "{ \"title\": \"...\", \"content\": \"markdown字符串\" }。"
+    '{ "title": "...", "content": "markdown字符串" }。'
 )
 
 
@@ -80,10 +80,15 @@ def generate_doc(
         system, user = API_SYSTEM, _api_user(code_dir)
     try:
         data = llm.chat_json(system, user)
+        raw_title = data.get("title")
+        raw_content = data.get("content")
+        # 审查 L6：LLM 返回 title/content 非 str（dict/list）时降级，而非输出 repr
+        if not isinstance(raw_title, str) or not isinstance(raw_content, str):
+            raise ValueError("LLM 返回 title/content 类型非法")
         return {
             "docType": dt,
-            "title": str(data.get("title") or f"{dt} 文档"),
-            "content": str(data.get("content") or ""),
+            "title": raw_title or f"{dt} 文档",
+            "content": raw_content or "",
             "source": "LLM",
         }
     except Exception as exc:
@@ -118,10 +123,14 @@ def _readme_rules(scan: dict[str, Any] | None, info: dict[str, Any]) -> tuple[st
     lang_line = "、".join(f"{k} {v}%" for k, v in langs.items()) or "未知"
     stack = "、".join(map(str, frameworks)) or "（未识别）"
     files = (scan or {}).get("files") or []
-    tree = "\n".join(
-        f"- `{f.get('path', '?')}`（{f.get('language', '?')}，{f.get('loc', 0)} 行）"
-        for f in files[:30]
-    ) or "- （无文件清单）"
+    tree = (
+        "\n".join(
+            f"- `{f.get('path', '?')}`"
+            f"（{f.get('language', '?')}，{f.get('loc', 0)} 行）"
+            for f in files[:30]
+        )
+        or "- （无文件清单）"
+    )
     content = (
         f"# {name}\n\n"
         f"> 本文档由 EvoCode 规则引擎生成（未启用 LLM 精修）。\n\n"
@@ -153,14 +162,22 @@ def _arch_rules(arch: dict[str, Any] | None) -> tuple[str, str]:
     for kind, lines in by_type.items():
         module_lines.append(f"### {kind}\n\n" + "\n".join(lines[:30]))
     module_block = "\n\n".join(module_lines) or "- （无节点数据）"
-    edge_lines = "\n".join(
-        f"- {e.get('source', '?')} → {e.get('target', '?')}（{e.get('type', '')}）"
-        for e in edges[:50] if isinstance(e, dict)
-    ) or "- （无调用关系）"
-    viol_lines = "\n".join(
-        f"- `{v.get('description', '')}`（{v.get('severity', '')}）"
-        for v in violations[:20] if isinstance(v, dict)
-    ) or "- 无违规"
+    edge_lines = (
+        "\n".join(
+            f"- {e.get('source', '?')} → {e.get('target', '?')}（{e.get('type', '')}）"
+            for e in edges[:50]
+            if isinstance(e, dict)
+        )
+        or "- （无调用关系）"
+    )
+    viol_lines = (
+        "\n".join(
+            f"- `{v.get('description', '')}`（{v.get('severity', '')}）"
+            for v in violations[:20]
+            if isinstance(v, dict)
+        )
+        or "- 无违规"
+    )
     content = (
         f"# 架构说明\n\n"
         f"> 本文档由 EvoCode 规则引擎生成（未启用 LLM 精修）。\n\n"

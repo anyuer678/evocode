@@ -20,6 +20,7 @@
     </div>
 
     <div v-if="loading" class="debt__state">加载中…</div>
+    <div v-else-if="errorMsg" class="debt__state debt__state--error">加载失败：{{ errorMsg }}</div>
     <div v-else-if="!debts.length" class="debt__state">暂无技术债，完成一次分析后自动生成</div>
     <ul v-else class="debt__list">
       <li v-for="d in debts" :key="d.id" class="debt__item">
@@ -142,6 +143,7 @@ const statusOptions: { value: TechDebtStatus | ''; label: string }[] = [
 const debts = ref<TechDebtItem[]>([])
 const statusFilter = ref<TechDebtStatus | ''>('')
 const loading = ref(false)
+const errorMsg = ref('')
 const action = ref<TechDebtItem | null>(null)
 const actionTarget = ref<TechDebtStatus>('DOING')
 const actionNote = ref('')
@@ -199,15 +201,21 @@ const canAct = (s: TechDebtStatus): boolean => s === 'OPEN' || s === 'DOING'
 
 const formatTime = (t: string): string => new Date(t).toLocaleString()
 
+let loadSeq = 0
+
 async function load() {
+  const seq = ++loadSeq
   loading.value = true
+  errorMsg.value = ''
   try {
     const page = await fetchTechDebts(props.projectId, statusFilter.value || undefined, 1, 100)
+    if (seq !== loadSeq) return // 审查 L2：过期响应丢弃
     debts.value = page.items
   } catch (err) {
-    console.error('加载技术债失败', err)
+    if (seq !== loadSeq) return
+    errorMsg.value = err instanceof Error ? err.message : String(err) // 审查 L1：失败态与空态分离
   } finally {
-    loading.value = false
+    if (seq === loadSeq) loading.value = false
   }
 }
 

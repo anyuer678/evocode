@@ -70,7 +70,10 @@ const langOptions = computed(() => {
   return [...map.entries()].sort((a, b) => b[1] - a[1]).map(([name]) => name)
 })
 
+let loadSeq = 0
+
 async function load() {
+  const seq = ++loadSeq
   loading.value = true
   error.value = ''
   try {
@@ -83,12 +86,14 @@ async function load() {
       sort: sortBy.value as 'createdAt' | 'lastAnalyzedAt' | 'locTotal' | 'name' | undefined,
       order: orderDir.value,
     })
+    if (seq !== loadSeq) return // 审查 L2：过期响应丢弃，防并发乱序覆盖
     items.value = data.items
     total.value = data.total
   } catch (e) {
+    if (seq !== loadSeq) return
     error.value = e instanceof Error ? e.message : String(e)
   } finally {
-    loading.value = false
+    if (seq === loadSeq) loading.value = false
   }
 }
 

@@ -71,7 +71,9 @@ class OpenAICompatClient:
         last_exc: Exception | None = None
         for attempt in range(self._max_retries + 1):
             try:
-                with httpx.Client(timeout=self._timeout) as client:
+                with httpx.Client(
+                    timeout=httpx.Timeout(connect=3.0, read=self._timeout)
+                ) as client:
                     resp = client.post(
                         f"{self._base_url}{path}",
                         headers={"Authorization": f"Bearer {self._api_key}"},
@@ -138,12 +140,17 @@ class OpenAICompatClient:
         last_exc: Exception | None = None
         for attempt in range(self._max_retries + 1):
             try:
-                with httpx.Client(timeout=self._timeout) as client, client.stream(
-                    "POST",
-                    f"{self._base_url}/chat/completions",
-                    headers={"Authorization": f"Bearer {self._api_key}"},
-                    json=payload,
-                ) as resp:
+                with (
+                    httpx.Client(
+                        timeout=httpx.Timeout(connect=3.0, read=self._timeout)
+                    ) as client,
+                    client.stream(
+                        "POST",
+                        f"{self._base_url}/chat/completions",
+                        headers={"Authorization": f"Bearer {self._api_key}"},
+                        json=payload,
+                    ) as resp,
+                ):
                     resp.raise_for_status()
                     for line in resp.iter_lines():
                         if not line or not line.startswith("data:"):
@@ -157,9 +164,7 @@ class OpenAICompatClient:
                 return
             except Exception as exc:
                 last_exc = exc
-                logger.warning(
-                    "LLM 流式调用失败 attempt=%s: %s", attempt + 1, exc
-                )
+                logger.warning("LLM 流式调用失败 attempt=%s: %s", attempt + 1, exc)
         raise RuntimeError(f"LLM 流式调用失败：{last_exc}")
 
 

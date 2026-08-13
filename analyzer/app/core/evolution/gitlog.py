@@ -84,8 +84,10 @@ def git_log_entries(git_dir: str, range_days: int | None = None) -> list[dict] |
     git 执行失败/超时 → None（与「空仓库」区分：空仓库是 []）。
     """
     args = [
-        "-c", "core.quotepath=false",
-        "log", "--numstat",
+        "-c",
+        "core.quotepath=false",
+        "log",
+        "--numstat",
         f"--pretty=format:{_PRETTY}",
         "--date=iso-strict",
         "--no-renames",
@@ -194,9 +196,7 @@ def build_authors(commits: list[dict]) -> list[dict]:
     acc: dict[str, dict] = {}
     for c in commits:
         name = c["authorName"] or "unknown"
-        a = acc.setdefault(
-            name, {"authorName": name, "commits": 0, "linesAdded": 0}
-        )
+        a = acc.setdefault(name, {"authorName": name, "commits": 0, "linesAdded": 0})
         a["commits"] += 1
         a["linesAdded"] += c["linesAdded"]
     return sorted(acc.values(), key=lambda x: -x["commits"])

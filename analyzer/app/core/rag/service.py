@@ -78,15 +78,12 @@ class RagService:
                     continue
                 rel = os.path.relpath(path, code_dir).replace("\\", "/")
                 detected = detect_language(rel)
-                if (
-                    detected.lower() not in languages
-                    or not supported_language(detected)
+                if detected.lower() not in languages or not supported_language(
+                    detected
                 ):
                     continue
                 try:
-                    with open(
-                        path, encoding="utf-8", errors="replace"
-                    ) as fh:
+                    with open(path, encoding="utf-8", errors="replace") as fh:
                         source = fh.read()
                 except OSError:
                     continue
