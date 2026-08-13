@@ -184,6 +184,18 @@ class ProjectServiceImplTest {
                 () -> service.list(1, 10, null, null, null, "malicious;drop", "asc"));
     }
 
+    // 审查修复回归：契约 §6「时间类默认 desc」——sort 缺省等价 createdAt，应传 desc
+    @Test
+    void defaultSortIsDescForTimeColumns() {
+        when(projectMapper.selectSummaryPage(any(), any(), any(), any(), any(), any()))
+                .thenReturn(null);
+        // sort=null（默认 createdAt）→ desc
+        service.list(1, 10, null, null, null, null, null);
+        org.mockito.Mockito.verify(projectMapper).selectSummaryPage(any(), any(), any(), any(),
+                org.mockito.ArgumentMatchers.eq("p.created_at"),
+                org.mockito.ArgumentMatchers.eq("desc"));
+    }
+
     // ---- P9b：PATCH 更新 ----
 
     @Test

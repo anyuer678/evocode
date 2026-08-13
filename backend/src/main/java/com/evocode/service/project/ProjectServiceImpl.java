@@ -188,10 +188,10 @@ public class ProjectServiceImpl implements ProjectService {
             default -> throw new BusinessException(ErrorCode.PARAM_INVALID, "sort 不在白名单");
         };
         // 审查修复：契约 §6「时间类默认 desc，其余 asc」——此前 order 缺省一律 asc，
-        // createdAt/lastAnalyzedAt 默认应降序（最新在前）
+        // createdAt/lastAnalyzedAt 默认应降序（最新在前）。sort 缺省等价于 createdAt。
         String orderDir;
         if (order == null || order.isBlank()) {
-            orderDir = isTimeSort(sort) ? "desc" : "asc";
+            orderDir = isTimeSort(sort == null ? "createdAt" : sort) ? "desc" : "asc";
         } else {
             orderDir = "desc".equalsIgnoreCase(order) ? "desc" : "asc";
         }
