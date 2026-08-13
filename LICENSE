@@ -1,0 +1,17 @@
+# EvoCode — 开源许可证
+
+Copyright (C) 2026 anyuer678
+
+本项目按 **GPL-3.0** 协议以「现状」（AS IS）提供。作者与贡献者不对使用本项目产生的任何直接、间接、偶然或后果性损失负责，包括但不限于：实际生产/生活环境中的业务故障、数据丢失、服务中断、安全事件等任何恶劣结果。若需将本项目用于实际生产或业务场景，请自行充分评估风险，并按需修改代码以满足你的实际需求；任何因使用本项目（含修改后版本）造成的影响，均由使用者自行承担。
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+GNU General Public License for more details.
+
+完整 GPL-3.0 协议文本见 <https://www.gnu.org/licenses/gpl-3.0.html>。

@@ -15,6 +15,34 @@
 
 核心闭环：`导入项目 → 扫描(结构/语言/技术栈) → 质量(静态扫描) → 架构(调用关系) → AI 综合诊断 → 技术债登记 → 报告存档 → 演化跟踪`
 
+## 功能特性
+
+| 能力域 | 说明 |
+|---|---|
+| 项目导入 | zip 上传 / GitHub 克隆 / 档案快扫 / 文件地图 |
+| 健康评分 | 规则版 + LLM 增强综合评分（质量/结构/依赖/规模 4 维，可复现） |
+| 质量分析 | Sonar 静态扫描（不可用降级 N/A）+ issue 规则解释 |
+| 架构分析 | tree-sitter 跨语言节点/调用边/分层违规（Python/Java/JS/TS/Go） |
+| 演化分析 | git log 统计 + 周趋势/TOP 文件/作者 + 规则热点 |
+| 依赖分析 | pom/package 解析 + 内置 EOL 风险规则表（Spring Boot/Vue/React/Node 等） |
+| AI 医生 | RAG 检索增强问答 + SSE 流式生成 + 引用溯源（防幻觉） |
+| 技术债 | 四源聚合（ARCH/QUALITY/EVOLUTION/DEPEND）+ 状态机 + 手动登记 |
+| 文档生成 | README/架构/API 三类文档（LLM 生成 + 无 Key 规则版降级） |
+| 报告 | AI 报告 + 历史趋势对比 + Markdown 导出 + 报告拆表（analysis_report） |
+| Dashboard | 跨项目总览 + 健康分布/语言构成/状态分布 + 深浅色主题 |
+| 可靠性 | 分析进度 SSE 实时推送、任务中断启动恢复、Redis 列表缓存降级 |
+
+## 技术栈
+
+| 层 | 技术 |
+|---|---|
+| 前端 | Vue 3 + TypeScript + Vite + ECharts + Pinia + vitest |
+| 后端 | Spring Boot 3.3（Java 17）+ MyBatis-Plus + Lombok |
+| 分析器 | Python 3.11 + FastAPI + tree-sitter（Python/Java/JavaScript/TypeScript/Go）+ pgvector |
+| AI | OpenAI 兼容 LLM API（DeepSeek/OpenAI/Ollama）+ RAG（bge-m3 向量，关键词兜底） |
+| 基础设施 | PostgreSQL(pgvector) + Redis（列表缓存，AD-018）+ Docker Compose |
+| 质量工具 | SonarQube（可选 `--profile full`）+ ESLint/Prettier + ruff + ArchUnit |
+
 ## 系统架构
 
 ```
@@ -44,7 +72,7 @@
 
 辅助目录：`docs/decisions/`（AD 决策记录）、`docs/devlog/`（周记）、`docs/screenshots/`（演示截图）。
 
-## 当前进度（P9 v1.1 全部完成，详见 docs/devlog/）
+## 里程碑进度（当前 v1.2 收官：技术债清零 + A0→A2 架构演进达成）
 
 ```
 ✅ P0 三端骨架 + 基础设施 + 脚本，三端门禁全绿（mvnw test / ruff+pytest / npm lint+build，init-db 实测通过）
@@ -63,6 +91,7 @@
 ✅ P9d 依赖分析完成：analyzer /analyze/v1/dependency（pom/package 解析 + EOL 规则表）+ V009 dependency 表落库 + 前端依赖区块（风险分组/依赖表/EOL 徽标/统计卡）；TD-04 DEPEND 源改读表
 ✅ P9e 进度通知/搜索完成（v1.1 收官）：backend GET /projects/{id}/analyses/events SSE（AnalysisProgressPublisher 按 projectId 广播，状态机变更点推送）+ 前端详情页实时进度条/完成 Toast/断线轮询兜底；healthScore 排序白名单；TD-01 analyzer /analyze/v1/explain（规则版 + LLM 增强）；TD-12 README 启动命令收敛
 ✅ 架构演进 A1/A2 达成 + 技术债清零（v1.2）：TD-09 架构扫描语言扩展（JS/TS/Go）+ TD-10 token 估算精确化 + SPI-1 解析器注册表（新增语言 ≤1 天配置级，languages 过滤修复）+ TD-05 Redis 列表读缓存（AD-018，含降级）+ SPI-6 报告拆表（analysis_report 表，healthScore 列化）；三端门禁 backend 155 / analyzer 158 / frontend 全绿；FULL 链路集成冒烟通过（详见 docs/metrics/2026-08-13-v1.2.md）
+✅ 收官完善（v1.2+）：AD-019 任务中断启动恢复（StartupTaskRecovery）+ 安全冒烟脚本（security-smoke.ps1，T-S-01/05/07/08）+ samples/demo-store 演示项目；frontend lint 清零（0 errors / 0 warnings）
 ```
 
 ## 快速开始
@@ -193,3 +222,9 @@ v0.1 代码体检 MVP（上传→扫描→AI 报告）→ v0.2 质量(Sonar) →
 | v3.17 | 2026-08 | **P9e 进度通知/搜索完成（P9 v1.1 收官）**：backend `GET /projects/{id}/analyses/events` SSE（`AnalysisProgressPublisher` 按 projectId 广播，AnalysisRunner 状态机 5 变更点推送，断线不重放、前端轮询兜底）；healthScore 排序白名单（复用列表子查询列）；**TD-01** analyzer `POST /analyze/v1/explain`（规则版按 ruleKey/severity 模板 + LLM 增强，source 区分）；**TD-12** README 启动命令收敛到 scripts 入口；前端 EventSource 实时进度条 + 完成/失败 Toast；三端测试 backend 149 / analyzer 全量 / frontend 全绿（详见 docs/devlog/2026-08-11-p9e.md） |
 | v3.18 | 2026-08 | **架构演进 A1/A2 达成 + 技术债清零（v1.2）**：**TD-09** 架构扫描语言扩展（JS/TS/Go tree-sitter parser，混合语言目录端到端）；**TD-10** token 估算精确化（内置估算器 + chunker token 预算驱动）；**SPI-1** 解析器注册表（BaseParser + ParserRegistry，新增语言 ≤1 天配置级，languages 过滤修复）；**TD-05** Redis 列表读缓存（AD-018：Spring Cache + TTL 60s + CacheErrorHandler 降级）；**SPI-6** 报告拆表（V010 analysis_report 表，healthScore/level/summary 列化 + ReportStorageService 唯一读写入口，修复 P9e healthScore 排序 NULLS LAST 语法 bug）；三端门禁 backend 155 / analyzer 158 / frontend lint+build+vitest 12 全绿；FULL 链路集成冒烟通过（详见 docs/devlog/2026-08-13-*.md 与 docs/metrics/2026-08-13-v1.2.md） |
 | v3.19 | 2026-08 | **SPI-5 压测评估 + AD-019 启动恢复**：并发压测基线（4 项目并发 FULL 全部 SUCCEEDED；backend 崩溃/重启后残留 PENDING/RUNNING 任务无声丢失——无恢复机制）；新增 StartupTaskRecovery（启动扫描残留 → 标记 FAILED「服务重启导致任务中断，请重新发起分析」+ 项目 ANALYZING → READY）；backend 158/158（详见 docs/devlog/2026-08-13-ad019.md） |
+
+## License
+
+本项目按 **GPL-3.0** 协议以「现状」（AS IS）提供。作者与贡献者不对使用本项目产生的任何直接、间接、偶然或后果性损失负责，包括但不限于：实际生产/生活环境中的业务故障、数据丢失、服务中断、安全事件等任何恶劣结果。若需将本项目用于实际生产或业务场景，请自行充分评估风险，并按需修改代码以满足你的实际需求；任何因使用本项目（含修改后版本）造成的影响，均由使用者自行承担。
+
+完整协议文本见 [LICENSE](LICENSE)。
