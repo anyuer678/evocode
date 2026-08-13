@@ -79,7 +79,13 @@ class OpenAICompatClient:
                     )
                     resp.raise_for_status()
                     return resp.json()
-            except Exception as exc:  # 网络/HTTP 错误统一重试
+            except httpx.HTTPStatusError as exc:
+                # 审查 M2：4xx 永久性错误（key 错/请求格式错）重试无意义 → 直接抛
+                if 400 <= exc.response.status_code < 500:
+                    raise
+                last_exc = exc
+                logger.warning("LLM 调用失败 %s attempt=%s: %s", path, attempt + 1, exc)
+            except Exception as exc:  # 网络/超时等瞬时错误才重试
                 last_exc = exc
                 logger.warning("LLM 调用失败 %s attempt=%s: %s", path, attempt + 1, exc)
         raise RuntimeError(f"LLM 调用失败（{path}）：{last_exc}")

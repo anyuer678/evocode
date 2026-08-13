@@ -385,5 +385,8 @@ export interface DocItem {
   content: string
   version: number
   edited: boolean
+  /** 审查 L4：DocResp 返回 source（LLM/RULES），补齐契约镜像 */
+  source: 'LLM' | 'RULES' | null
+  generatedAt?: string
   createdAt: string
 }

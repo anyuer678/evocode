@@ -183,8 +183,8 @@ async function load(): Promise<void> {
   errorMsg.value = ''
   try {
     items.value = await getReportHistory(props.projectId, 20)
-    // 至少两期才展示对比；基准默认第二新
-    baseIndex.value = Math.min(1, items.value.length - 1)
+    // 至少两期才展示对比；基准默认第二新（审查 L5：空列表时 baseIndex=0 避免 -1）
+    baseIndex.value = items.value.length ? Math.min(1, items.value.length - 1) : 0
   } catch (e) {
     errorMsg.value = e instanceof Error ? e.message : String(e)
   } finally {

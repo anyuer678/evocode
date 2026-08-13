@@ -295,6 +295,12 @@ const SEVERITY_META: Record<QualityIssueItem['severity'], { label: string; cls: 
   INFO: { label: '提示', cls: 'sv-info' },
 }
 
+// 审查 L3：后端返回未知枚举值时不崩溃（字典加 fallback）
+const STATUS_FALLBACK = { label: '未知', cls: 'st-created' }
+const ANA_STATUS_FALLBACK = { label: '未知', cls: 'st-created' }
+const LEVEL_FALLBACK = { label: '未知', cls: 'lv-fair' }
+const SEVERITY_FALLBACK = { label: '未知', cls: 'sv-minor' }
+
 // ---- 文件地图 ----
 
 async function loadFiles() {
@@ -425,8 +431,8 @@ onBeforeUnmount(() => {
 
     <div class="title-row">
       <h1>{{ detail.name }}</h1>
-      <span class="badge" :class="STATUS_META[detail.status].cls">
-        {{ STATUS_META[detail.status].label }}
+      <span class="badge" :class="(STATUS_META[detail.status] ?? STATUS_FALLBACK).cls">
+        {{ (STATUS_META[detail.status] ?? STATUS_FALLBACK).label }}
       </span>
       <span v-if="detail.sourceType === 'GIT'" class="repo-url">{{ detail.repoUrl }}</span>
     </div>
@@ -545,8 +551,8 @@ onBeforeUnmount(() => {
     <section v-else-if="report" class="report">
       <div class="report-head">
         <h2>体检报告 #{{ report.analysisId }}</h2>
-        <span class="badge" :class="LEVEL_META[report.report.level].cls">
-          {{ LEVEL_META[report.report.level].label }}
+        <span class="badge" :class="(LEVEL_META[report.report.level] ?? LEVEL_FALLBACK).cls">
+          {{ (LEVEL_META[report.report.level] ?? LEVEL_FALLBACK).label }}
         </span>
         <span class="badge source" :class="report.source === 'LLM' ? 'src-llm' : 'src-rules'">
           {{ report.source === 'LLM' ? 'AI 报告' : '规则报告' }}
@@ -633,8 +639,8 @@ onBeforeUnmount(() => {
             <td>#{{ a.id }}</td>
             <td>{{ a.type }}</td>
             <td>
-              <span class="badge" :class="ANA_STATUS_META[a.status].cls">
-                {{ ANA_STATUS_META[a.status].label }}
+              <span class="badge" :class="(ANA_STATUS_META[a.status] ?? ANA_STATUS_FALLBACK).cls">
+                {{ (ANA_STATUS_META[a.status] ?? ANA_STATUS_FALLBACK).label }}
               </span>
             </td>
             <td>{{ a.progress }}%{{ a.stage ? ' · ' + a.stage : '' }}</td>
@@ -685,8 +691,8 @@ onBeforeUnmount(() => {
         <tbody>
           <tr v-for="item in quality.items" :key="item.id">
             <td>
-              <span class="sev" :class="SEVERITY_META[item.severity].cls">
-                {{ SEVERITY_META[item.severity].label }}
+              <span class="sev" :class="(SEVERITY_META[item.severity] ?? SEVERITY_FALLBACK).cls">
+                {{ (SEVERITY_META[item.severity] ?? SEVERITY_FALLBACK).label }}
               </span>
             </td>
             <td>

@@ -30,6 +30,7 @@ DEBT_STATUS_INVALID(2011, "技术债状态迁移非法或必填字段缺失", Ht
 DEBT_NOT_FOUND(2012, "技术债不存在", HttpStatus.NOT_FOUND),
 DOC_NOT_FOUND(2013, "文档不存在", HttpStatus.NOT_FOUND),
 DOC_EDITED(2014, "文档已被人工编辑，重新生成需确认（force）", HttpStatus.BAD_REQUEST),
+ANALYSIS_NOT_FOUND(2015, "分析不存在或无报告", HttpStatus.NOT_FOUND),
 
     // 3xxx 分析器
     ANALYZER_UNREACHABLE(3001, "分析服务不可达或内部错误", HttpStatus.BAD_GATEWAY),

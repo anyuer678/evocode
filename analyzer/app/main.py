@@ -2,6 +2,7 @@
 
 import json
 import logging
+import os
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
@@ -140,10 +141,13 @@ def scan(req: ScanRequest) -> ScanResult:
         "result": result.model_dump(mode="json"),
     }
     try:
-        status_file.write_text(
+        # 审查 L1：先写临时文件再 os.replace 原子替换，避免 backend 轮询读到半截 JSON
+        tmp_file = status_file.with_suffix(".json.tmp")
+        tmp_file.write_text(
             json.dumps(payload, ensure_ascii=False),
             encoding="utf-8",
         )
+        os.replace(tmp_file, status_file)
     except OSError as exc:
         logger.error("write status file failed project=%s: %s", req.projectId, exc)
         raise HTTPException(status_code=500, detail="write status failed") from exc

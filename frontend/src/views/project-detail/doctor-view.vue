@@ -219,8 +219,14 @@ async function send() {
   if (!content || streaming.value) return
   let sessionId = activeId.value
   if (sessionId == null) {
-    const s = await createChatSession(props.projectId)
-    sessionId = s.id
+    try {
+      const s = await createChatSession(props.projectId)
+      sessionId = s.id
+    } catch (e) {
+      // 审查 M8：建会话失败不再静默丢失输入，展示错误
+      streamError.value = `会话创建失败：${e instanceof Error ? e.message : String(e)}`
+      return
+    }
   }
   const refPath = fileRef.value.trim() || null
   messages.value.push({ _localId: ++localSeq, id: null, role: 'USER', content, citations: null })

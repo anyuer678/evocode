@@ -128,7 +128,7 @@ class AnalysisServiceTest {
     void statusRejectsMissingAnalysis() {
         when(analysisMapper.selectById(10L)).thenReturn(null);
         BusinessException e = assertThrows(BusinessException.class, () -> service.status(10L));
-        assertEquals(2001, e.getCode());
+        assertEquals(2015, e.getCode());
     }
 
     @Test
@@ -160,7 +160,7 @@ class AnalysisServiceTest {
         when(analysisMapper.selectById(10L)).thenReturn(newAnalysis()); // 无报告
         when(reportStorageService.getByAnalysisId(10L)).thenReturn(null);
         BusinessException e = assertThrows(BusinessException.class, () -> service.report(10L));
-        assertEquals(2001, e.getCode());
+        assertEquals(2015, e.getCode());
     }
 
     @Test

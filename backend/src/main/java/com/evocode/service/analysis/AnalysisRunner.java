@@ -292,12 +292,13 @@ public class AnalysisRunner {
                 .eq("project_id", projectId)
                 .ne("id", excludeId)
                 .eq("status", AnalysisStatus.SUCCEEDED.name())
-                .isNotNull("report_json")
                 .orderByDesc("id")
                 .last("LIMIT 3"));
         return prev.stream().map(a -> {
             Map<String, Object> sum = new HashMap<>();
-            Map<String, Object> report = a.getReportJson();
+            // 审查：SPI-6 拆表后 report_json 在 analysis_report（analysis 列仅存量），改经 ReportStorageService 读
+            var row = reportStorageService.getByAnalysisId(a.getId());
+            Map<String, Object> report = row == null ? null : row.getReportJson();
             sum.put("healthScore", report == null ? null : report.get("healthScore"));
             sum.put("summary", report == null ? null : report.get("summary"));
             return sum;

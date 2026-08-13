@@ -43,7 +43,7 @@ public class GlobalExceptionHandler {
     public ResponseEntity<Result<Void>> handleOther(Exception e) {
         log.error("未预期异常", e);
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(Result.fail(5002, "系统内部错误：" + e.getClass().getSimpleName()));
+                .body(Result.fail(5002, "系统内部错误，请稍后重试或查看服务日志"));
     }
 
     private ErrorCode resolve(int code) {

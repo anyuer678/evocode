@@ -91,7 +91,8 @@ export async function sendChatMessage(
     if (event === 'delta') {
       handlers.onDelta?.(String(obj.content ?? ''))
     } else if (event === 'citations') {
-      handlers.onCitations?.((obj.items as ChatCitation[]) ?? [])
+      // 审查 M4：items 可能非数组（异常 SSE 负载）→ Array.isArray 防御，下游 cites.length 安全
+      handlers.onCitations?.(Array.isArray(obj.items) ? (obj.items as ChatCitation[]) : [])
     } else if (event === 'done') {
       sawDone = true
       handlers.onDone?.(Number(obj.messageId))

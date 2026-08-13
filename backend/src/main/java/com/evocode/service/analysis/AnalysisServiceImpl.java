@@ -107,7 +107,7 @@ public class AnalysisServiceImpl implements AnalysisService {
     public AnalysisStatusResp status(Long analysisId) {
         Analysis analysis = analysisMapper.selectById(analysisId);
         if (analysis == null) {
-            throw new BusinessException(ErrorCode.PROJECT_NOT_FOUND, null);
+            throw new BusinessException(ErrorCode.ANALYSIS_NOT_FOUND, null);
         }
         return new AnalysisStatusResp(analysis.getId(), analysis.getStatus(),
                 analysis.getProgress(), analysis.getStage(), analysis.getErrorMessage());
@@ -117,11 +117,11 @@ public class AnalysisServiceImpl implements AnalysisService {
     public ReportDetailResp report(Long analysisId) {
         Analysis analysis = analysisMapper.selectById(analysisId);
         if (analysis == null) {
-            throw new BusinessException(ErrorCode.PROJECT_NOT_FOUND, "该分析不存在");
+            throw new BusinessException(ErrorCode.ANALYSIS_NOT_FOUND, "该分析不存在");
         }
         AnalysisReport r = reportStorageService.getByAnalysisId(analysisId);
         if (r == null || r.getReportJson() == null) {
-            throw new BusinessException(ErrorCode.PROJECT_NOT_FOUND, "该分析暂无报告");
+            throw new BusinessException(ErrorCode.ANALYSIS_NOT_FOUND, "该分析暂无报告");
         }
         return new ReportDetailResp(analysis.getId(),
                 analysis.getFinishedAt() != null ? analysis.getFinishedAt() : analysis.getCreatedAt(),
@@ -132,7 +132,7 @@ public class AnalysisServiceImpl implements AnalysisService {
     public AnalysisStatusResp regenerate(Long analysisId) {
         Analysis analysis = analysisMapper.selectById(analysisId);
         if (analysis == null || reportStorageService.getByAnalysisId(analysisId) == null) {
-            throw new BusinessException(ErrorCode.PROJECT_NOT_FOUND, "该分析不存在或无报告");
+            throw new BusinessException(ErrorCode.ANALYSIS_NOT_FOUND, "该分析不存在或无报告");
         }
         if (AnalysisStatus.RUNNING.name().equals(analysis.getStatus())) {
             throw new BusinessException(ErrorCode.REPORT_REGENERATING, null);
