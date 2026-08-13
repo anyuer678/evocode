@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import { onBeforeUnmount, onMounted, ref, watch, type ComponentPublicInstance } from 'vue'
 import * as echarts from 'echarts/core'
 import { GraphChart } from 'echarts/charts'
@@ -7,6 +7,9 @@ import { CanvasRenderer } from 'echarts/renderers'
 import type { ComposeOption, ECharts } from 'echarts/core'
 import type { GraphSeriesOption } from 'echarts/charts'
 import type { TooltipComponentOption } from 'echarts/components'
+import { h } from 'vue'
+import { NAlert, NCard, NDataTable, NEmpty, NSpin, NTag } from 'naive-ui'
+import type { DataTableColumns } from 'naive-ui'
 import { fetchArchitecture } from '../../api/architecture'
 import type { ArchitectureNode, ArchitectureResult, ArchitectureViolation } from '../../types/api'
 
@@ -200,173 +203,87 @@ onBeforeUnmount(() => {
   chart?.dispose()
   chart = null
 })
+const violationColumns: DataTableColumns<ArchitectureViolation> = [
+  {
+    title: '严重度',
+    key: 'severity',
+    width: 90,
+    render: (r) => {
+      const meta = SEV_META[r.severity] ?? SEV_FALLBACK
+      const type = r.severity === 'HIGH' ? 'error' : r.severity === 'MEDIUM' ? 'warning' : 'default'
+      return h(NTag, { size: 'small', bordered: false, type }, () => meta.label)
+    },
+  },
+  {
+    title: '类型',
+    key: 'violationType',
+    width: 130,
+    render: (r) => h(NTag, { size: 'small', bordered: false }, () => r.violationType),
+  },
+  { title: '描述', key: 'description', render: (r) => r.description },
+  { title: '建议', key: 'suggestion', render: (r) => r.suggestion },
+  { title: 'AI 解读', key: 'aiNote', width: 110, render: (r) => r.aiNote || '待填充' },
+]
 </script>
-
 <template>
   <div class="arch">
-    <div class="arch-head">
-      <h2>架构分析</h2>
-      <span v-if="arch && arch.violations.length" class="arch-badge warn">
-        {{ arch.violations.length }} 处违规
-      </span>
-      <span v-else-if="arch" class="arch-badge ok">无违规</span>
-    </div>
+    <NCard size="small" class="arch-card">
+      <template #header>
+        <div class="arch-head">
+          <span class="arch-title">架构分析</span>
+          <NTag v-if="arch && arch.violations.length" size="small" type="error" bordered>
+            {{ arch.violations.length }} 处违规
+          </NTag>
+          <NTag v-else-if="arch" size="small" type="success" bordered>无违规</NTag>
+        </div>
+      </template>
 
-    <div v-if="loading" class="arch-state">架构分析加载中…</div>
-    <div v-else-if="error" class="arch-state fail">{{ error }}</div>
-    <div v-else-if="empty" class="arch-state">
-      该项目尚无架构分析，发起一次完整分析后即可查看架构视图。
-    </div>
+      <NSpin :show="loading">
+        <NAlert v-if="error" type="error" :show-icon="true">{{ error }}</NAlert>
+        <NEmpty
+          v-else-if="empty"
+          description="该项目尚无架构分析，发起一次完整分析后即可查看架构视图。"
+        />
+        <template v-else-if="arch">
+          <div v-if="arch.nodes.length" :ref="setChartEl" class="arch-canvas"></div>
+          <NEmpty v-else description="架构分析完成，未发现代码单元。" />
 
-    <template v-else-if="arch">
-      <div v-if="arch.nodes.length" :ref="setChartEl" class="arch-canvas"></div>
-      <p v-else class="arch-empty">架构分析完成，未发现代码单元。</p>
-
-      <div v-if="arch.violations.length" class="arch-violations">
-        <h3>架构违规</h3>
-        <table class="table">
-          <thead>
-            <tr>
-              <th>严重度</th>
-              <th>类型</th>
-              <th>描述</th>
-              <th>建议</th>
-              <th>AI 解读</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr
-              v-for="v in arch.violations"
-              :key="v.id"
-              :class="{ active: activeViolation?.id === v.id }"
-              @click="onViolationClick(v)"
-            >
-              <td>
-                <span class="sev" :class="(SEV_META[v.severity] ?? SEV_FALLBACK).cls">
-                  {{ (SEV_META[v.severity] ?? SEV_FALLBACK).label }}
-                </span>
-              </td>
-              <td>
-                <span class="tag">{{ v.violationType }}</span>
-              </td>
-              <td class="q-msg">{{ v.description }}</td>
-              <td class="muted">{{ v.suggestion }}</td>
-              <td class="muted">{{ v.aiNote || '待填充' }}</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </template>
+          <NDataTable
+            v-if="arch.violations.length"
+            :columns="violationColumns"
+            :data="arch.violations"
+            :row-key="(r) => r.id"
+            :bordered="false"
+            :single-line="false"
+            size="small"
+            :row-class-name="(r) => (activeViolation?.id === r.id ? 'violation-active' : '')"
+            @row-click="onViolationClick"
+          />
+        </template>
+      </NSpin>
+    </NCard>
   </div>
 </template>
-
 <style scoped>
+.arch-card {
+  background: #fff;
+}
 .arch-head {
   display: flex;
   align-items: center;
-  gap: 12px;
-  margin: 4px 0 10px;
+  gap: 10px;
 }
-.arch-head h2 {
-  font-size: 16px;
-  margin: 0;
-}
-.arch-badge {
-  padding: 2px 10px;
-  border-radius: 10px;
-  font-size: 12px;
-}
-.arch-badge.warn {
-  color: var(--fail-color);
-  background: rgba(229, 72, 77, 0.1);
-}
-.arch-badge.ok {
-  color: var(--ok-color);
-  background: rgba(22, 163, 74, 0.1);
-}
-.arch-state {
-  padding: 28px 0;
-  text-align: center;
-  color: var(--text-secondary);
-}
-.arch-state.fail {
-  color: var(--fail-color);
+.arch-title {
+  font-size: 15px;
+  font-weight: 600;
 }
 .arch-canvas {
-  width: 100%;
-  height: 440px;
-  border: 1px solid var(--border-color, #e5e7eb);
-  border-radius: 8px;
-  background: var(--bg-card);
-}
-.arch-empty {
-  color: var(--text-secondary);
-  text-align: center;
-  padding: 24px 0;
-}
-.arch-violations {
-  margin-top: 18px;
-}
-.arch-violations h3 {
-  font-size: 14px;
-  margin: 0 0 8px;
-}
-.table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 13px;
-}
-.table th {
-  text-align: left;
-  padding: 6px 8px;
-  color: var(--text-secondary);
-  border-bottom: 1px solid var(--border-color, #e5e7eb);
-  font-weight: 500;
-}
-.table td {
-  padding: 7px 8px;
-  border-bottom: 1px solid var(--border-color, #e5e7eb);
-  vertical-align: top;
-}
-.table tbody tr {
-  cursor: pointer;
-  transition: background 0.15s;
-}
-.table tbody tr:hover {
-  background: rgba(79, 124, 255, 0.05);
-}
-.table tbody tr.active {
-  background: rgba(229, 72, 77, 0.08);
-}
-.sev {
-  display: inline-block;
-  padding: 1px 8px;
-  border-radius: 9px;
-  font-size: 12px;
-}
-.sev.high {
-  color: var(--fail-color);
-  background: rgba(229, 72, 77, 0.1);
-}
-.sev.medium {
-  color: #d97706;
-  background: rgba(217, 119, 6, 0.1);
-}
-.sev.low {
-  color: var(--text-secondary);
-  background: rgba(107, 114, 128, 0.12);
-}
-.tag {
-  font-size: 12px;
-  color: var(--text-secondary);
-  border: 1px solid var(--border-color, #e5e7eb);
-  padding: 1px 6px;
+  height: 460px;
+  border: 1px solid #eef1f5;
   border-radius: 4px;
+  margin-bottom: 14px;
 }
-.q-msg {
-  min-width: 220px;
-}
-.muted {
-  color: var(--text-secondary);
+:deep(.violation-active) {
+  background: #f0f6ff;
 }
 </style>

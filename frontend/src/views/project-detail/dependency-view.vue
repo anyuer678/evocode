@@ -1,5 +1,7 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, h, onMounted, ref } from 'vue'
+import { NCard, NDataTable, NEmpty, NSpin, NStatistic, NTag } from 'naive-ui'
+import type { DataTableColumns } from 'naive-ui'
 import { fetchDependencies } from '../../api/dependency'
 import type { DependencyItem, DependencyResult } from '../../types/api'
 
@@ -9,15 +11,13 @@ const loading = ref(true)
 const errorMsg = ref('')
 const data = ref<DependencyResult | null>(null)
 
-const RISK_LABEL: Record<string, string> = {
-  HIGH: '高危',
-  MEDIUM: '中危',
-  LOW: '低',
-}
-const RISK_CLS: Record<string, string> = {
-  HIGH: 'risk-high',
-  MEDIUM: 'risk-medium',
-  LOW: 'risk-low',
+const RISK_META: Record<
+  string,
+  { label: string; type: 'error' | 'warning' | 'success' | 'default' }
+> = {
+  HIGH: { label: '高危', type: 'error' },
+  MEDIUM: { label: '中危', type: 'warning' },
+  LOW: { label: '低', type: 'success' },
 }
 const TYPE_LABEL: Record<string, string> = {
   MAVEN: 'Maven',
@@ -35,30 +35,33 @@ const stats = computed(() => {
   }
 })
 
-const grouped = computed(() => {
-  const deps = data.value?.dependencies ?? []
-  const groups: Record<string, DependencyItem[]> = {
-    HIGH: [],
-    MEDIUM: [],
-    UNKNOWN: [],
-    OK: [],
-  }
-  for (const d of deps) {
-    if (d.risk === 'HIGH' || d.risk === 'MEDIUM') {
-      groups[d.risk].push(d)
-    } else if (d.risk == null) {
-      groups.UNKNOWN.push(d)
-    } else {
-      groups.OK.push(d)
-    }
-  }
-  return [
-    { key: 'HIGH', label: '高风险', cls: 'g-high', items: groups.HIGH },
-    { key: 'MEDIUM', label: '中风险', cls: 'g-medium', items: groups.MEDIUM },
-    { key: 'UNKNOWN', label: '未知版本', cls: 'g-unknown', items: groups.UNKNOWN },
-    { key: 'OK', label: '正常', cls: 'g-ok', items: groups.OK },
-  ].filter((g) => g.items.length > 0)
-})
+const columns = computed<DataTableColumns<DependencyItem>>(() => [
+  {
+    title: '组件',
+    key: 'name',
+    minWidth: 180,
+    render: (r) => h('span', { class: 'dep-name' }, r.name),
+  },
+  { title: '版本', key: 'version', width: 110, render: (r) => r.version ?? '-' },
+  {
+    title: '类型',
+    key: 'type',
+    width: 80,
+    render: (r) => h(NTag, { size: 'small', bordered: false }, () => TYPE_LABEL[r.type] ?? r.type),
+  },
+  {
+    title: '风险',
+    key: 'risk',
+    width: 90,
+    render: (r) => {
+      if (!r.risk) return h(NTag, { size: 'small', bordered: false }, () => '未知')
+      const meta = RISK_META[r.risk] ?? { label: r.risk, type: 'default' as const }
+      return h(NTag, { size: 'small', bordered: false, type: meta.type }, () => meta.label)
+    },
+  },
+  { title: '说明', key: 'reason', minWidth: 200, render: (r) => r.reason ?? '-' },
+  { title: '建议版本', key: 'latest', width: 110, render: (r) => r.latest ?? '-' },
+])
 
 async function load(): Promise<void> {
   loading.value = true
@@ -76,141 +79,64 @@ onMounted(load)
 </script>
 
 <template>
-  <section class="dependency">
-    <h2>依赖分析</h2>
-
-    <p v-if="loading" class="muted">依赖分析加载中…</p>
-    <p v-else-if="errorMsg" class="err">{{ errorMsg }}</p>
-    <p v-else-if="!data || !data.available" class="muted">
-      未检测到 Maven/npm 依赖（项目缺少 pom.xml / package.json，发起完整分析后重试）
-    </p>
-
-    <template v-else>
-      <!-- 统计卡 -->
-      <div class="dep-stats">
-        <div class="stat-card">
-          <span class="stat-num">{{ stats.total }}</span
-          >总依赖
+  <div class="dependency">
+    <NSpin :show="loading">
+      <NAlert v-if="errorMsg" type="error" :show-icon="true" class="dep-alert">{{
+        errorMsg
+      }}</NAlert>
+      <NEmpty
+        v-else-if="!data || !data.available"
+        description="未检测到 Maven/npm 依赖（项目缺少 pom.xml / package.json，发起完整分析后重试）"
+        class="dep-empty"
+      />
+      <template v-else>
+        <div class="dep-stats">
+          <NCard size="small" class="dep-stat">
+            <NStatistic label="总依赖" :value="stats.total" />
+          </NCard>
+          <NCard size="small" class="dep-stat">
+            <NStatistic label="EOL 依赖" :value="stats.eol" />
+          </NCard>
+          <NCard size="small" class="dep-stat">
+            <NStatistic label="高风险" :value="stats.high" />
+          </NCard>
         </div>
-        <div class="stat-card warn">
-          <span class="stat-num">{{ stats.eol }}</span
-          >EOL 依赖
-        </div>
-        <div class="stat-card danger">
-          <span class="stat-num">{{ stats.high }}</span
-          >高风险
-        </div>
-      </div>
-
-      <!-- 风险分组 -->
-      <div v-for="g in grouped" :key="g.key" class="dep-group" :class="g.cls">
-        <h3>{{ g.label }}（{{ g.items.length }}）</h3>
-        <table class="table dep-table">
-          <thead>
-            <tr>
-              <th>组件</th>
-              <th>版本</th>
-              <th>类型</th>
-              <th>风险</th>
-              <th>说明</th>
-              <th>建议版本</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="d in g.items" :key="d.name">
-              <td class="dep-name">{{ d.name }}</td>
-              <td class="dep-version">{{ d.version ?? '-' }}</td>
-              <td>{{ TYPE_LABEL[d.type] ?? d.type }}</td>
-              <td>
-                <span v-if="d.risk" class="badge" :class="RISK_CLS[d.risk]">
-                  {{ RISK_LABEL[d.risk] }}
-                </span>
-                <span v-else class="badge risk-unknown">未知</span>
-              </td>
-              <td class="dep-reason">{{ d.reason ?? '-' }}</td>
-              <td>{{ d.latest ?? '-' }}</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </template>
-  </section>
+        <NDataTable
+          :columns="columns"
+          :data="data?.dependencies ?? []"
+          :row-key="(r: DependencyItem) => r.name"
+          :bordered="false"
+          :single-line="false"
+          size="small"
+          class="dep-table"
+        />
+      </template>
+    </NSpin>
+  </div>
 </template>
 
 <style scoped>
 .dependency {
-  margin-top: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.dep-alert {
+  margin-bottom: 4px;
+}
+.dep-empty {
+  padding: 40px 0;
 }
 .dep-stats {
   display: flex;
   gap: 12px;
-  margin: 12px 0;
 }
-.stat-card {
-  padding: 10px 18px;
-  border: 1px solid var(--border-color, #e2e8f0);
-  border-radius: var(--radius-sm, 6px);
-  font-size: 13px;
-  color: var(--text-muted, #64748b);
-}
-.stat-num {
-  display: block;
-  font-size: 22px;
-  font-weight: 700;
-  color: var(--text-primary, #1e293b);
-}
-.stat-card.warn .stat-num {
-  color: #b26a00;
-}
-.stat-card.danger .stat-num {
-  color: #d32f2f;
-}
-.dep-group {
-  margin-bottom: 16px;
-}
-.dep-group h3 {
-  font-size: 14px;
-  margin: 10px 0 6px;
-}
-.dep-table {
-  font-size: 13px;
+.dep-stat {
+  flex: 1;
+  max-width: 200px;
 }
 .dep-name {
   font-weight: 600;
-  max-width: 320px;
   word-break: break-all;
-}
-.dep-version {
-  font-variant-numeric: tabular-nums;
-}
-.dep-reason {
-  color: var(--text-muted, #64748b);
-  max-width: 360px;
-}
-.badge {
-  padding: 2px 8px;
-  border-radius: 4px;
-  font-size: 12px;
-  font-weight: 600;
-}
-.risk-high {
-  background: #fdecea;
-  color: #d32f2f;
-}
-.risk-medium {
-  background: #fff3e0;
-  color: #b26a00;
-}
-.risk-low {
-  background: #e8f5e9;
-  color: #2e7d32;
-}
-.risk-unknown {
-  background: var(--bg-muted, #eef2f7);
-  color: var(--text-muted, #64748b);
-}
-.err {
-  color: #d32f2f;
-  font-size: 13px;
 }
 </style>

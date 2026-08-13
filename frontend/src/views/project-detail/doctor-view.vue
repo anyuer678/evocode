@@ -1,109 +1,6 @@
-<template>
-  <section class="doctor">
-    <!-- 左：会话列表 -->
-    <aside class="doctor__sidebar">
-      <button class="doctor__new" type="button" @click="createSession">＋ 新建会话</button>
-      <ul class="doctor__sessions">
-        <li
-          v-for="s in sessions"
-          :key="s.id"
-          class="doctor__session"
-          :class="{ 'doctor__session--active': s.id === activeId }"
-          @click="selectSession(s.id)"
-        >
-          <span class="doctor__session-title">{{ s.title }}</span>
-          <button
-            class="doctor__session-del"
-            type="button"
-            title="删除会话"
-            @click.stop="removeSession(s.id)"
-          >
-            ×
-          </button>
-        </li>
-        <li v-if="!sessions.length" class="doctor__session-empty">暂无会话</li>
-      </ul>
-    </aside>
-
-    <!-- 右：对话区 -->
-    <div class="doctor__main">
-      <div ref="msgBox" class="doctor__messages">
-        <div v-if="!activeId" class="doctor__empty">
-          选择或新建一个会话，向 AI 医生提问项目问题（支持 @ 文件）
-        </div>
-        <template v-else>
-          <div
-            v-for="m in messages"
-            :key="m._localId"
-            class="doctor__msg"
-            :class="'doctor__msg--' + m.role.toLowerCase()"
-          >
-            <!-- eslint-disable-next-line vue/no-v-html -- renderMarkdown 内已 escapeHtml 转义（doctor-view L341） -->
-            <div class="doctor__msg-bubble" v-html="renderMarkdown(m.content)" />
-            <div v-if="m.role === 'ASSISTANT' && m.citations?.length" class="doctor__cites">
-              <button
-                v-for="(c, i) in m.citations"
-                :key="i"
-                class="doctor__cite"
-                type="button"
-                :title="c.excerpt"
-                @click="previewFile(c.file, c.line)"
-              >
-                {{ c.file }}:{{ c.line }}
-              </button>
-            </div>
-          </div>
-          <div v-if="streaming" class="doctor__msg doctor__msg--assistant">
-            <!-- eslint-disable-next-line vue/no-v-html -- renderMarkdown 内已 escapeHtml 转义（doctor-view L341） -->
-            <div class="doctor__msg-bubble" v-html="renderMarkdown(streamText)" />
-            <span class="doctor__cursor" />
-          </div>
-          <div v-if="streamError" class="doctor__error">{{ streamError }}</div>
-        </template>
-      </div>
-
-      <div class="doctor__input">
-        <input
-          v-model="fileRef"
-          class="doctor__fileref"
-          placeholder="文件路径（可选，@ 后医生将结合文件内容回答）"
-          :disabled="streaming"
-        />
-        <div class="doctor__input-row">
-          <textarea
-            v-model="input"
-            rows="2"
-            placeholder="问 AI 医生……（Enter 发送，Shift+Enter 换行）"
-            :disabled="streaming"
-            @keydown.enter.exact.prevent="send"
-          />
-          <button
-            type="button"
-            class="doctor__send"
-            :disabled="streaming || !input.trim()"
-            @click="send"
-          >
-            {{ streaming ? '生成中…' : '发送' }}
-          </button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Monaco 预览弹层（按需加载） -->
-    <Teleport to="body">
-      <div v-if="preview" class="doctor__preview" @click.self="preview = null">
-        <div class="doctor__preview-head">
-          <span class="doctor__preview-path">{{ preview.path }}:{{ preview.line }}</span>
-          <button type="button" @click="preview = null">关闭</button>
-        </div>
-        <div ref="editorEl" class="doctor__editor" />
-      </div>
-    </Teleport>
-  </section>
-</template>
-
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import { nextTick, onBeforeUnmount, ref, watch } from 'vue'
+import { NAlert, NButton, NCard, NEmpty, NInput, NList, NListItem, NModal, NTag } from 'naive-ui'
 import type * as monacoNs from 'monaco-editor'
 import { getFileContent } from '../../api/file'
 import {
@@ -389,266 +286,244 @@ function renderMarkdown(text: string): string {
 
 void loadSessions()
 </script>
+<template>
+  <NCard size="small" class="doctor">
+    <div class="doctor-body">
+      <!-- 左：会话列表 -->
+      <aside class="doctor-sidebar">
+        <NButton size="small" type="primary" block @click="createSession">＋ 新建会话</NButton>
+        <NList class="doctor-sessions" hoverable>
+          <NListItem
+            v-for="s in sessions"
+            :key="s.id"
+            class="doctor-session"
+            :class="{ 'doctor-session--active': s.id === activeId }"
+            @click="selectSession(s.id)"
+          >
+            <div class="doctor-session-row">
+              <span class="doctor-session-title">{{ s.title }}</span>
+              <NButton size="tiny" quaternary type="error" @click.stop="removeSession(s.id)"
+                >×</NButton
+              >
+            </div>
+          </NListItem>
+        </NList>
+        <NEmpty v-if="!sessions.length" description="暂无会话" size="small" />
+      </aside>
 
+      <!-- 右：对话区 -->
+      <div class="doctor-main">
+        <div ref="msgBox" class="doctor-messages">
+          <NEmpty
+            v-if="!activeId"
+            description="选择或新建一个会话，向 AI 医生提问项目问题（支持 @ 文件）"
+          />
+          <template v-else>
+            <div
+              v-for="m in messages"
+              :key="m._localId"
+              class="doctor-msg"
+              :class="'doctor-msg--' + m.role.toLowerCase()"
+            >
+              <!-- eslint-disable-next-line vue/no-v-html -- renderMarkdown 内已 escapeHtml 转义 -->
+              <div class="doctor-msg-bubble" v-html="renderMarkdown(m.content)" />
+              <div v-if="m.role === 'ASSISTANT' && m.citations?.length" class="doctor-cites">
+                <NTag
+                  v-for="(c, i) in m.citations"
+                  :key="i"
+                  size="small"
+                  bordered
+                  :title="c.excerpt"
+                  @click="previewFile(c.file, c.line)"
+                >
+                  {{ c.file }}:{{ c.line }}
+                </NTag>
+              </div>
+            </div>
+            <div v-if="streaming" class="doctor-msg doctor-msg--assistant">
+              <!-- eslint-disable-next-line vue/no-v-html -- renderMarkdown 内已 escapeHtml 转义 -->
+              <div class="doctor-msg-bubble" v-html="renderMarkdown(streamText)" />
+              <span class="doctor-cursor" />
+            </div>
+            <NAlert v-if="streamError" type="error" :show-icon="true" class="doctor-error">
+              {{ streamError }}
+            </NAlert>
+          </template>
+        </div>
+
+        <div class="doctor-input">
+          <NInput
+            v-model:value="fileRef"
+            placeholder="文件路径（可选，@ 后医生将结合文件内容回答）"
+            :disabled="streaming"
+            size="small"
+          />
+          <div class="doctor-input-row">
+            <NInput
+              v-model:value="input"
+              type="textarea"
+              :rows="2"
+              placeholder="问 AI 医生……（Enter 发送，Shift+Enter 换行）"
+              :disabled="streaming"
+              @keydown.enter.exact.prevent="send"
+            />
+            <NButton
+              type="primary"
+              :disabled="streaming || !input.trim()"
+              :loading="streaming"
+              @click="send"
+            >
+              {{ streaming ? '生成中…' : '发送' }}
+            </NButton>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Monaco 预览弹层（按需加载） -->
+    <NModal
+      :show="preview != null"
+      preset="card"
+      style="width: 80%; max-width: 960px"
+      :title="preview ? preview.path + ':' + preview.line : ''"
+      @update:show="
+        (v: boolean) => {
+          if (!v) preview = null
+        }
+      "
+    >
+      <div ref="editorEl" class="doctor-editor" />
+    </NModal>
+  </NCard>
+</template>
 <style scoped>
 .doctor {
+  background: #fff;
+}
+.doctor-body {
   display: flex;
-  gap: 16px;
+  gap: 14px;
   min-height: 480px;
   max-height: 720px;
-  border: 1px solid var(--border-color, #e5e7eb);
-  border-radius: 10px;
-  overflow: hidden;
-  background: var(--bg-card, #fff);
 }
-
-/* 会话列表 */
-.doctor__sidebar {
+.doctor-sidebar {
   width: 220px;
   flex-shrink: 0;
-  border-right: 1px solid var(--border-color, #e5e7eb);
   display: flex;
   flex-direction: column;
-  padding: 12px;
-  gap: 10px;
-  background: var(--bg-muted, #fafafa);
-}
-.doctor__new {
-  padding: 8px 10px;
-  border: none;
-  border-radius: 6px;
-  background: var(--ok-color, #16a34a);
-  color: var(--bg-card);
-  cursor: pointer;
-  font-size: 13px;
-}
-.doctor__sessions {
-  list-style: none;
-  margin: 0;
-  padding: 0;
+  gap: 8px;
+  border-right: 1px solid #eef1f5;
+  padding-right: 12px;
   overflow-y: auto;
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
 }
-.doctor__session {
+.doctor-sessions {
+  flex: 1;
+}
+.doctor-session {
+  cursor: pointer;
+}
+.doctor-session--active {
+  background: #f0f6ff;
+}
+.doctor-session-row {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 6px;
-  padding: 8px 10px;
-  border-radius: 6px;
-  cursor: pointer;
-  background: var(--bg-card);
-  border: 1px solid var(--border-color, #e5e7eb);
 }
-.doctor__session--active {
-  border-color: var(--ok-color);
-  background: var(--ok-weak);
-}
-.doctor__session-title {
-  flex: 1;
+.doctor-session-title {
   font-size: 13px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.doctor__session-del {
-  border: none;
-  background: none;
-  color: var(--text-secondary, #6b7280);
-  cursor: pointer;
-  font-size: 14px;
-  padding: 0 2px;
-}
-.doctor__session-empty {
-  font-size: 13px;
-  color: var(--text-secondary, #6b7280);
-  text-align: center;
-  padding: 12px 0;
-}
-
-/* 对话区 */
-.doctor__main {
+.doctor-main {
   flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
-  min-width: 0;
 }
-.doctor__messages {
+.doctor-messages {
   flex: 1;
   overflow-y: auto;
-  padding: 16px;
+  padding: 4px 8px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
 }
-.doctor__empty {
-  margin: auto;
-  color: var(--text-secondary, #6b7280);
-  font-size: 14px;
-}
-.doctor__msg {
-  max-width: 86%;
+.doctor-msg {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  max-width: 85%;
 }
-.doctor__msg--user {
+.doctor-msg--user {
   align-self: flex-end;
 }
-.doctor__msg--assistant {
+.doctor-msg--assistant {
   align-self: flex-start;
 }
-.doctor__msg-bubble {
-  padding: 10px 12px;
-  border-radius: 10px;
-  font-size: 13px;
-  line-height: 1.65;
+.doctor-msg-bubble {
+  padding: 8px 12px;
+  border-radius: 4px;
+  font-size: 13.5px;
+  line-height: 1.7;
   word-break: break-word;
-  background: var(--bg-muted, #f3f4f6);
-  border: 1px solid var(--border-color, #e5e7eb);
 }
-.doctor__msg--user .doctor__msg-bubble {
-  background: var(--ok-color, #16a34a);
-  color: var(--bg-card);
-  border: none;
+.doctor-msg--user .doctor-msg-bubble {
+  background: #1668dc;
+  color: #fff;
 }
-.doctor__msg--user .doc-ref {
-  color: #eafff0;
-  border-color: rgba(255, 255, 255, 0.5);
+.doctor-msg--assistant .doctor-msg-bubble {
+  background: #f4f6f9;
+  color: #1b2633;
 }
-.doc-code {
-  background: #1e293b;
-  color: #e2e8f0;
-  padding: 8px;
-  border-radius: 6px;
-  overflow-x: auto;
-  font-size: 12px;
-  margin: 4px 0;
-}
-.doc-ref {
-  display: inline-block;
-  font-family: ui-monospace, Consolas, monospace;
-  font-size: 11px;
-  color: var(--ok-color, #16a34a);
-  border: 1px solid currentColor;
-  border-radius: 4px;
-  padding: 0 4px;
-}
-.doctor__cites {
+.doctor-cites {
   display: flex;
-  flex-wrap: wrap;
   gap: 6px;
+  margin-top: 4px;
+  flex-wrap: wrap;
 }
-.doctor__cite {
-  font-family: ui-monospace, Consolas, monospace;
-  font-size: 11px;
-  color: var(--info-color);
-  background: var(--info-weak);
-  border: 1px solid var(--info-color);
-  border-radius: 4px;
-  padding: 2px 6px;
-  cursor: pointer;
-}
-.doctor__cursor {
+.doctor-cursor {
   display: inline-block;
   width: 8px;
   height: 14px;
-  background: var(--ok-color, #16a34a);
-  animation: blink 1s step-end infinite;
+  background: #1668dc;
+  animation: evo-pulse 1s infinite;
+  margin-left: 2px;
+  vertical-align: text-bottom;
 }
-@keyframes blink {
-  50% {
-    opacity: 0;
-  }
+.doctor-error {
+  margin-top: 6px;
 }
-.doctor__error {
-  color: var(--fail-color, #dc2626);
-  font-size: 13px;
-}
-
-/* 输入区 */
-.doctor__input {
-  border-top: 1px solid var(--border-color, #e5e7eb);
-  padding: 12px;
+.doctor-input {
+  border-top: 1px solid #eef1f5;
+  padding-top: 10px;
   display: flex;
   flex-direction: column;
   gap: 8px;
 }
-.doctor__fileref {
-  border: 1px solid var(--border-color, #e5e7eb);
-  border-radius: 6px;
-  padding: 6px 10px;
-  font-size: 12px;
-  color: var(--text-secondary, #6b7280);
-  background: var(--bg-muted, #fafafa);
-}
-.doctor__input-row {
+.doctor-input-row {
   display: flex;
   gap: 8px;
   align-items: flex-end;
 }
-.doctor__input-row textarea {
-  flex: 1;
-  resize: none;
-  border: 1px solid var(--border-color, #e5e7eb);
-  border-radius: 6px;
-  padding: 8px 10px;
-  font-size: 13px;
-  font-family: inherit;
-  line-height: 1.5;
-}
-.doctor__send {
-  padding: 8px 18px;
-  border: none;
-  border-radius: 6px;
-  background: var(--ok-color, #16a34a);
-  color: var(--bg-card);
-  cursor: pointer;
-  font-size: 13px;
-}
-.doctor__send:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
+.doctor-editor {
+  height: 480px;
+  border: 1px solid #e2e8f0;
 }
 
-/* Monaco 预览 */
-.doctor__preview {
-  position: fixed;
-  inset: 0;
-  background: rgba(15, 23, 42, 0.55);
-  display: flex;
-  flex-direction: column;
-  padding: 48px;
-  z-index: 100;
-}
-.doctor__preview-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  background: #0f172a;
-  color: #e2e8f0;
-  padding: 8px 12px;
-  border-radius: 8px 8px 0 0;
-  font-size: 12px;
-  font-family: ui-monospace, Consolas, monospace;
-}
-.doctor__preview-head button {
-  border: none;
-  background: #334155;
-  color: #e2e8f0;
-  border-radius: 4px;
-  padding: 4px 10px;
-  cursor: pointer;
-}
-.doctor__editor {
-  flex: 1;
-  border-radius: 0 0 8px 8px;
-  overflow: hidden;
-  background: #1e1e1e;
-}
-:deep(.doc-line-hl) {
-  background: rgba(250, 204, 21, 0.25) !important;
+@media (max-width: 720px) {
+  .doctor-body {
+    flex-direction: column;
+    max-height: none;
+  }
+  .doctor-sidebar {
+    width: 100%;
+    border-right: none;
+    border-bottom: 1px solid #eef1f5;
+    padding-right: 0;
+    padding-bottom: 10px;
+    max-height: 200px;
+  }
 }
 </style>

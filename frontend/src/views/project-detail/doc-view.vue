@@ -1,62 +1,18 @@
-<template>
-  <section class="docs">
-    <div class="docs__head">
-      <h3>项目文档</h3>
-      <div class="docs__tabs">
-        <button
-          v-for="t in tabs"
-          :key="t.value"
-          type="button"
-          class="docs__tab"
-          :class="{ 'docs__tab--active': activeType === t.value }"
-          @click="switchTab(t.value)"
-        >
-          {{ t.label }}
-        </button>
-      </div>
-    </div>
-
-    <div v-if="generating" class="docs__state">AI 正在生成文档，请稍候（约 10-30 秒）…</div>
-    <template v-else>
-      <div v-if="!doc" class="docs__state">
-        尚未生成{{ activeLabel }}文档
-        <button type="button" class="docs__btn docs__btn--ok" @click="onGenerate(false)">
-          生成
-        </button>
-      </div>
-      <div v-else class="docs__view">
-        <div class="docs__toolbar">
-          <span class="docs__meta">
-            {{ doc.title }} · v{{ doc.version }}{{ doc.edited ? '（已人工编辑）' : '' }}
-          </span>
-          <div class="docs__actions">
-            <button type="button" class="docs__btn" @click="startEdit">编辑</button>
-            <button type="button" class="docs__btn docs__btn--ok" @click="onGenerate(true)">
-              重新生成
-            </button>
-          </div>
-        </div>
-        <!-- eslint-disable-next-line vue/no-v-html -- renderMarkdown 内已 escapeHtml 转义（doc-view L158） -->
-        <div class="docs__content" v-html="renderMarkdown(doc.content)" />
-      </div>
-    </template>
-
-    <!-- 编辑模式 -->
-    <div v-if="editing" class="docs__edit">
-      <textarea v-model="editContent" class="docs__edit-area" rows="16" />
-      <div class="docs__actions">
-        <button type="button" class="docs__btn" @click="editing = false">取消</button>
-        <button type="button" class="docs__btn docs__btn--ok" :disabled="saving" @click="saveEdit">
-          {{ saving ? '保存中…' : '保存' }}
-        </button>
-      </div>
-      <p v-if="editError" class="docs__error">{{ editError }}</p>
-    </div>
-  </section>
-</template>
-
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
+import {
+  NAlert,
+  NButton,
+  NCard,
+  NEmpty,
+  NInput,
+  NModal,
+  NSpace,
+  NSpin,
+  NTabPane,
+  NTabs,
+  NTag,
+} from 'naive-ui'
 import { editDoc, fetchDocs, generateDoc } from '../../api/doc'
 import type { DocItem, DocType } from '../../types/api'
 
@@ -225,148 +181,133 @@ function inline(s: string): string {
 
 onMounted(load)
 </script>
+<template>
+  <NCard size="small" class="docs">
+    <NTabs v-model:value="activeType" type="line" @update:value="switchTab">
+      <NTabPane v-for="t in tabs" :key="t.value" :name="t.value" :tab="t.label" />
+    </NTabs>
 
+    <NSpin :show="generating">
+      <div v-if="generating" class="docs-state">AI 正在生成文档，请稍候（约 10-30 秒）…</div>
+      <NEmpty v-else-if="!doc" :description="'尚未生成' + activeLabel + '文档'">
+        <template #extra>
+          <NButton size="small" type="primary" @click="onGenerate(false)">生成</NButton>
+        </template>
+      </NEmpty>
+      <div v-else class="docs-view">
+        <div class="docs-toolbar">
+          <span class="docs-meta">
+            {{ doc.title }} · v{{ doc.version }}
+            <NTag v-if="doc.edited" size="small" bordered type="warning">已人工编辑</NTag>
+          </span>
+          <NSpace size="small">
+            <NButton size="small" @click="startEdit">编辑</NButton>
+            <NButton size="small" type="primary" @click="onGenerate(true)">重新生成</NButton>
+          </NSpace>
+        </div>
+        <!-- eslint-disable-next-line vue/no-v-html -- renderMarkdown 内已 escapeHtml 转义（doc-view） -->
+        <div class="docs-content" v-html="renderMarkdown(doc.content)" />
+      </div>
+    </NSpin>
+
+    <!-- 编辑模式 -->
+    <NModal
+      :show="editing"
+      preset="card"
+      title="编辑文档"
+      style="width: 80%; max-width: 900px"
+      @update:show="
+        (v: boolean) => {
+          if (!v) editing = false
+        }
+      "
+    >
+      <NInput v-model:value="editContent" type="textarea" :rows="16" class="docs-edit-area" />
+      <template #footer>
+        <NSpace>
+          <NButton :loading="saving" type="primary" @click="saveEdit">{{
+            saving ? '保存中…' : '保存'
+          }}</NButton>
+          <NButton @click="editing = false">取消</NButton>
+        </NSpace>
+      </template>
+      <NAlert v-if="editError" type="error" :show-icon="true" class="docs-edit-error">{{
+        editError
+      }}</NAlert>
+    </NModal>
+  </NCard>
+</template>
 <style scoped>
 .docs {
-  border: 1px solid var(--border-color, #e5e7eb);
-  border-radius: 10px;
-  padding: 16px;
-  background: var(--bg-card, #fff);
+  background: #fff;
 }
-.docs__head {
+.docs-state {
+  padding: 40px 0;
+  text-align: center;
+  color: #8798ab;
+  font-size: 13.5px;
+}
+.docs-view {
+  margin-top: 12px;
+}
+.docs-toolbar {
   display: flex;
+  align-items: center;
   justify-content: space-between;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-bottom: 12px;
-}
-.docs__head h3 {
-  margin: 0;
-  font-size: 15px;
-}
-.docs__tabs {
-  display: flex;
-  gap: 6px;
-}
-.docs__tab {
-  border: 1px solid var(--border-color, #e5e7eb);
-  background: var(--bg-card);
-  border-radius: 6px;
-  padding: 4px 12px;
-  font-size: 12px;
-  cursor: pointer;
-  color: var(--text-secondary, #6b7280);
-}
-.docs__tab--active {
-  border-color: var(--ok-color, #16a34a);
-  color: var(--ok-color, #16a34a);
-  background: rgba(22, 163, 74, 0.08);
-}
-.docs__state {
-  color: var(--text-secondary, #6b7280);
-  font-size: 13px;
-  padding: 16px 0;
-  display: flex;
-  align-items: center;
   gap: 10px;
+  margin-bottom: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #eef1f5;
 }
-.docs__view {
-  border: 1px solid var(--border-color, #e5e7eb);
-  border-radius: 8px;
-  overflow: hidden;
-}
-.docs__toolbar {
+.docs-meta {
+  font-size: 13px;
+  color: #55667a;
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  padding: 8px 12px;
-  background: var(--bg-muted, #fafafa);
-  border-bottom: 1px solid var(--border-color, #e5e7eb);
-}
-.docs__meta {
-  font-size: 12px;
-  color: var(--text-secondary, #6b7280);
-}
-.docs__actions {
-  display: flex;
   gap: 8px;
 }
-.docs__btn {
-  border: 1px solid var(--border-color, #e5e7eb);
-  background: var(--bg-card);
-  border-radius: 6px;
-  padding: 4px 12px;
-  font-size: 12px;
-  cursor: pointer;
+.docs-content {
+  font-size: 13.5px;
+  line-height: 1.8;
+  color: #1b2633;
 }
-.docs__btn--ok {
-  background: var(--ok-color, #16a34a);
-  border-color: var(--ok-color, #16a34a);
-  color: var(--bg-card);
+.docs-content h2 {
+  font-size: 18px;
+  margin: 18px 0 8px;
 }
-.docs__content {
-  padding: 12px 16px;
-  font-size: 13px;
-  line-height: 1.7;
-  overflow-x: auto;
-}
-.docs__content :deep(h2),
-.docs__content :deep(h3),
-.docs__content :deep(h4) {
+.docs-content h3 {
+  font-size: 15px;
   margin: 14px 0 6px;
 }
-.docs__content :deep(p) {
-  margin: 6px 0;
+.docs-content h4 {
+  font-size: 13.5px;
+  margin: 10px 0 4px;
 }
-.docs__content :deep(li) {
-  margin: 3px 0 3px 18px;
-}
-.docs__content :deep(code) {
-  background: var(--code-bg);
+.docs-content pre {
+  background: #f4f6f9;
+  padding: 12px;
   border-radius: 4px;
-  padding: 0 4px;
-  font-size: 12px;
+  overflow: auto;
+  font-size: 12.5px;
 }
-.docs__code {
-  background: #1e293b;
-  color: #e2e8f0;
-  padding: 10px;
-  border-radius: 6px;
-  overflow-x: auto;
-  font-size: 12px;
-}
-.docs__content :deep(table) {
+.docs-content table {
   border-collapse: collapse;
   margin: 8px 0;
   width: 100%;
 }
-.docs__content :deep(td) {
-  border: 1px solid var(--border-color, #e5e7eb);
-  padding: 4px 8px;
-  font-size: 12px;
+.docs-content td {
+  border: 1px solid #e2e8f0;
+  padding: 6px 10px;
+  font-size: 12.5px;
 }
-.docs__gap {
-  height: 4px;
+.docs-content li {
+  margin-left: 20px;
 }
-.docs__edit {
-  margin-top: 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+.docs-edit-area {
+  font-family: ui-monospace, Consolas, 'Courier New', monospace;
+  font-size: 13px;
 }
-.docs__edit-area {
-  border: 1px solid var(--border-color, #e5e7eb);
-  border-radius: 8px;
-  padding: 10px;
-  font-family: ui-monospace, Consolas, monospace;
-  font-size: 12px;
-  line-height: 1.6;
-  resize: vertical;
-}
-.docs__error {
-  color: var(--fail-color, #dc2626);
-  font-size: 12px;
-  margin: 0;
+.docs-edit-error {
+  margin-top: 10px;
 }
 </style>

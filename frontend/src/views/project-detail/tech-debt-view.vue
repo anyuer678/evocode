@@ -1,135 +1,23 @@
-<template>
-  <section class="debt">
-    <div class="debt__head">
-      <h3>技术债</h3>
-      <div class="debt__head-right">
-        <button type="button" class="debt__btn" @click="openCreate">＋ 手动登记</button>
-        <div class="debt__filters">
-          <button
-            v-for="s in statusOptions"
-            :key="s.value"
-            type="button"
-            class="debt__filter"
-            :class="{ 'debt__filter--active': statusFilter === s.value }"
-            @click="onFilter(s.value)"
-          >
-            {{ s.label }}
-          </button>
-        </div>
-      </div>
-    </div>
-
-    <div v-if="loading" class="debt__state">加载中…</div>
-    <div v-else-if="errorMsg" class="debt__state debt__state--error">加载失败：{{ errorMsg }}</div>
-    <div v-else-if="!debts.length" class="debt__state">暂无技术债，完成一次分析后自动生成</div>
-    <ul v-else class="debt__list">
-      <li v-for="d in debts" :key="d.id" class="debt__item">
-        <div class="debt__item-head">
-          <span class="debt__badge" :class="'debt__badge--' + d.level.toLowerCase()">{{
-            d.level
-          }}</span>
-          <span class="debt__source">{{ sourceLabel(d.source) }}</span>
-          <span class="debt__title">{{ d.title }}</span>
-          <span class="debt__status" :class="'debt__status--' + d.status.toLowerCase()">{{
-            statusLabel(d.status)
-          }}</span>
-          <button v-if="canAct(d.status)" class="debt__act" type="button" @click="openAction(d)">
-            处理
-          </button>
-        </div>
-        <p v-if="d.description" class="debt__desc">{{ d.description }}</p>
-        <p v-if="d.suggestion" class="debt__sugg">建议：{{ d.suggestion }}</p>
-        <p v-if="d.status === 'DONE' && d.resolvedAt" class="debt__meta">
-          已解决 {{ formatTime(d.resolvedAt) }}
-        </p>
-        <p v-if="d.status === 'WONTFIX'" class="debt__meta">不修复</p>
-      </li>
-    </ul>
-
-    <!-- 手动登记弹层（TD-04） -->
-    <Teleport to="body">
-      <div v-if="creating" class="debt__modal" @click.self="creating = false">
-        <div class="debt__modal-box">
-          <h4>手动登记技术债</h4>
-          <input v-model="createForm.title" class="debt__input" placeholder="标题（必填）" />
-          <select v-model="createForm.level" class="debt__input">
-            <option value="HIGH">HIGH</option>
-            <option value="MEDIUM">MEDIUM</option>
-            <option value="LOW">LOW</option>
-          </select>
-          <textarea
-            v-model="createForm.description"
-            class="debt__input debt__note"
-            rows="2"
-            placeholder="描述（可选）"
-          />
-          <textarea
-            v-model="createForm.suggestion"
-            class="debt__input debt__note"
-            rows="2"
-            placeholder="建议（可选）"
-          />
-          <div class="debt__modal-actions">
-            <button type="button" class="debt__btn" @click="creating = false">取消</button>
-            <button
-              type="button"
-              class="debt__btn debt__btn--ok"
-              :disabled="submitting"
-              @click="submitCreate"
-            >
-              {{ submitting ? '提交中…' : '登记' }}
-            </button>
-          </div>
-          <p v-if="createError" class="debt__error">{{ createError }}</p>
-        </div>
-      </div>
-    </Teleport>
-
-    <!-- 状态操作弹层 -->
-    <Teleport to="body">
-      <div v-if="action" class="debt__modal" @click.self="action = null">
-        <div class="debt__modal-box">
-          <h4>{{ action.title }}</h4>
-          <select v-model="actionTarget" class="debt__input">
-            <option value="DOING" :disabled="action.status === 'DOING'">标记进行中</option>
-            <option value="DONE">标记已解决（需填解决说明）</option>
-            <!-- 审查修复：契约 §3.12 禁止 DOING→WONTFIX，进行中状态下拉禁用该选项 -->
-            <option value="WONTFIX" :disabled="action.status === 'DOING'">
-              标记不修复（需填原因）
-            </option>
-          </select>
-          <textarea
-            v-model="actionNote"
-            class="debt__input debt__note"
-            rows="3"
-            :placeholder="
-              actionTarget === 'DONE'
-                ? '解决说明（必填）'
-                : actionTarget === 'WONTFIX'
-                  ? '不修复原因（必填）'
-                  : '备注（可选）'
-            "
-          />
-          <div class="debt__modal-actions">
-            <button type="button" class="debt__btn" @click="action = null">取消</button>
-            <button
-              type="button"
-              class="debt__btn debt__btn--ok"
-              :disabled="submitting"
-              @click="submitAction"
-            >
-              {{ submitting ? '提交中…' : '确认' }}
-            </button>
-          </div>
-          <p v-if="actionError" class="debt__error">{{ actionError }}</p>
-        </div>
-      </div>
-    </Teleport>
-  </section>
-</template>
-
-<script setup lang="ts">
-import { onMounted, ref } from 'vue'
+﻿<script setup lang="ts">
+import { computed, h, onMounted, ref } from 'vue'
+import {
+  NAlert,
+  NButton,
+  NCard,
+  NDataTable,
+  NEmpty,
+  NForm,
+  NFormItem,
+  NInput,
+  NModal,
+  NRadioButton,
+  NRadioGroup,
+  NSelect,
+  NSpace,
+  NSpin,
+  NTag,
+} from 'naive-ui'
+import type { DataTableColumns } from 'naive-ui'
 import { createTechDebt, fetchTechDebts, updateTechDebtStatus } from '../../api/debt'
 import type { TechDebtItem, TechDebtStatus } from '../../types/api'
 
@@ -187,6 +75,62 @@ async function submitCreate() {
   }
 }
 
+const LEVEL_TYPE: Record<string, 'error' | 'warning' | 'default'> = {
+  HIGH: 'error',
+  MEDIUM: 'warning',
+  LOW: 'default',
+}
+const STATUS_TYPE: Record<TechDebtStatus, 'default' | 'info' | 'success' | 'warning'> = {
+  OPEN: 'default',
+  DOING: 'info',
+  DONE: 'success',
+  WONTFIX: 'warning',
+}
+
+const columns = computed<DataTableColumns<TechDebtItem>>(() => [
+  {
+    title: '级别',
+    key: 'level',
+    width: 80,
+    render: (r) =>
+      h(
+        NTag,
+        { size: 'small', bordered: false, type: LEVEL_TYPE[r.level] ?? 'default' },
+        () => r.level,
+      ),
+  },
+  {
+    title: '来源',
+    key: 'source',
+    width: 90,
+    render: (r) => h(NTag, { size: 'small', bordered: false }, () => sourceLabel(r.source)),
+  },
+  { title: '标题', key: 'title', minWidth: 200, render: (r) => r.title },
+  { title: '描述', key: 'description', minWidth: 160, render: (r) => r.description ?? '-' },
+  { title: '建议', key: 'suggestion', minWidth: 160, render: (r) => r.suggestion ?? '-' },
+  {
+    title: '状态',
+    key: 'status',
+    width: 90,
+    render: (r) =>
+      h(NTag, { size: 'small', bordered: false, type: STATUS_TYPE[r.status] }, () =>
+        statusLabel(r.status),
+      ),
+  },
+  {
+    title: '操作',
+    key: 'actions',
+    width: 80,
+    render: (r) =>
+      canAct(r.status)
+        ? h(
+            NButton,
+            { size: 'small', quaternary: true, type: 'primary', onClick: () => openAction(r) },
+            () => '处理',
+          )
+        : null,
+  },
+])
 const sourceLabel = (s: TechDebtItem['source']): string =>
   ({
     ARCH: '架构',
@@ -201,8 +145,6 @@ const statusLabel = (s: TechDebtStatus): string =>
   ({ OPEN: '待处理', DOING: '进行中', DONE: '已解决', WONTFIX: '不修复' })[s] ?? s
 
 const canAct = (s: TechDebtStatus): boolean => s === 'OPEN' || s === 'DOING'
-
-const formatTime = (t: string): string => new Date(t).toLocaleString()
 
 let loadSeq = 0
 
@@ -272,197 +214,158 @@ async function submitAction() {
 onMounted(load)
 </script>
 
+<template>
+  <div class="debt">
+    <NCard size="small" class="debt-card">
+      <template #header>
+        <div class="debt-head">
+          <span class="debt-title">技术债</span>
+          <NSpace size="small">
+            <NButton size="small" type="primary" @click="openCreate">＋ 手动登记</NButton>
+            <NRadioGroup v-model:value="statusFilter" size="small" @update:value="onFilter">
+              <NRadioButton
+                v-for="s in statusOptions"
+                :key="s.value"
+                :value="s.value"
+                :label="s.label"
+              />
+            </NRadioGroup>
+          </NSpace>
+        </div>
+      </template>
+
+      <NSpin :show="loading">
+        <NAlert v-if="errorMsg" type="error" :show-icon="true">加载失败：{{ errorMsg }}</NAlert>
+        <NEmpty v-else-if="!debts.length" description="暂无技术债，完成一次分析后自动生成" />
+        <NDataTable
+          v-else
+          :columns="columns"
+          :data="debts"
+          :row-key="(r) => r.id"
+          :bordered="false"
+          :single-line="false"
+          size="small"
+        />
+      </NSpin>
+    </NCard>
+
+    <!-- 状态迁移 -->
+    <NModal
+      :show="action != null"
+      preset="card"
+      title="处理技术债"
+      style="width: 480px"
+      @update:show="
+        (v: boolean) => {
+          if (!v) action = null
+        }
+      "
+    >
+      <NForm label-placement="top">
+        <NFormItem label="目标状态">
+          <NSelect
+            :value="actionTarget"
+            :options="[
+              { label: '进行中', value: 'DOING', disabled: action?.status === 'DOING' },
+              { label: '已解决（需填说明）', value: 'DONE' },
+              {
+                label: '不修复（需填原因）',
+                value: 'WONTFIX',
+                disabled: action?.status === 'DOING',
+              },
+            ]"
+            @update:value="(v) => (actionTarget = v as TechDebtStatus)"
+          />
+        </NFormItem>
+        <NFormItem label="备注 / 原因">
+          <NInput
+            v-model:value="actionNote"
+            type="textarea"
+            :rows="3"
+            :placeholder="
+              actionTarget === 'DONE'
+                ? '解决说明（必填）'
+                : actionTarget === 'WONTFIX'
+                  ? '不修复原因（必填）'
+                  : '备注（可选）'
+            "
+          />
+        </NFormItem>
+        <NAlert v-if="actionError" type="error" :show-icon="true" class="debt-err">{{
+          actionError
+        }}</NAlert>
+        <template #footer>
+          <NSpace>
+            <NButton type="primary" :loading="submitting" @click="submitAction">确认</NButton>
+            <NButton @click="action = null">取消</NButton>
+          </NSpace>
+        </template>
+      </NForm>
+    </NModal>
+
+    <!-- 手动登记 -->
+    <NModal v-model:show="creating" preset="card" title="手动登记技术债" style="width: 480px">
+      <NForm label-placement="top">
+        <NFormItem label="标题">
+          <NInput v-model:value="createForm.title" maxlength="100" placeholder="债务标题" />
+        </NFormItem>
+        <NFormItem label="级别">
+          <NRadioGroup v-model:value="createForm.level">
+            <NRadioButton value="HIGH" label="高" />
+            <NRadioButton value="MEDIUM" label="中" />
+            <NRadioButton value="LOW" label="低" />
+          </NRadioGroup>
+        </NFormItem>
+        <NFormItem label="描述">
+          <NInput
+            v-model:value="createForm.description"
+            type="textarea"
+            :rows="2"
+            placeholder="可选"
+          />
+        </NFormItem>
+        <NFormItem label="建议">
+          <NInput
+            v-model:value="createForm.suggestion"
+            type="textarea"
+            :rows="2"
+            placeholder="可选"
+          />
+        </NFormItem>
+        <NAlert v-if="createError" type="error" :show-icon="true" class="debt-err">{{
+          createError
+        }}</NAlert>
+        <template #footer>
+          <NSpace>
+            <NButton type="primary" :loading="submitting" @click="submitCreate">登记</NButton>
+            <NButton @click="creating = false">取消</NButton>
+          </NSpace>
+        </template>
+      </NForm>
+    </NModal>
+  </div>
+</template>
 <style scoped>
 .debt {
-  border: 1px solid var(--border-color, #e5e7eb);
-  border-radius: 10px;
-  padding: 16px;
-  background: var(--bg-card, #fff);
-}
-.debt__head {
   display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.debt-card {
+  background: #fff;
+}
+.debt-head {
+  display: flex;
+  align-items: center;
   justify-content: space-between;
-  align-items: center;
+  gap: 12px;
   flex-wrap: wrap;
-  gap: 8px;
-  margin-bottom: 12px;
 }
-.debt__head h3 {
-  margin: 0;
+.debt-title {
   font-size: 15px;
-}
-.debt__head-right {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-.debt__filters {
-  display: flex;
-  gap: 6px;
-}
-.debt__filter {
-  border: 1px solid var(--border-color, #e5e7eb);
-  background: var(--bg-card);
-  border-radius: 6px;
-  padding: 4px 10px;
-  font-size: 12px;
-  cursor: pointer;
-  color: var(--text-secondary, #6b7280);
-}
-.debt__filter--active {
-  border-color: var(--ok-color, #16a34a);
-  color: var(--ok-color, #16a34a);
-  background: rgba(22, 163, 74, 0.08);
-}
-.debt__state {
-  color: var(--text-secondary, #6b7280);
-  font-size: 13px;
-  padding: 12px 0;
-}
-.debt__list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-.debt__item {
-  border: 1px solid var(--border-color, #e5e7eb);
-  border-radius: 8px;
-  padding: 10px 12px;
-}
-.debt__item-head {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-.debt__badge {
-  font-size: 11px;
   font-weight: 600;
-  border-radius: 4px;
-  padding: 1px 6px;
 }
-.debt__badge--high {
-  background: var(--fail-weak);
-  color: var(--fail-color);
-}
-.debt__badge--medium {
-  background: var(--warn-weak);
-  color: var(--warn-color);
-}
-.debt__badge--low {
-  background: var(--info-weak);
-  color: var(--info-color);
-}
-.debt__source {
-  font-size: 11px;
-  color: var(--text-secondary, #6b7280);
-  border: 1px solid var(--border-color, #e5e7eb);
-  border-radius: 4px;
-  padding: 0 5px;
-}
-.debt__title {
-  flex: 1;
-  font-size: 13px;
-  font-weight: 500;
-}
-.debt__status {
-  font-size: 11px;
-  border-radius: 4px;
-  padding: 1px 6px;
-}
-.debt__status--open {
-  background: var(--bg-muted);
-  color: var(--text-secondary);
-}
-.debt__status--doing {
-  background: var(--info-weak);
-  color: var(--info-color);
-}
-.debt__status--done {
-  background: var(--ok-weak);
-  color: var(--ok-color);
-}
-.debt__status--wonfix {
-  background: var(--purple-weak);
-  color: var(--purple-color);
-}
-.debt__act {
-  border: none;
-  background: var(--ok-color, #16a34a);
-  color: var(--bg-card);
-  border-radius: 4px;
-  padding: 3px 10px;
-  font-size: 12px;
-  cursor: pointer;
-}
-.debt__desc,
-.debt__sugg {
-  margin: 6px 0 0;
-  font-size: 12px;
-  color: var(--text-secondary, #6b7280);
-  line-height: 1.6;
-}
-.debt__meta {
-  margin: 6px 0 0;
-  font-size: 11px;
-  color: var(--text-secondary, #6b7280);
-}
-.debt__modal {
-  position: fixed;
-  inset: 0;
-  background: rgba(15, 23, 42, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 90;
-}
-.debt__modal-box {
-  background: var(--bg-card);
-  border-radius: 10px;
-  padding: 18px;
-  width: 380px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-.debt__modal-box h4 {
-  margin: 0;
-  font-size: 14px;
-}
-.debt__input {
-  border: 1px solid var(--border-color, #e5e7eb);
-  border-radius: 6px;
-  padding: 6px 8px;
-  font-size: 13px;
-  font-family: inherit;
-}
-.debt__note {
-  resize: vertical;
-}
-.debt__modal-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-}
-.debt__btn {
-  border: 1px solid var(--border-color, #e5e7eb);
-  background: var(--bg-card);
-  border-radius: 6px;
-  padding: 5px 14px;
-  font-size: 13px;
-  cursor: pointer;
-}
-.debt__btn--ok {
-  background: var(--ok-color, #16a34a);
-  border-color: var(--ok-color, #16a34a);
-  color: var(--bg-card);
-}
-.debt__error {
-  color: var(--fail-color, #dc2626);
-  font-size: 12px;
-  margin: 0;
+.debt-err {
+  margin-bottom: 8px;
 }
 </style>
