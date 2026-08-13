@@ -38,6 +38,7 @@
             class="doctor__msg"
             :class="'doctor__msg--' + m.role.toLowerCase()"
           >
+            <!-- eslint-disable-next-line vue/no-v-html -- renderMarkdown 内已 escapeHtml 转义（doctor-view L341） -->
             <div class="doctor__msg-bubble" v-html="renderMarkdown(m.content)" />
             <div v-if="m.role === 'ASSISTANT' && m.citations?.length" class="doctor__cites">
               <button
@@ -53,6 +54,7 @@
             </div>
           </div>
           <div v-if="streaming" class="doctor__msg doctor__msg--assistant">
+            <!-- eslint-disable-next-line vue/no-v-html -- renderMarkdown 内已 escapeHtml 转义（doctor-view L341） -->
             <div class="doctor__msg-bubble" v-html="renderMarkdown(streamText)" />
             <span class="doctor__cursor" />
           </div>

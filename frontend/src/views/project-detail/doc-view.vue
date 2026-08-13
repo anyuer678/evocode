@@ -36,6 +36,7 @@
             </button>
           </div>
         </div>
+        <!-- eslint-disable-next-line vue/no-v-html -- renderMarkdown 内已 escapeHtml 转义（doc-view L158） -->
         <div class="docs__content" v-html="renderMarkdown(doc.content)" />
       </div>
     </template>
