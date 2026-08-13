@@ -1,111 +1,56 @@
-﻿/* EvoCode 设计 token（体检报告风）：
- * 产品定位「AI 软件体检与演化平台」——视觉以「健康检查报告」为心智模型：
- * 健康分是锚点（大号评分环），诊断维度是体检项（评分条），状态用医疗语义色
- * （正常/异常/警告），背景偏「报告纸」质感。浅色默认，深色用 [data-theme='dark']。
- * 组件一律使用语义变量，禁止硬编码色值。 */
+﻿/* EvoCode 全局基础样式 —— 视觉由 Naive UI 主题承担，这里仅保留极少量全局补充 */
 
 :root {
-  /* 品牌主色：诊断蓝（体检报告的「主检」色，非通用 SaaS 蓝） */
-  --primary-color: #1668dc;
-  --primary-weak: rgba(22, 104, 220, 0.08);
-
-  /* 健康语义色：正常(绿) / 关注(橙) / 异常(红) —— 体检报告的核心语言 */
-  --health-excellent: #0f9d58;
-  --health-good: #4caf50;
-  --health-fair: #f59e0b;
-  --health-poor: #e53935;
-  --health-excellent-weak: rgba(15, 157, 88, 0.1);
-  --health-good-weak: rgba(76, 175, 80, 0.12);
-  --health-fair-weak: rgba(245, 158, 11, 0.14);
-  --health-poor-weak: rgba(229, 57, 53, 0.1);
-
-  /* 字体：数字用 tabular-nums 防跳动（评分/LOC/统计） */
   --font-family: system-ui, -apple-system, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
-
-  /* 文本 */
-  --text-primary: #1c2733;
-  --text-secondary: #5b6b7c;
-  --text-tertiary: #8a99a8;
-
-  /* 背景：极浅蓝（用户偏好——比纯灰多一分温度，仍克制） */
-  --bg-page: #f2f6fb;
-  --bg-page-deep: #e9f0f9;
-  --bg-card: #ffffff;
-  --bg-muted: #f5f8fc;
-  --border-color: #e3e8ef;
-  --border-strong: #cfd8e4;
-
-  /* 语义状态（正/负/警告/信息/紫/青） */
-  --ok-color: #16a34a;
-  --ok-weak: #dcfce7;
-  --fail-color: #dc2626;
-  --fail-weak: #fee2e2;
-  --warn-color: #d97706;
-  --warn-weak: #fef3c7;
-  --info-color: #1d4ed8;
-  --info-weak: #dbeafe;
-  --purple-color: #7c3aed;
-  --purple-weak: #f3e8ff;
-  --cyan-color: #0e7490;
-  --cyan-weak: #cffafe;
-
-  /* 代码 */
-  --code-bg: #f3f4f6;
-  --code-text: #1e293b;
-  --code-block-bg: #1f2937;
-  --code-block-text: #e2e8f0;
-
-  /* 几何 / 阴影 / 排版：报告单风格——近直角、细线、无悬浮阴影 */
-  --radius-sm: 2px;
-  --radius-md: 4px;
-  --radius-lg: 6px;
-  --shadow-xs: none;
-  --shadow-md: none;
-  --shadow-lg: 0 2px 8px rgba(15, 23, 42, 0.08);
-  --space-1: 4px;
-  --space-2: 8px;
-  --space-3: 12px;
-  --space-4: 16px;
-  --space-5: 24px;
-  --space-6: 32px;
-  --focus-ring: 2px solid var(--primary-weak);
-  --transition: 150ms ease;
-  --skeleton-bg: #e8ecef;
-
-  /* 字号：报告标题强、正文 14px、元数据 12.5px */
-  --font-size-base: 14px;
-  --font-size-sm: 12.5px;
-  --font-size-xs: 12px;
-  --font-size-lg: 16px;
-  --font-size-xl: 20px;
-  --font-size-huge: 28px;
   --font-mono: ui-monospace, Consolas, 'Courier New', monospace;
 }
 
 html {
-  background: var(--bg-page);
+  background: #f2f6fb;
 }
 
 body {
   margin: 0;
   font-family: var(--font-family);
-  font-size: var(--font-size-base);
-  background: var(--bg-page);
-  color: var(--text-primary);
+  font-size: 13.5px;
+  background: #f2f6fb;
+  color: #1b2633;
   -webkit-font-smoothing: antialiased;
 }
 
-:focus-visible {
-  outline: var(--focus-ring);
-  outline-offset: 1px;
-}
-
-/* 数字对齐全防跳动（健康分/LOC/统计卡等度量值） */
+/* 数字对齐全防跳动 */
 .tabular-nums,
 .stat-num,
 .score,
-.dash__stat-num {
+.gauge-value {
   font-variant-numeric: tabular-nums;
+}
+
+/* 兼容层：子视图仍引用旧设计变量，映射到 Naive UI 浅色主题 */
+:root {
+  --bg-card: #ffffff;
+  --bg-page: #f2f6fb;
+  --bg-muted: #f6f9fd;
+  --border-color: #e2e8f0;
+  --border-strong: #cbd6e2;
+  --radius-sm: 2px;
+  --radius-md: 4px;
+  --radius-lg: 6px;
+  --primary-color: #1668dc;
+  --primary-weak: rgba(22, 104, 220, 0.08);
+  --text-primary: #1b2633;
+  --text-secondary: #55667a;
+  --text-tertiary: #8798ab;
+  --ok-color: #0f9d58;
+  --fail-color: #d64545;
+  --warn-color: #e8890c;
+  --shadow-xs: none;
+  --shadow-md: none;
+  --shadow-lg: 0 2px 8px rgba(15, 23, 42, 0.08);
+  --transition: 150ms ease;
+  --code-bg: #f4f6f9;
+  --code-text: #1e293b;
+  --skeleton-bg: #e6ebf1;
 }
 
 /* 骨架屏脉动 */
@@ -117,14 +62,4 @@ body {
   50% {
     opacity: 0.55;
   }
-}
-
-/* 路由切换淡入 */
-.fade-enter-active,
-.fade-leave-active {
-  transition: opacity var(--transition);
-}
-.fade-enter-from,
-.fade-leave-to {
-  opacity: 0;
 }

@@ -1,67 +1,96 @@
 <script setup lang="ts">
 import { RouterView } from 'vue-router'
+import {
+  NConfigProvider,
+  NDialogProvider,
+  NLayout,
+  NLayoutContent,
+  NLayoutHeader,
+  NMessageProvider,
+} from 'naive-ui'
+import type { GlobalThemeOverrides } from 'naive-ui'
+
+const themeOverrides: GlobalThemeOverrides = {
+  common: {
+    primaryColor: '#1668dc',
+    primaryColorHover: '#2f7ce8',
+    primaryColorPressed: '#1254b8',
+    primaryColorSuppl: '#2f7ce8',
+    borderRadius: '4px',
+    fontSize: '13.5px',
+  },
+  Layout: {
+    color: '#f2f6fb',
+    headerColor: '#ffffff',
+  },
+  Card: {
+    borderRadius: '6px',
+  },
+  DataTable: {
+    borderRadius: '4px',
+  },
+}
 </script>
 
 <template>
-  <div class="app-shell">
-    <header class="app-header">
-      <div class="app-brand">
-        <span class="app-logo">EvoCode</span>
-        <span class="app-tagline">AI 软件体检与演化平台</span>
-      </div>
-      <nav class="app-nav" aria-label="主导航">
-        <RouterLink to="/dashboard" class="app-nav-link">健康总览</RouterLink>
-        <RouterLink to="/projects" class="app-nav-link">项目档案</RouterLink>
-      </nav>
-    </header>
-    <main class="app-main">
-      <RouterView v-slot="{ Component }">
-        <Transition name="fade" mode="out-in">
-          <component :is="Component" />
-        </Transition>
-      </RouterView>
-    </main>
-  </div>
+  <n-config-provider :theme-overrides="themeOverrides">
+    <n-message-provider>
+      <n-dialog-provider>
+        <n-layout position="absolute" class="app-layout">
+          <n-layout-header bordered class="app-header">
+            <div class="app-header-inner">
+              <RouterLink to="/" class="app-logo">EvoCode</RouterLink>
+              <nav class="app-nav">
+                <RouterLink to="/dashboard" class="app-nav-link">健康总览</RouterLink>
+                <RouterLink to="/projects" class="app-nav-link">项目档案</RouterLink>
+              </nav>
+              <span class="app-tagline">AI 软件体检与演化平台</span>
+            </div>
+          </n-layout-header>
+          <n-layout-content class="app-content">
+            <RouterView v-slot="{ Component }">
+              <Transition name="fade" mode="out-in">
+                <component :is="Component" />
+              </Transition>
+            </RouterView>
+          </n-layout-content>
+        </n-layout>
+      </n-dialog-provider>
+    </n-message-provider>
+  </n-config-provider>
 </template>
 
-<style scoped>
-.app-shell {
-  display: flex;
-  flex-direction: column;
+<style>
+.app-layout {
   min-height: 100vh;
 }
 .app-header {
-  display: flex;
-  align-items: center;
-  gap: 24px;
-  padding: 0 24px;
-  height: 52px;
-  border-bottom: 1px solid var(--border-color);
-  background: var(--bg-card);
   position: sticky;
   top: 0;
   z-index: 50;
-  flex-shrink: 0;
-}
-.app-brand {
+  height: 48px;
   display: flex;
-  align-items: baseline;
-  gap: 12px;
-  min-width: 0;
+  align-items: center;
+  padding: 0 20px;
+}
+.app-header-inner {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  width: 100%;
+  max-width: 1400px;
+  margin: 0 auto;
 }
 .app-logo {
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 700;
-  color: var(--text-primary);
-  letter-spacing: 0.04em;
+  color: var(--text-primary, #1b2633);
+  text-decoration: none;
+  letter-spacing: 0.03em;
   white-space: nowrap;
 }
-.app-tagline {
-  font-size: 12px;
-  color: var(--text-tertiary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+.app-logo:hover {
+  color: var(--primary-color, #1668dc);
 }
 .app-nav {
   display: flex;
@@ -69,41 +98,52 @@ import { RouterView } from 'vue-router'
 }
 .app-nav-link {
   padding: 6px 12px;
-  border-radius: 2px;
-  font-size: 13px;
-  color: var(--text-secondary);
+  border-radius: 4px;
+  font-size: 13.5px;
+  color: #55667a;
   text-decoration: none;
   transition:
-    color var(--transition),
-    background var(--transition);
+    color 150ms ease,
+    background 150ms ease;
 }
 .app-nav-link:hover {
-  color: var(--text-primary);
-  background: var(--bg-muted);
+  color: #1b2633;
+  background: #f6f9fd;
 }
 .app-nav-link.router-link-active {
-  color: var(--primary-color);
+  color: #1668dc;
   font-weight: 600;
 }
-.app-main {
-  flex: 1;
-  padding: 20px 24px 48px;
-  width: 100%;
+.app-tagline {
+  margin-left: auto;
+  font-size: 12px;
+  color: #8798ab;
+  white-space: nowrap;
+}
+.app-content {
+  padding: 16px 20px 48px;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 150ms ease;
+}
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
 }
 
 @media (max-width: 720px) {
   .app-header {
     padding: 0 12px;
-    gap: 10px;
   }
   .app-tagline {
     display: none;
   }
-  .app-nav-link {
-    padding: 6px 8px;
-  }
-  .app-main {
-    padding: 12px 10px 40px;
+  .app-content {
+    padding: 10px 10px 40px;
   }
 }
 </style>

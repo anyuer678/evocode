@@ -1,65 +1,29 @@
-<template>
-  <section class="dash">
-    <h2 class="dash__title">全局总览</h2>
-
-    <div class="dash__stats">
-      <div class="dash__stat">
-        <span class="dash__stat-num">{{ projects.length }}</span>
-        <span class="dash__stat-label">项目总数</span>
-      </div>
-      <div class="dash__stat">
-        <span class="dash__stat-num">{{ avgHealth.toFixed(1) }}</span>
-        <span class="dash__stat-label">平均健康分</span>
-      </div>
-      <div class="dash__stat">
-        <span class="dash__stat-num">{{ readyCount }}</span>
-        <span class="dash__stat-label">已分析项目</span>
-      </div>
-      <div class="dash__stat">
-        <span class="dash__stat-num">{{ totalLoc.toLocaleString() }}</span>
-        <span class="dash__stat-label">总代码行数</span>
-      </div>
-    </div>
-
-    <div v-if="projects.length" class="dash__charts">
-      <div ref="healthEl" class="dash__chart" />
-      <div ref="langEl" class="dash__chart" />
-      <div ref="statusEl" class="dash__chart" />
-    </div>
-    <div v-else class="dash__empty">
-      还没有项目，去「项目」页创建并分析，这里会展示全局健康分布。
-    </div>
-
-    <h3 class="dash__sub">最近分析</h3>
-    <div v-if="!recent.length" class="dash__empty">暂无项目，去「项目」页创建并分析</div>
-    <ul v-else class="dash__list">
-      <li v-for="p in recent" :key="p.id" class="dash__item" @click="goDetail(p.id)">
-        <span class="dash__item-name">{{ p.name }}</span>
-        <span class="dash__health" :class="healthClass(p.healthScore)">
-          {{ p.healthScore ?? '—' }}
-        </span>
-        <span class="dash__item-meta">{{ statusLabel(p.status) }}</span>
-        <span class="dash__item-meta">{{ p.locTotal?.toLocaleString() ?? 0 }} 行</span>
-        <span class="dash__item-meta">{{
-          p.lastAnalyzedAt ? formatTime(p.lastAnalyzedAt) : '未分析'
-        }}</span>
-      </li>
-    </ul>
-  </section>
-</template>
-
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import * as echarts from 'echarts/core'
-import { PieChart } from 'echarts/charts'
-import { LegendComponent, TitleComponent, TooltipComponent } from 'echarts/components'
+import { BarChart, PieChart } from 'echarts/charts'
+import {
+  GridComponent,
+  LegendComponent,
+  TitleComponent,
+  TooltipComponent,
+} from 'echarts/components'
 import { CanvasRenderer } from 'echarts/renderers'
 import type { ECharts } from 'echarts/core'
+import { NCard, NEmpty, NList, NListItem, NStatistic } from 'naive-ui'
 import { listProjects } from '../../api/project'
 import type { ProjectSummary } from '../../types/api'
 
-echarts.use([PieChart, LegendComponent, TitleComponent, TooltipComponent, CanvasRenderer])
+echarts.use([
+  BarChart,
+  PieChart,
+  GridComponent,
+  LegendComponent,
+  TitleComponent,
+  TooltipComponent,
+  CanvasRenderer,
+])
 
 const router = useRouter()
 const projects = ref<ProjectSummary[]>([])
@@ -104,15 +68,10 @@ function renderCharts(): void {
   charts.forEach((c) => c.dispose())
   charts.length = 0
 
-  // 审查 M6：从 CSS 变量取主题色，深色下标题/图例可读
-  const cssVar = (name: string): string =>
-    getComputedStyle(document.documentElement).getPropertyValue(name).trim()
-  const textColor = cssVar('--text-primary') || '#1f2329'
-  const textSecondary = cssVar('--text-secondary') || '#6b7280'
-  const titleStyle = { fontSize: 13, color: textColor }
-  const legendStyle = { color: textSecondary }
+  const titleStyle = { fontSize: 13, color: '#55667a' }
+  const legendStyle = { color: '#8798ab' }
 
-  // 健康分分布（环形：<60 / 60-80 / ≥80）
+  // 健康分分布
   const buckets = { low: 0, mid: 0, high: 0, none: 0 }
   for (const p of projects.value) {
     if (p.healthScore == null) buckets.none += 1
@@ -123,23 +82,31 @@ function renderCharts(): void {
   charts.push(echarts.init(healthEl.value))
   charts[0].setOption({
     title: { text: '健康分分布', left: 'center', textStyle: titleStyle },
-    tooltip: { trigger: 'item' },
-    legend: { bottom: 0, textStyle: legendStyle },
+    tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+    grid: { left: 8, right: 16, top: 36, bottom: 8, containLabel: true },
+    xAxis: { type: 'value', minInterval: 1, splitLine: { lineStyle: { color: '#eef1f5' } } },
+    yAxis: {
+      type: 'category',
+      data: ['优秀 (≥80)', '一般 (60-80)', '待改善 (<60)', '未分析'],
+      axisLine: { show: false },
+      axisTick: { show: false },
+      axisLabel: { color: '#55667a', fontSize: 12 },
+    },
     series: [
       {
-        type: 'pie',
-        radius: ['45%', '70%'],
+        type: 'bar',
         data: [
-          { name: '优秀 (≥80)', value: buckets.high, itemStyle: { color: '#16a34a' } },
-          { name: '一般 (60-80)', value: buckets.mid, itemStyle: { color: '#d97706' } },
-          { name: '待改善 (<60)', value: buckets.low, itemStyle: { color: '#dc2626' } },
-          { name: '未分析', value: buckets.none, itemStyle: { color: '#9ca3af' } },
+          { value: buckets.high, itemStyle: { color: '#0f9d58', borderRadius: 2 } },
+          { value: buckets.mid, itemStyle: { color: '#e8890c', borderRadius: 2 } },
+          { value: buckets.low, itemStyle: { color: '#d64545', borderRadius: 2 } },
+          { value: buckets.none, itemStyle: { color: '#c2ccd8', borderRadius: 2 } },
         ],
+        barWidth: 18,
       },
     ],
   })
 
-  // 语言构成（跨项目聚合 top 8）
+  // 语言构成
   const langCount = new Map<string, number>()
   for (const p of projects.value) {
     for (const [lang, pct] of Object.entries(p.langStats ?? {})) {
@@ -155,38 +122,44 @@ function renderCharts(): void {
     title: { text: '语言构成', left: 'center', textStyle: titleStyle },
     tooltip: { trigger: 'item' },
     legend: { bottom: 0, type: 'scroll', textStyle: legendStyle },
-    series: [{ type: 'pie', radius: ['40%', '68%'], data: langData }],
+    series: [{ type: 'pie', radius: ['42%', '70%'], center: ['50%', '46%'], data: langData }],
   })
 
-  // 项目状态分布
+  // 项目状态分布（横向条形，对比清晰）
   const statusCount = new Map<string, number>()
   for (const p of projects.value) {
     statusCount.set(p.status, (statusCount.get(p.status) ?? 0) + 1)
   }
   const statusData = [...statusCount.entries()].map(([name, value]) => ({ name, value }))
+  const statusColor = (n: string): string =>
+    n === 'READY'
+      ? '#0f9d58'
+      : n === 'ANALYZING'
+        ? '#e8890c'
+        : n === 'FAILED'
+          ? '#d64545'
+          : '#c2ccd8'
   charts.push(echarts.init(statusEl.value))
   charts[2].setOption({
     title: { text: '项目状态', left: 'center', textStyle: titleStyle },
-    tooltip: { trigger: 'item' },
-    legend: { bottom: 0, textStyle: legendStyle },
+    tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+    grid: { left: 8, right: 16, top: 36, bottom: 8, containLabel: true },
+    xAxis: { type: 'value', minInterval: 1, splitLine: { lineStyle: { color: '#eef1f5' } } },
+    yAxis: {
+      type: 'category',
+      data: statusData.map((d) => statusLabel(d.name)),
+      axisLine: { show: false },
+      axisTick: { show: false },
+      axisLabel: { color: '#55667a', fontSize: 12 },
+    },
     series: [
       {
-        type: 'pie',
-        radius: ['40%', '68%'],
+        type: 'bar',
         data: statusData.map((d) => ({
-          ...d,
-          name: statusLabel(d.name),
-          itemStyle: {
-            color:
-              d.name === 'READY'
-                ? '#16a34a'
-                : d.name === 'ANALYZING'
-                  ? '#d97706'
-                  : d.name === 'FAILED'
-                    ? '#dc2626'
-                    : '#9ca3af',
-          },
+          value: d.value,
+          itemStyle: { color: statusColor(d.name), borderRadius: 2 },
         })),
+        barWidth: 18,
       },
     ],
   })
@@ -219,110 +192,134 @@ onBeforeUnmount(() => {
 })
 </script>
 
+<template>
+  <div class="dash">
+    <h2 class="dash__title">全局总览</h2>
+
+    <div class="dash__stats">
+      <NCard size="small">
+        <NStatistic label="项目总数" :value="projects.length" />
+      </NCard>
+      <NCard size="small">
+        <NStatistic label="平均健康分" :value="Number(avgHealth.toFixed(1))" />
+      </NCard>
+      <NCard size="small">
+        <NStatistic label="已分析项目" :value="readyCount" />
+      </NCard>
+      <NCard size="small">
+        <NStatistic label="总代码行数" :value="totalLoc" />
+      </NCard>
+    </div>
+
+    <div v-if="projects.length" class="dash__charts">
+      <NCard size="small" class="dash__chart-card">
+        <div ref="healthEl" class="dash__chart" />
+      </NCard>
+      <NCard size="small" class="dash__chart-card">
+        <div ref="langEl" class="dash__chart" />
+      </NCard>
+      <NCard size="small" class="dash__chart-card">
+        <div ref="statusEl" class="dash__chart" />
+      </NCard>
+    </div>
+    <NCard v-else size="small" class="dash__empty">
+      <NEmpty description="还没有项目，去「项目档案」页创建并分析，这里会展示全局健康分布">
+        <template #extra>
+          <NButton size="small" type="primary" @click="router.push('/projects/create')">
+            新建项目
+          </NButton>
+        </template>
+      </NEmpty>
+    </NCard>
+
+    <h3 class="dash__sub">最近分析</h3>
+    <NCard v-if="recent.length" size="small" :bordered="false">
+      <NList hoverable>
+        <NListItem v-for="p in recent" :key="p.id" class="dash__item" @click="goDetail(p.id)">
+          <div class="dash__item-inner">
+            <span class="dash__item-name">{{ p.name }}</span>
+            <span class="dash__health" :class="healthClass(p.healthScore)">
+              {{ p.healthScore ?? '—' }}
+            </span>
+            <span class="dash__item-meta">{{ statusLabel(p.status) }}</span>
+            <span class="dash__item-meta">{{ p.locTotal?.toLocaleString() ?? 0 }} 行</span>
+            <span class="dash__item-meta">{{
+              p.lastAnalyzedAt ? formatTime(p.lastAnalyzedAt) : '未分析'
+            }}</span>
+          </div>
+        </NListItem>
+      </NList>
+    </NCard>
+    <NCard v-else size="small" :bordered="false">
+      <NEmpty description="暂无项目" />
+    </NCard>
+  </div>
+</template>
+
 <style scoped>
+.dash {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
 .dash__title {
-  margin: 0 0 16px;
-  font-size: 18px;
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
 }
 .dash__stats {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
   gap: 12px;
-  margin-bottom: 16px;
-}
-.dash__stat {
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-lg);
-  background: var(--bg-card);
-  padding: 14px 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-.dash__stat-num {
-  font-size: 22px;
-  font-weight: 700;
-  color: var(--text-primary);
-}
-.dash__stat-label {
-  font-size: 12px;
-  color: var(--text-secondary);
 }
 .dash__charts {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
   gap: 12px;
-  margin-bottom: 20px;
 }
 .dash__chart {
   height: 240px;
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-lg);
-  background: var(--bg-card);
-  padding: 8px;
 }
 .dash__sub {
+  margin: 8px 0 0;
   font-size: 15px;
-  margin: 0 0 10px;
+  font-weight: 600;
 }
-.dash__empty {
-  color: var(--text-secondary);
-  font-size: 13px;
-  padding: 16px 0;
-}
-.dash__list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-lg);
-  overflow: hidden;
-  background: var(--bg-card);
-}
-.dash__item {
+.dash__item-inner {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 10px 14px;
-  border-bottom: 1px solid var(--border-color);
-  cursor: pointer;
-  font-size: 13px;
-}
-.dash__item:last-child {
-  border-bottom: none;
-}
-.dash__item:hover {
-  background: var(--bg-muted);
 }
 .dash__item-name {
   flex: 1;
-  font-weight: 500;
+  font-size: 14px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .dash__health {
+  font-size: 14px;
   font-weight: 700;
-  border-radius: var(--radius-sm);
-  padding: 1px 8px;
-  min-width: 40px;
-  text-align: center;
+  font-variant-numeric: tabular-nums;
+  width: 32px;
+  text-align: right;
 }
 .dash__health--high {
-  background: var(--ok-weak);
-  color: var(--ok-color);
+  color: #0f9d58;
 }
 .dash__health--mid {
-  background: var(--warn-weak);
-  color: var(--warn-color);
+  color: #e8890c;
 }
 .dash__health--low {
-  background: var(--fail-weak);
-  color: var(--fail-color);
+  color: #d64545;
 }
 .dash__health--none {
-  background: var(--bg-muted);
-  color: var(--text-secondary);
+  color: #c2ccd8;
 }
 .dash__item-meta {
-  color: var(--text-secondary);
   font-size: 12px;
+  color: #8798ab;
+  white-space: nowrap;
 }
 </style>
