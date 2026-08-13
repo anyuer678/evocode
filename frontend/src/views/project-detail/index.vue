@@ -584,38 +584,35 @@ onBeforeUnmount(() => {
               </span>
             </div>
 
-            <div class="report-body">
-              <div class="score-panel">
-                <div class="score-block">
-                  <span class="score-num" :class="'lv-' + report.report.level.toLowerCase()">{{
-                    report.report.healthScore
-                  }}</span>
-                  <span class="score-label">健康分 / 100</span>
-                </div>
-                <div class="score-rule" aria-hidden="true"></div>
-                <p class="summary">{{ report.report.summary }}</p>
+            <div class="score-panel">
+              <div class="score-block">
+                <span class="score-num" :class="'lv-' + report.report.level.toLowerCase()">{{
+                  report.report.healthScore
+                }}</span>
+                <span class="score-label">健康分 / 100</span>
               </div>
+              <div class="score-rule" aria-hidden="true"></div>
+              <p class="summary">{{ report.report.summary }}</p>
+            </div>
 
-              <div class="dims">
-                <div v-for="d in report.report.dimensions" :key="d.key" class="dim">
-                  <div class="dim-head">
-                    <span class="dim-name">{{ DIM_LABEL[d.key] }}</span>
-                    <span class="dim-score">{{ d.score }}</span>
-                  </div>
-                  <div class="dim-bar-track">
-                    <div
-                      class="dim-bar-fill"
-                      :class="'lv-' + report.report.level.toLowerCase()"
-                      :style="{ width: Math.min(100, d.score) + '%' }"
-                    />
-                  </div>
-                  <div class="dim-summary">{{ d.summary }}</div>
+            <div class="dims">
+              <div v-for="d in report.report.dimensions" :key="d.key" class="dim">
+                <div class="dim-head">
+                  <span class="dim-name">{{ DIM_LABEL[d.key] }}</span>
+                  <span class="dim-score">{{ d.score }}</span>
                 </div>
+                <div class="dim-bar-track">
+                  <div
+                    class="dim-bar-fill"
+                    :class="'lv-' + report.report.level.toLowerCase()"
+                    :style="{ width: Math.min(100, d.score) + '%' }"
+                  />
+                </div>
+                <div class="dim-summary">{{ d.summary }}</div>
               </div>
             </div>
 
             <div v-if="report.report.risks.length" class="report-section">
-              <h3>风险</h3>
               <div
                 v-for="(r, i) in report.report.risks"
                 :key="i"
@@ -1059,14 +1056,9 @@ onBeforeUnmount(() => {
   line-height: 1.7;
   color: var(--text-secondary);
 }
-.report-body {
-  display: grid;
-  grid-template-columns: 130px minmax(0, 1fr);
-  gap: 24px;
-  margin-top: 18px;
-}
 .dims {
   min-width: 0;
+  margin-top: 16px;
 }
 .dim {
   padding: 12px 0;
@@ -1307,28 +1299,30 @@ onBeforeUnmount(() => {
 /* ---- 体检报告 ---- */
 .report {
   margin-top: 20px;
-  background: var(--bg-card);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
-  padding: 20px;
 }
 .report.loading,
 .empty-report {
   color: var(--text-secondary);
   font-size: 13px;
 }
+/* 报告头：可换行，标题独占，元信息右对齐（修复 nowrap 重叠） */
 .report-head {
   display: flex;
-  align-items: center;
-  gap: 10px;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border-color);
 }
 .report-head h2 {
   margin: 0;
   font-size: 16px;
+  font-weight: 700;
 }
 .prompt {
   margin-left: auto;
   font-size: 12px;
+  color: var(--text-tertiary);
 }
 .lv-excellent {
   color: #0e9f6e;
@@ -1365,12 +1359,16 @@ onBeforeUnmount(() => {
   font-size: 13px;
   color: var(--text-secondary);
 }
+/* 风险：表格化行（审计单风格，左侧色条 + 标题 + 详情分列） */
 .risk {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr);
+  gap: 2px 12px;
+  padding: 10px 12px;
+  margin-bottom: 8px;
+  border: 1px solid var(--border-color);
   border-left: 3px solid var(--text-secondary);
-  padding: 8px 12px;
-  margin-bottom: 10px;
-  background: var(--bg-page);
-  border-radius: 0 6px 6px 0;
+  background: var(--bg-card);
 }
 .risk.rk-high {
   border-left-color: var(--fail-color);
@@ -1382,39 +1380,37 @@ onBeforeUnmount(() => {
   border-left-color: var(--text-secondary);
 }
 .risk-head {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+  display: contents;
 }
 .risk-level {
+  grid-row: 1;
   font-size: 11px;
   font-weight: 700;
-  padding: 1px 6px;
-  border-radius: 4px;
-  background: rgba(107, 114, 128, 0.15);
-}
-.rk-high .risk-level {
-  background: rgba(220, 38, 38, 0.12);
-  color: var(--fail-color);
-}
-.rk-medium .risk-level {
-  background: rgba(217, 119, 6, 0.12);
-  color: #d97706;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-tertiary);
+  padding-top: 2px;
 }
 .risk-title {
-  font-size: 13px;
+  grid-row: 1;
+  grid-column: 2;
+  font-size: 13.5px;
   font-weight: 600;
 }
 .risk-detail {
-  margin: 6px 0 0;
-  font-size: 12px;
-  color: var(--text-secondary);
+  grid-column: 2;
+  grid-row: 2;
+  margin: 0;
+  font-size: 13px;
   line-height: 1.6;
+  color: var(--text-secondary);
 }
 .risk-suggestion {
-  margin: 4px 0 0;
-  font-size: 12px;
-  color: var(--primary-color);
+  grid-column: 2;
+  grid-row: 3;
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--text-secondary);
 }
 .rec {
   margin-bottom: 10px;
