@@ -1,20 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
 import { RouterView } from 'vue-router'
-
-const THEME_KEY = 'evocode-theme'
-const saved = localStorage.getItem(THEME_KEY)
-if (saved === 'dark') {
-  document.documentElement.dataset.theme = 'dark'
-}
-const isDark = ref(document.documentElement.dataset.theme === 'dark')
-
-function toggleTheme() {
-  const next = isDark.value ? '' : 'dark'
-  document.documentElement.dataset.theme = next
-  localStorage.setItem(THEME_KEY, next)
-  isDark.value = next === 'dark'
-}
 </script>
 
 <template>
@@ -28,14 +13,6 @@ function toggleTheme() {
         <RouterLink to="/dashboard" class="app-nav-link">健康总览</RouterLink>
         <RouterLink to="/projects" class="app-nav-link">项目档案</RouterLink>
       </nav>
-      <button
-        class="app-theme"
-        type="button"
-        :title="isDark ? '切换浅色' : '切换深色'"
-        @click="toggleTheme"
-      >
-        {{ isDark ? '浅色' : '深色' }}
-      </button>
     </header>
     <main class="app-main">
       <RouterView v-slot="{ Component }">
@@ -107,19 +84,6 @@ function toggleTheme() {
 .app-nav-link.router-link-active {
   color: var(--primary-color);
   font-weight: 600;
-}
-.app-theme {
-  margin-left: auto;
-  border: 1px solid var(--border-color);
-  background: var(--bg-card);
-  border-radius: 2px;
-  padding: 4px 10px;
-  font-size: 12px;
-  cursor: pointer;
-  transition: border-color var(--transition);
-}
-.app-theme:hover {
-  border-color: var(--primary-color);
 }
 .app-main {
   flex: 1;

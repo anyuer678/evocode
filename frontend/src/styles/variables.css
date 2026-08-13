@@ -1,4 +1,4 @@
-/* EvoCode 设计 token（体检报告风）：
+﻿/* EvoCode 设计 token（体检报告风）：
  * 产品定位「AI 软件体检与演化平台」——视觉以「健康检查报告」为心智模型：
  * 健康分是锚点（大号评分环），诊断维度是体检项（评分条），状态用医疗语义色
  * （正常/异常/警告），背景偏「报告纸」质感。浅色默认，深色用 [data-theme='dark']。
@@ -127,51 +127,4 @@ body {
 .fade-enter-from,
 .fade-leave-to {
   opacity: 0;
-}
-
-[data-theme='dark'] {
-  --primary-color: #5b9bf5;
-  --primary-weak: rgba(91, 155, 245, 0.16);
-
-  --health-excellent: #34d399;
-  --health-good: #4ade80;
-  --health-fair: #fbbf24;
-  --health-poor: #f87171;
-  --health-excellent-weak: rgba(52, 211, 153, 0.14);
-  --health-good-weak: rgba(74, 222, 128, 0.16);
-  --health-fair-weak: rgba(251, 191, 36, 0.16);
-  --health-poor-weak: rgba(248, 113, 113, 0.14);
-
-  --text-primary: #e5e9ef;
-  --text-secondary: #9aa7b4;
-  --text-tertiary: #6b7885;
-
-  --bg-page: #101826;
-  --bg-card: #182235;
-  --bg-muted: #141e2e;
-  --border-color: #2b3a52;
-  --border-strong: #3a4c68;
-
-  --ok-color: #4ade80;
-  --ok-weak: rgba(74, 222, 128, 0.16);
-  --fail-color: #f87171;
-  --fail-weak: rgba(248, 113, 113, 0.16);
-  --warn-color: #fbbf24;
-  --warn-weak: rgba(251, 191, 36, 0.16);
-  --info-color: #60a5fa;
-  --info-weak: rgba(96, 165, 250, 0.16);
-  --purple-color: #c084fc;
-  --purple-weak: rgba(192, 132, 252, 0.16);
-  --cyan-color: #22d3ee;
-  --cyan-weak: rgba(34, 211, 238, 0.16);
-
-  --code-bg: #121a26;
-  --code-text: #dbe2ea;
-  --code-block-bg: #121a26;
-  --code-block-text: #dbe2ea;
-
-  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.35);
-  --shadow-md: 0 3px 10px rgba(0, 0, 0, 0.45);
-  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.55);
-  --skeleton-bg: #253044;
 }
