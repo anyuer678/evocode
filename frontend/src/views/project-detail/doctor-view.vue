@@ -145,6 +145,8 @@ const editorEl = ref<HTMLElement | null>(null)
 const loading = ref(false)
 let localSeq = 0
 let editor: monacoNs.editor.IStandaloneCodeEditor | null = null
+// 审查修复：当前流式请求的取消控制器——组件卸载/切换会话时 abort，停止 fetch 流
+let streamAbort: AbortController | null = null
 
 const scrollToBottom = () => {
   if (msgBox.value) msgBox.value.scrollTop = msgBox.value.scrollHeight
@@ -153,6 +155,9 @@ const scrollToBottom = () => {
 watch([streamText, messages], scrollToBottom, { flush: 'post' })
 
 onBeforeUnmount(() => {
+  // 审查修复：卸载时取消进行中的 AI 医生流（此前流继续读，回调写已卸载组件）
+  streamAbort?.abort()
+  streamAbort = null
   editor?.dispose()
   editor = null
 })
@@ -182,8 +187,12 @@ async function selectSession(id: number) {
   activeId.value = id
   messages.value = []
   loading.value = true
+  // 审查修复：会话切换竞态守卫——fetchChatMessages 挂起期间用户切走/新建会话，
+  // 旧响应返回时校验 activeId 仍为本会话，否则丢弃
+  const targetId = id
   try {
-    const page = await fetchChatMessages(id, 1, 100)
+    const page = await fetchChatMessages(targetId, 1, 100)
+    if (targetId !== activeId.value) return
     messages.value = page.items.map((m: ChatMessageItem) => ({
       _localId: ++localSeq,
       id: m.id,
@@ -235,49 +244,58 @@ async function send() {
   streamText.value = ''
   streamError.value = ''
   streamCitations.value = []
+  // 审查修复：本次流的取消控制器（卸载/切换会话时 abort）
+  streamAbort = new AbortController()
   await nextTick()
   scrollToBottom()
   try {
-    await sendChatMessage(sessionId, content, refPath, {
-      onDelta: (delta: string) => {
-        if (sessionId !== activeId.value) return
-        streamText.value += delta
+    await sendChatMessage(
+      sessionId,
+      content,
+      refPath,
+      {
+        onDelta: (delta: string) => {
+          if (sessionId !== activeId.value) return
+          streamText.value += delta
+        },
+        onCitations: (items: ChatCitation[]) => {
+          if (sessionId !== activeId.value) return
+          streamCitations.value = items
+        },
+        onDone: () => {
+          if (sessionId !== activeId.value) return
+          const text = streamText.value
+          const cites = streamCitations.value
+          messages.value.push({
+            _localId: ++localSeq,
+            id: null,
+            role: 'ASSISTANT',
+            content: text || '（空回复）',
+            citations: cites.length ? cites : null,
+          })
+          streaming.value = false
+          streamText.value = ''
+          void loadSessions()
+        },
+        onError: (code: string, message: string) => {
+          if (sessionId !== activeId.value) return
+          streamError.value = `回答失败（${code}）：${message}`
+          messages.value.push({
+            _localId: ++localSeq,
+            id: null,
+            role: 'ASSISTANT',
+            content: `回答失败（${code}）：${message}`,
+            citations: null,
+          })
+          streaming.value = false
+          streamText.value = ''
+        },
       },
-      onCitations: (items: ChatCitation[]) => {
-        if (sessionId !== activeId.value) return
-        streamCitations.value = items
-      },
-      onDone: () => {
-        if (sessionId !== activeId.value) return
-        const text = streamText.value
-        const cites = streamCitations.value
-        messages.value.push({
-          _localId: ++localSeq,
-          id: null,
-          role: 'ASSISTANT',
-          content: text || '（空回复）',
-          citations: cites.length ? cites : null,
-        })
-        streaming.value = false
-        streamText.value = ''
-        void loadSessions()
-      },
-      onError: (code: string, message: string) => {
-        if (sessionId !== activeId.value) return
-        streamError.value = `回答失败（${code}）：${message}`
-        messages.value.push({
-          _localId: ++localSeq,
-          id: null,
-          role: 'ASSISTANT',
-          content: `回答失败（${code}）：${message}`,
-          citations: null,
-        })
-        streaming.value = false
-        streamText.value = ''
-      },
-    })
+      streamAbort.signal,
+    )
   } finally {
     // 防御：任何未捕获异常都复位流式状态（审查 M1）
+    streamAbort = null
     if (streaming.value) {
       streaming.value = false
       streamText.value = ''

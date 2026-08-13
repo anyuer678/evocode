@@ -139,8 +139,15 @@ public class AnalysisServiceImpl implements AnalysisService {
         if (analysis == null || reportStorageService.getByAnalysisId(analysisId) == null) {
             throw new BusinessException(ErrorCode.ANALYSIS_NOT_FOUND, "该分析不存在或无报告");
         }
+        // 审查修复：契约 §3.7 前置要求 status = SUCCEEDED——此前 FAILED/CANCELLED 也能
+        // 进入 regenerate，状态机非法（FAILED → RUNNING 无业务意义）。
+        // 顺序：先 2008（正在重新生成中）再 2015（非 SUCCEEDED 不可 regenerate）
         if (AnalysisStatus.RUNNING.name().equals(analysis.getStatus())) {
             throw new BusinessException(ErrorCode.REPORT_REGENERATING, null);
+        }
+        if (!AnalysisStatus.SUCCEEDED.name().equals(analysis.getStatus())) {
+            throw new BusinessException(ErrorCode.ANALYSIS_NOT_FOUND,
+                    "仅 SUCCEEDED 的分析可重新生成报告");
         }
         // 状态转移：SUCCEEDED → RUNNING(REPORT,75)，异步完成后覆盖报告
         analysis.setStatus(AnalysisStatus.RUNNING.name());

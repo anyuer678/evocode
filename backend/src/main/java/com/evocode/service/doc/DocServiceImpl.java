@@ -93,7 +93,23 @@ public class DocServiceImpl implements DocService {
             doc.setContent(generated.content());
             doc.setVersion(1);
             doc.setEdited(false);
-            docMapper.insert(doc);
+            try {
+                docMapper.insert(doc);
+            } catch (org.springframework.dao.DuplicateKeyException e) {
+                // 审查修复：并发 generate 双写兜底——generated_doc 无 (project_id, doc_type)
+                // 唯一约束，selectOne 后 insert 存在 TOCTOU；撞唯一索引/竞态时回查后转 update
+                GeneratedDoc existing = docMapper.selectOne(new LambdaQueryWrapper<GeneratedDoc>()
+                        .eq(GeneratedDoc::getProjectId, projectId)
+                        .eq(GeneratedDoc::getDocType, type));
+                if (existing == null) {
+                    throw e;
+                }
+                existing.setTitle(generated.title());
+                existing.setContent(generated.content());
+                existing.setVersion(existing.getVersion() + 1);
+                docMapper.updateById(existing);
+                doc = existing;
+            }
         } else {
             // 审查 M4：人工编辑过的文档必须显式 force 才覆盖
             if (Boolean.TRUE.equals(doc.getEdited()) && !force) {

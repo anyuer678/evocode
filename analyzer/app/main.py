@@ -5,8 +5,9 @@ import logging
 import os
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException
-from fastapi.responses import StreamingResponse
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse, StreamingResponse
 
 from .config import get_settings
 from .core.arch.archscan import architecture_scan
@@ -83,6 +84,34 @@ def _assert_allowed_root(code_dir: Path) -> None:
 
 
 app = FastAPI(title="EvoCode Analyzer", version=settings.version)
+
+
+# 审查修复（契约 §5.11 统一错误体）：analyzer 内部 API 非 200 一律
+# {"error": {"code": "…", "message": "…"}}。此前部分端点用裸 detail 字符串
+# （如 "codeDir not found"），FastAPI 默认按 detail 原样返回，契约不一致。
+def _wrap_error(code: str, message: str) -> dict:
+    return {"error": {"code": code, "message": message}}
+
+
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException) -> JSONResponse:
+    detail = exc.detail
+    # 已按契约包装（{"error": {...}}）→ 原样返回；裸字符串/裸 dict → 补包装
+    if isinstance(detail, dict) and "error" in detail:
+        return JSONResponse(status_code=exc.status_code, content=detail)
+    message = detail if isinstance(detail, str) else str(detail)
+    return JSONResponse(
+        status_code=exc.status_code,
+        content=_wrap_error("ANALYZER_ERROR", message),
+    )
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(
+    request: Request, exc: RequestValidationError
+) -> JSONResponse:
+    msg = "请求参数校验失败：" + str(exc.errors()[:2])
+    return JSONResponse(status_code=422, content=_wrap_error("PARAM_INVALID", msg))
 
 # AD-9：无 Key 时 available()=False，report 自动走规则版
 _llm = OpenAICompatClient(

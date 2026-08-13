@@ -56,7 +56,14 @@ public class QuickScanService {
         analysis.setProgress(5);
         analysis.setStage(Stage.SCAN.name());
         analysis.setStartedAt(OffsetDateTime.now());
-        analysisMapper.insert(analysis);
+        try {
+            analysisMapper.insert(analysis);
+        } catch (org.springframework.dao.DuplicateKeyException e) {
+            // 审查修复：V011 唯一索引兜底——selectCount 检查与 insert 之间存在 TOCTOU，
+            // 并发触发快扫时后者撞唯一索引，捕获后跳过（与 AnalysisServiceImpl.create 一致）
+            log.info("快扫并发冲突，跳过重复触发 projectId={}", project.getId());
+            return;
+        }
 
         project.setStatus(ProjectStatus.ANALYZING.name());
         projectMapper.updateById(project);

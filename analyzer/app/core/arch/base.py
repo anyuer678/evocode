@@ -113,7 +113,8 @@ def node_metrics(nodes: list[ArchNode], edges: list[ArchEdge]) -> dict[str, dict
         n.node_key: {
             "inDegree": in_deg.get(n.node_key, 0),
             "outDegree": out_deg.get(n.node_key, 0),
-            "depCount": len(nodes),
+            # 审查修复：depCount 应为该节点依赖的模块数（出边数），此前误用节点总数
+            "depCount": out_deg.get(n.node_key, 0),
         }
         for n in nodes
     }

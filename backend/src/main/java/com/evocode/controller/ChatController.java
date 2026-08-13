@@ -71,6 +71,10 @@ public class ChatController {
     @PostMapping(value = "/chats/{id}/messages", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter sendMessage(@PathVariable Long id, @RequestBody ChatSendReq req,
                                   jakarta.servlet.http.HttpServletResponse response) {
+        // 审查修复：请求体缺失（body 为空）时 @RequestBody 为 null，直接 NPE
+        if (req == null) {
+            throw new BusinessException(ErrorCode.PARAM_MISSING, "请求体不能为空");
+        }
         String content = req.content();
         if (content == null || content.isBlank()) {
             throw new BusinessException(ErrorCode.PARAM_MISSING, "消息内容不能为空");

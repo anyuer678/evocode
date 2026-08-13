@@ -241,7 +241,7 @@ def build_rules_report(
             recommendations.append({"phase": f"第{i}阶段", "items": items})
 
     summary = (
-        f"规则评分 {health} 分（{_level(health)}）：质量 {quality} / 结构 {structure} "
+        f"规则评分 {health} 分（{_level(health)}）：质量 {q_score} / 结构 {structure} "
         f"/ 依赖 {dependency} / 规模 {scale}。"
         + (
             "存在超大文件等高风险项，建议优先拆分。"

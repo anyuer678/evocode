@@ -21,7 +21,13 @@ $user = if ($env:POSTGRES_USER) { $env:POSTGRES_USER } else { 'evocode' }
 # 2. 等待 postgres 就绪
 Write-Host '等待 postgres 就绪...' -ForegroundColor Cyan
 docker exec $container pg_isready -U $user -d $db *> $null
-while ($LASTEXITCODE -ne 0) { Start-Sleep -Seconds 2; docker exec $container pg_isready -U $user -d $db *> $null }
+$pgTries = 0
+while ($LASTEXITCODE -ne 0) {
+    $pgTries++
+    if ($pgTries -gt 30) { throw 'postgres 60s 内未就绪（容器 evocode-postgres 未启动？）' }
+    Start-Sleep -Seconds 2
+    docker exec $container pg_isready -U $user -d $db *> $null
+}
 Write-Host 'postgres 就绪' -ForegroundColor Green
 
 # 3. 建版本跟踪表

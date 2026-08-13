@@ -9,9 +9,11 @@ from __future__ import annotations
 import logging
 import os
 import re
+from pathlib import Path
 from typing import Any
 
 from ...config import Settings
+from ..ignore import parse_evocodeignore
 from ..langdetect import detect_language
 from ..llm import OpenAICompatClient
 from ..prompts import build_doctor_prompt
@@ -65,18 +67,33 @@ class RagService:
 
     def _collect_chunks(self, code_dir: str, languages: set[str]) -> list[CodeChunk]:
         chunks: list[CodeChunk] = []
-        for root, _dirs, files in os.walk(code_dir):
+        # 审查修复：与 filescanner 一致的 ignore 规则（默认目录 + .evocodeignore），
+        # 此前 RAG 索引会纳入 .venv/node_modules 等构建产物，污染知识库
+        rules = parse_evocodeignore(Path(code_dir))
+        for root, dirs, files in os.walk(code_dir):
+            rel_root = os.path.relpath(root, code_dir).replace("\\", "/")
+            if rel_root != "." and not rules.may_be_reincluded(rel_root):
+                # 目录剪枝：默认忽略目录（含隐藏目录）直接跳过；! 取反规则可能
+                # 重新纳入的目录不剪枝（与 filescanner 语义一致）
+                kept: list[str] = []
+                for d in dirs:
+                    rel_dir = f"{rel_root}/{d}" if rel_root else d
+                    if not rules.is_ignored(rel_dir, is_dir=True):
+                        kept.append(d)
+                dirs[:] = kept
             for name in files:
                 if len(chunks) >= _MAX_CHUNKS:
                     break
                 path = os.path.join(root, name)
+                rel = os.path.relpath(path, code_dir).replace("\\", "/")
+                if rules.is_ignored(rel, is_dir=False):
+                    continue
                 try:
                     size = os.path.getsize(path)
                 except OSError:
                     continue
                 if size <= 0 or size > _MAX_FILE_BYTES:
                     continue
-                rel = os.path.relpath(path, code_dir).replace("\\", "/")
                 detected = detect_language(rel)
                 if detected.lower() not in languages or not supported_language(
                     detected

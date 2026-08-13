@@ -121,7 +121,8 @@ class ProjectServiceImplTest {
         ProjectResp resp = service.createFromZip("Chatez", "demo", new MockMultipartFile("f", new byte[0]));
 
         assertEquals("ZIP", resp.getSourceType());
-        assertEquals("data/projects/1", resp.getStoragePath());
+        assertEquals(Path.of(props.getDataDir(), "projects", "1").toString(),
+                resp.getStoragePath());
         Path stored = work.resolve("data/projects/1/src/App.java");
         assertTrue(Files.exists(stored), "代码应原子移入 data/projects/{id}");
         verify(quickScanService).quickScan(any(Project.class));

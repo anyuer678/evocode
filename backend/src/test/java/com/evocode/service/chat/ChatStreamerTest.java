@@ -7,6 +7,7 @@ import com.evocode.mapper.AnalysisMapper;
 import com.evocode.mapper.ChatMessageMapper;
 import com.evocode.mapper.ProjectMapper;
 import com.evocode.service.analysis.AnalyzerClient;
+import com.evocode.service.report.ReportStorageService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -34,6 +35,7 @@ class ChatStreamerTest {
     private ChatMessageMapper messageMapper;
     private ProjectMapper projectMapper;
     private AnalysisMapper analysisMapper;
+    private ReportStorageService reportStorageService;
     private ChatStreamer streamer;
     private SseEmitter emitter;
 
@@ -43,8 +45,9 @@ class ChatStreamerTest {
         messageMapper = mock(ChatMessageMapper.class);
         projectMapper = mock(ProjectMapper.class);
         analysisMapper = mock(AnalysisMapper.class);
+        reportStorageService = mock(ReportStorageService.class);
         streamer = new ChatStreamer(analyzerClient, messageMapper, projectMapper,
-                analysisMapper, new ObjectMapper());
+                analysisMapper, reportStorageService, new ObjectMapper());
         emitter = mock(SseEmitter.class);
     }
 

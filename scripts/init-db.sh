@@ -12,9 +12,17 @@ fi
 DB="${POSTGRES_DB:-evocode}"
 USER="${POSTGRES_USER:-evocode}"
 
-# 2. 等待 postgres 就绪
+# 2. 等待 postgres 就绪（60s 超时，避免容器未启动时无限循环）
 echo "等待 postgres 就绪..."
-until docker exec "$CONTAINER" pg_isready -U "$USER" -d "$DB" >/dev/null 2>&1; do sleep 2; done
+PG_TRIES=0
+until docker exec "$CONTAINER" pg_isready -U "$USER" -d "$DB" >/dev/null 2>&1; do
+  PG_TRIES=$((PG_TRIES + 1))
+  if [ "$PG_TRIES" -gt 30 ]; then
+    echo "错误：postgres 60s 内未就绪（容器 evocode-postgres 未启动？）" >&2
+    exit 1
+  fi
+  sleep 2
+done
 echo "postgres 就绪"
 
 # 3. 建版本跟踪表

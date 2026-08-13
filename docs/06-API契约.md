@@ -85,6 +85,16 @@
 
 ## 3. 对外 API（详细）
 
+### 3.0 健康检查
+
+#### GET /api/v1/health
+
+```jsonc
+// 200：{ "code": 0, "data": { "service": "evocode-backend", "status": "UP",
+//        "version": "0.1.0-SNAPSHOT", "time": "2026-08-10T10:00:00" } }
+// 说明：三端冒烟（smoke.ps1）与 start-dev.bat 健康检查依赖。
+```
+
 ### 3.1 创建项目
 
 #### POST /api/v1/projects
@@ -166,6 +176,29 @@
 ```
 
 > `latestAnalysis.reportJson` 体积 ≤1MB 时内联返回；超过则只返回 `{analysisId}`，前端单独拉报告接口（防列表页卡顿）。
+
+### 3.3.1 更新项目（P9b）
+
+#### PATCH /api/v1/projects/{id}
+
+```jsonc
+// req: { "name": "新名称", "description": "新描述" }   // 字段可选，至少提供一个
+// 200：{ "code": 0, "data": { "id": 1, "name": "新名称", "description": "新描述", … } }
+// 400：{ "code": 1001, "message": "至少提供一个更新字段（name 或 description）" }
+//       { "code": 1002, "message": "name 不能为空 / name 长度不能超过 100" }
+// 404：{ "code": 2001, "message": "项目不存在" }
+```
+
+### 3.3.2 报告导出（P9b）
+
+#### GET /api/v1/projects/{id}/report/export
+
+```jsonc
+// 200：text/markdown; charset=utf-8 纯文本下载
+//   Content-Disposition: attachment; filename="evocode-report-{id}.md"
+//   body：Markdown 格式最新报告（无 {code:0} JSON 包装，前端按 blob 下载）
+// 404：{ "code": 2015, "message": "该分析不存在或无报告" }（无 SUCCEEDED 报告时）
+```
 
 ### 3.4 删除项目
 

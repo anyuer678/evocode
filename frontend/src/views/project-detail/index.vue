@@ -111,13 +111,19 @@ const langBars = computed(() => {
     .map(([lang, pct]) => ({ lang, pct: Number(pct) }))
 })
 
-let timer: number | undefined
+// 审查修复：拆分轮询 timer——此前 pollIfRunning(3s 快扫) 与 pollAnalysis(2s 任务)
+// 共用 timer 变量，任一 clearInterval 会停掉另一个轮询；SSE 与轮询双通道到终态
+// 会各自触发一次刷新。现拆分 projectTimer/analysisTimer，并用 doneAnalysisId 去重
+// （同一 analysisId 的终态只刷新一次，不同分析各自刷新）。
+let projectTimer: number | undefined
+let analysisTimer: number | undefined
+let doneAnalysisId: number | null = null
+let toastTimer: number | undefined
 
 // ---- P9e：实时进度 SSE ----
 let closeProgress: (() => void) | null = null
 const liveProgress = ref<AnalysisProgressEvent | null>(null)
 const toast = ref('')
-let toastTimer: number | undefined
 
 function showToast(msg: string): void {
   toast.value = msg
@@ -134,10 +140,17 @@ function connectProgress(): void {
     onEvent: (e) => {
       liveProgress.value = e
       if (e.status === 'SUCCEEDED' || e.status === 'FAILED' || e.status === 'CANCELLED') {
-        // 终态：关 SSE、清轮询、Toast + 刷新（避免 ≤2s 后轮询重复刷新）
-        if (timer) {
-          window.clearInterval(timer)
-          timer = undefined
+        // 终态：关 SSE、清两个轮询、Toast + 刷新（doneAnalysisId 去重，
+        // 同一 analysisId 的 SSE 与轮询双通道只刷新一次）
+        if (doneAnalysisId === e.analysisId) return
+        doneAnalysisId = e.analysisId
+        if (projectTimer) {
+          window.clearInterval(projectTimer)
+          projectTimer = undefined
+        }
+        if (analysisTimer) {
+          window.clearInterval(analysisTimer)
+          analysisTimer = undefined
         }
         closeProgress?.()
         closeProgress = null
@@ -169,12 +182,13 @@ async function loadDetail() {
 function pollIfRunning() {
   const st = detail.value?.status
   if (st === 'ANALYZING' || st === 'CREATED') {
-    timer = window.setInterval(async () => {
+    if (projectTimer) window.clearInterval(projectTimer)
+    projectTimer = window.setInterval(async () => {
       await loadDetail()
       const s = detail.value?.status
       if (s === 'READY' || s === 'FAILED') {
-        window.clearInterval(timer)
-        timer = undefined
+        window.clearInterval(projectTimer)
+        projectTimer = undefined
         if (s === 'READY') {
           loadFiles()
           await loadHistory()
@@ -205,15 +219,22 @@ async function loadHistory() {
   }
 }
 
+// 审查修复：报告加载竞态守卫（loadSeq 递增，过期响应丢弃）
+let reportLoadSeq = 0
+
 async function loadReport(analysisId: number) {
+  const seq = ++reportLoadSeq
   selectedId.value = analysisId
   reportLoading.value = true
   try {
-    report.value = await getReport(analysisId)
+    const r = await getReport(analysisId)
+    if (seq !== reportLoadSeq) return // 已有更新的请求，丢弃过期响应
+    report.value = r
   } catch {
+    if (seq !== reportLoadSeq) return
     report.value = null
   } finally {
-    reportLoading.value = false
+    if (seq === reportLoadSeq) reportLoading.value = false
   }
 }
 
@@ -257,13 +278,16 @@ async function onRegenerate() {
 
 /** 分析任务轮询（2s）：RUNNING/PENDING 持续刷新，落定后停并刷新历史 */
 function pollAnalysis(analysisId: number) {
-  if (timer) window.clearInterval(timer)
-  timer = window.setInterval(async () => {
+  if (analysisTimer) window.clearInterval(analysisTimer)
+  analysisTimer = window.setInterval(async () => {
     try {
       const st = await getAnalysisStatus(analysisId)
       if (st.status === 'SUCCEEDED' || st.status === 'FAILED' || st.status === 'CANCELLED') {
-        window.clearInterval(timer)
-        timer = undefined
+        window.clearInterval(analysisTimer)
+        analysisTimer = undefined
+        // 审查修复：终态去重——SSE 通道已处理过该 analysisId 则轮询不再重复刷新
+        if (doneAnalysisId === analysisId) return
+        doneAnalysisId = analysisId
         await loadDetail()
         await loadHistory()
         await loadQuality()
@@ -413,7 +437,8 @@ onMounted(async () => {
 })
 
 onBeforeUnmount(() => {
-  if (timer) window.clearInterval(timer)
+  if (projectTimer) window.clearInterval(projectTimer)
+  if (analysisTimer) window.clearInterval(analysisTimer)
   closeProgress?.()
   closeProgress = null
   if (toastTimer) window.clearTimeout(toastTimer)

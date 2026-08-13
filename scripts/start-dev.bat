@@ -81,15 +81,15 @@ set /a tries=0
 :waitbe
 set /a tries+=1
 if %tries% gtr 45 goto :fail_health
-curl -s -o nul http://127.0.0.1:18080/api/v1/health 2>nul
+curl -s -f -o nul http://127.0.0.1:18080/api/v1/health 2>nul
 if not errorlevel 1 goto :beok
 timeout /t 2 /nobreak >nul
 goto :waitbe
 :beok
 echo   [backend ] OK  http://127.0.0.1:18080/api/v1/health
-curl -s -o nul http://127.0.0.1:8081/health 2>nul
+curl -s -f -o nul http://127.0.0.1:8081/health 2>nul
 if not errorlevel 1 (echo   [analyzer] OK  http://127.0.0.1:8081/health) else (echo   [analyzer] not ready, check the EvoCode-analyzer window)
-curl -s -o nul http://127.0.0.1:5173/ 2>nul
+curl -s -f -o nul http://127.0.0.1:5173/ 2>nul
 if not errorlevel 1 (echo   [frontend] OK  http://localhost:5173) else (echo   [frontend] not ready, check the EvoCode-frontend window)
 
 echo.

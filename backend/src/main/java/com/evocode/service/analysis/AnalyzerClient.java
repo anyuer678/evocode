@@ -49,6 +49,16 @@ public class AnalyzerClient {
     public AnalyzerClient(EvocodeProperties props, RestClient.Builder builder,
                           ObjectMapper objectMapper) {
         this.analyzerUrl = props.getAnalyzerUrl();
+        // 审查修复：共享 client 加超时——此前无超时，analyzer 挂起可耗尽分析线程池。
+        // 仅当注入 builder 未显式绑定 requestFactory（生产默认）时设置带超时 factory；
+        // MockRestServiceServer.bindTo 绑定的 mock（测试）不覆盖。
+        if (!hasExplicitRequestFactory(builder)) {
+            int readTimeoutMs = Math.max(30_000, (int) props.getLlmTimeoutSeconds() * 1000);
+            SimpleClientHttpRequestFactory f = new SimpleClientHttpRequestFactory();
+            f.setConnectTimeout(5_000);
+            f.setReadTimeout(readTimeoutMs);
+            builder.requestFactory(f);
+        }
         this.client = builder
                 .baseUrl(analyzerUrl)
                 .build();
@@ -66,6 +76,20 @@ public class AnalyzerClient {
     }
 
     /**
+     * 判断注入 builder 是否已显式设置 requestFactory（MockRestServiceServer 绑定即属此类）。
+     * 通过反射读取 DefaultRestClientBuilder 的私有字段；无法读取时保守返回 true（不覆盖）。
+     */
+    private static boolean hasExplicitRequestFactory(RestClient.Builder builder) {
+        try {
+            java.lang.reflect.Field f = builder.getClass().getDeclaredField("requestFactory");
+            f.setAccessible(true);
+            return f.get(builder) != null;
+        } catch (Exception e) {
+            return true;
+        }
+    }
+
+    /**
      * 调 /analyze/v1/scan（06 §5.1）。analyzer 不可达/5xx → 3001。
      */
     public ScanResultResp scan(Long projectId, String codeDir) {
@@ -79,6 +103,24 @@ public class AnalyzerClient {
         } catch (Exception e) {
             throw new BusinessException(ErrorCode.ANALYZER_UNREACHABLE,
                     "扫描服务不可达或内部错误：" + e.getMessage());
+        }
+    }
+
+    /**
+     * 调 /analyze/v1/explain（06 §5.4，TD-01）：issue 规则解释。
+     * analyzer 内部规则版 + LLM 增强，无 Key 自动降级 RULES；不可达/5xx → 3001。
+     */
+    public ExplainResp explain(Long projectId, Map<String, Object> issue, String fileSnippet) {
+        try {
+            return client.post()
+                    .uri("/analyze/v1/explain")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(new ExplainRequest(projectId, issue, fileSnippet))
+                    .retrieve()
+                    .body(ExplainResp.class);
+        } catch (Exception e) {
+            throw new BusinessException(ErrorCode.ANALYZER_UNREACHABLE,
+                    "解释服务不可达或内部错误：" + e.getMessage());
         }
     }
 
@@ -236,6 +278,14 @@ public class AnalyzerClient {
 
     /** /analyze/v1/quality 响应：{metrics, issues}。metrics.available=false 表示 Sonar 未启用。 */
     public record QualityResp(Map<String, Object> metrics, List<Map<String, Object>> issues) {
+    }
+
+    /** /analyze/v1/explain 请求（06 §5.4，TD-01）。 */
+    public record ExplainRequest(Long projectId, Map<String, Object> issue, String fileSnippet) {
+    }
+
+    /** /analyze/v1/explain 响应（06 §5.4）。 */
+    public record ExplainResp(String explanation, String suggestion, String codeExample, String source) {
     }
 
     public record ReportRequest(Long projectId, ScanResultResp scan, Map<String, Object> quality,

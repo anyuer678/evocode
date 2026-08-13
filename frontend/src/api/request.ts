@@ -8,6 +8,11 @@ const request = axios.create({
 
 request.interceptors.response.use(
   (resp) => {
+    // 审查修复：blob 下载（报告导出）响应体无 code 字段，直接放行（此前对 Blob 判
+    // body.code !== 0 恒真 → 导出永远走 reject，功能 100% 失效）
+    if (resp.config.responseType === 'blob' || resp.data instanceof Blob) {
+      return resp
+    }
     const body = resp.data as ApiResponse<unknown>
     if (body.code !== 0) {
       // code ≠ 0 → 统一错误提示（03 §3.3；v1.0 前无鉴权）；附带 code 供调用方精确分支（如 2010 空态）

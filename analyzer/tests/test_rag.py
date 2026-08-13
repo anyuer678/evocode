@@ -111,7 +111,8 @@ class TestRagRoutes:
             json={"projectId": 1, "query": "controller"},
         )
         assert resp.status_code == 503
-        body = resp.json()["detail"]
+        # 契约 §5.11 统一错误体：顶层 {"error": {"code", "message"}}
+        body = resp.json()
         assert body["error"]["code"] == "RAG_UNAVAILABLE"
 
     def test_index_404_when_dir_missing(self) -> None:

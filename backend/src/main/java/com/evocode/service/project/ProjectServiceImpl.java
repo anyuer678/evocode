@@ -47,6 +47,8 @@ import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
@@ -185,7 +187,14 @@ public class ProjectServiceImpl implements ProjectService {
             case "healthScore" -> "health_score";
             default -> throw new BusinessException(ErrorCode.PARAM_INVALID, "sort 不在白名单");
         };
-        String orderDir = "desc".equalsIgnoreCase(order) ? "desc" : "asc";
+        // 审查修复：契约 §6「时间类默认 desc，其余 asc」——此前 order 缺省一律 asc，
+        // createdAt/lastAnalyzedAt 默认应降序（最新在前）
+        String orderDir;
+        if (order == null || order.isBlank()) {
+            orderDir = isTimeSort(sort) ? "desc" : "asc";
+        } else {
+            orderDir = "desc".equalsIgnoreCase(order) ? "desc" : "asc";
+        }
         // P9e 语义修复：healthScore 降序时 PG 默认 NULLS FIRST（无报告项目排最前）→
         // 显式 NULLS LAST 垫底。语法须为 `expr DESC NULLS LAST`（NULLS 在 ASC/DESC 之后）。
         if ("healthScore".equals(sort)) {
@@ -290,7 +299,20 @@ public class ProjectServiceImpl implements ProjectService {
         analysisReportMapper.deleteByProjectId(id);
         analysisMapper.delete(new QueryWrapper<Analysis>().eq("project_id", id));
         projectMapper.deleteById(id);
-        deleteRecursive(Path.of(project.getStoragePath()));
+        // 审查修复：磁盘删除移出事务——事务提交成功后（afterCommit）再清理磁盘，
+        // 避免事务回滚时磁盘目录已删而 DB 记录仍在（数据不一致）。
+        // 无活动事务（单元测试直调）时同步删除。
+        Path storage = Path.of(project.getStoragePath());
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    deleteRecursive(storage);
+                }
+            });
+        } else {
+            deleteRecursive(storage);
+        }
     }
 
     private Project insertProject(String name, String description, String sourceType, String repoUrl) {
@@ -318,7 +340,10 @@ public class ProjectServiceImpl implements ProjectService {
     }
 
     private String relStoragePath(Long projectId) {
-        return "data/projects/" + projectId;
+        // 审查修复：与 storagePathOf 完全一致（dataDir 感知）——此前硬编码 "data/projects/"，DB
+        // 存的相对路径在 DATA_DIR 自定义后与磁盘实际路径脱节，FileController/ChatStreamer 等
+        // 以 Path.of(storagePath) 解析会指向错误位置。
+        return storagePathOf(projectId).toString();
     }
 
     private Path createTempDir() {
@@ -386,5 +411,10 @@ public class ProjectServiceImpl implements ProjectService {
                 .lastAnalyzedAt(p.getLastAnalyzedAt())
                 .createdAt(p.getCreatedAt())
                 .build();
+    }
+
+    /** 契约 §6：时间类 sort（createdAt/lastAnalyzedAt）缺省 order 为 desc，其余 asc。 */
+    private static boolean isTimeSort(String sort) {
+        return "createdAt".equals(sort) || "lastAnalyzedAt".equals(sort);
     }
 }

@@ -58,6 +58,8 @@ const SEV_META: Record<ArchitectureViolation['severity'], { label: string; cls: 
   MEDIUM: { label: '中', cls: 'medium' },
   LOW: { label: '低', cls: 'low' },
 }
+// 审查修复：未知 severity 不崩溃（与 LAYER ?? 5 fallback 对齐）
+const SEV_FALLBACK = { label: '未知', cls: 'low' }
 
 function buildOption(data: ArchitectureResult, width: number): ECOption {
   const byLayer: ArchitectureNode[][] = [[], [], [], [], [], []]
@@ -240,8 +242,8 @@ onBeforeUnmount(() => {
               @click="onViolationClick(v)"
             >
               <td>
-                <span class="sev" :class="SEV_META[v.severity].cls">
-                  {{ SEV_META[v.severity].label }}
+                <span class="sev" :class="(SEV_META[v.severity] ?? SEV_FALLBACK).cls">
+                  {{ (SEV_META[v.severity] ?? SEV_FALLBACK).label }}
                 </span>
               </td>
               <td>

@@ -13,10 +13,11 @@ export async function generateDoc(
   docType: DocType,
   force = false,
 ): Promise<DocItem> {
+  // 审查修复：契约标注生成 10-30s，默认 30s 超时临界偶发失败 → 覆盖为 60s
   const resp = await request.post<ApiResponse<DocItem>>(
     `/projects/${projectId}/docs/${docType}/generate`,
     undefined,
-    { params: { force } },
+    { params: { force }, timeout: 60000 },
   )
   return resp.data.data
 }

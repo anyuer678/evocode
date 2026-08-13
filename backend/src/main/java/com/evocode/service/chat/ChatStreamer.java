@@ -9,6 +9,7 @@ import com.evocode.mapper.AnalysisMapper;
 import com.evocode.mapper.ChatMessageMapper;
 import com.evocode.mapper.ProjectMapper;
 import com.evocode.service.analysis.AnalyzerClient;
+import com.evocode.service.report.ReportStorageService;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -46,6 +47,7 @@ public class ChatStreamer {
     private final ChatMessageMapper chatMessageMapper;
     private final ProjectMapper projectMapper;
     private final AnalysisMapper analysisMapper;
+    private final ReportStorageService reportStorageService;
     private final ObjectMapper objectMapper;
 
     /** 活跃 SSE 流的 analyzer 输入流（审查 M5：超时/关闭时中断释放线程）。 */
@@ -53,11 +55,12 @@ public class ChatStreamer {
 
     public ChatStreamer(AnalyzerClient analyzerClient, ChatMessageMapper chatMessageMapper,
                         ProjectMapper projectMapper, AnalysisMapper analysisMapper,
-                        ObjectMapper objectMapper) {
+                        ReportStorageService reportStorageService, ObjectMapper objectMapper) {
         this.analyzerClient = analyzerClient;
         this.chatMessageMapper = chatMessageMapper;
         this.projectMapper = projectMapper;
         this.analysisMapper = analysisMapper;
+        this.reportStorageService = reportStorageService;
         this.objectMapper = objectMapper;
     }
 
@@ -228,9 +231,13 @@ public class ChatStreamer {
                         .orderByDesc(Analysis::getId)
                         .last("LIMIT 1"));
         String summary = "";
-        if (latest != null && latest.getReportJson() != null
-                && latest.getReportJson().get("summary") != null) {
-            summary = String.valueOf(latest.getReportJson().get("summary"));
+        // 审查修复：SPI-6 拆表后报告在 analysis_report（analysis.report_json 仅存量迁移），
+        // 经 ReportStorageService 读 summary，否则 latestReportSummary 恒空
+        if (latest != null) {
+            var row = reportStorageService.getByAnalysisId(latest.getId());
+            if (row != null && row.getSummary() != null) {
+                summary = row.getSummary();
+            }
         }
         ctx.put("latestReportSummary", summary);
         return ctx;

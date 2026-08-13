@@ -1,6 +1,11 @@
 spring:
   application:
     name: evocode-backend
+  config:
+    # 审查修复：backend 从根 .env 读取（README:125 承诺）——此前 backend 无任何 .env
+    # 机制，改 POSTGRES_PASSWORD 后仍用默认值连库失败。import 的 .env 优先级低于
+    # OS 环境变量（满足「进程环境变量 > 根 .env」）；optional 前缀避免缺文件启动失败。
+    import: optional:file:../.env[.properties]
   datasource:
     url: ${POSTGRES_URL:jdbc:postgresql://127.0.0.1:5432/evocode}
     username: ${POSTGRES_USER:evocode}
@@ -31,7 +36,9 @@ mybatis-plus:
       logic-not-delete-value: 0
 
 server:
-  port: ${BACKEND_PORT:8080}
+  # 审查修复：默认端口与全项目约定一致（README/scripts 均 18080）——此前默认 8080，
+  # 手动 java -jar 未设 BACKEND_PORT 时起在 8080，与 start-dev.bat 的 18080 不一致
+  port: ${BACKEND_PORT:18080}
   # 审查 H2：项目铁律「仅监听 127.0.0.1，禁止暴露公网」——默认仅本机回环，勿删
   address: ${SERVER_ADDRESS:127.0.0.1}
 

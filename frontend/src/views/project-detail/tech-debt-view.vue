@@ -91,9 +91,12 @@
         <div class="debt__modal-box">
           <h4>{{ action.title }}</h4>
           <select v-model="actionTarget" class="debt__input">
-            <option value="DOING">标记进行中</option>
+            <option value="DOING" :disabled="action.status === 'DOING'">标记进行中</option>
             <option value="DONE">标记已解决（需填解决说明）</option>
-            <option value="WONTFIX">标记不修复（需填原因）</option>
+            <!-- 审查修复：契约 §3.12 禁止 DOING→WONTFIX，进行中状态下拉禁用该选项 -->
+            <option value="WONTFIX" :disabled="action.status === 'DOING'">
+              标记不修复（需填原因）
+            </option>
           </select>
           <textarea
             v-model="actionNote"
@@ -235,6 +238,12 @@ async function submitAction() {
   if (!action.value) return
   const target = actionTarget.value
   const note = actionNote.value.trim()
+  // 审查修复：契约 §3.12 状态机仅允许 OPEN→DOING/DONE/WONTFIX、DOING→DONE；
+  // DOING→WONTFIX 非法，前端前置拦截（此前只靠后端 2xxx 报错）
+  if (action.value.status === 'DOING' && target === 'WONTFIX') {
+    actionError.value = '进行中的技术债不允许标记为不修复（仅可 DONE）'
+    return
+  }
   if (target === 'DONE' && !note) {
     actionError.value = '解决说明必填'
     return
