@@ -42,6 +42,8 @@ import com.evocode.mapper.ProjectMapper;
 import com.evocode.mapper.QualityIssueMapper;
 import com.evocode.service.analysis.QuickScanService;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -115,6 +117,7 @@ public class ProjectServiceImpl implements ProjectService {
     }
 
     @Override
+    @CacheEvict(cacheNames = "projectList", allEntries = true)
     public ProjectResp createFromZip(String name, String description, MultipartFile file) {
         Path tempDir = createTempDir();
         try {
@@ -138,6 +141,7 @@ public class ProjectServiceImpl implements ProjectService {
     }
 
     @Override
+    @CacheEvict(cacheNames = "projectList", allEntries = true)
     public ProjectResp createFromGit(String name, String description, String repoUrl, Integer cloneDepth) {
         int depth = cloneDepth == null ? 1 : cloneDepth;
         if (depth < 0) {
@@ -166,6 +170,7 @@ public class ProjectServiceImpl implements ProjectService {
     }
 
     @Override
+    @Cacheable(cacheNames = "projectList")
     public IPage<ProjectSummaryResp> list(int page, int size, String keyword, String language,
                                           String status, String sort, String order) {
         String orderColumn = switch (sort == null ? "createdAt" : sort) {
@@ -218,6 +223,7 @@ public class ProjectServiceImpl implements ProjectService {
 
     @Transactional
     @Override
+    @CacheEvict(cacheNames = "projectList", allEntries = true)
     public ProjectResp update(Long id, ProjectUpdateReq req) {
         if (req == null || req.isEmpty()) {
             throw new BusinessException(ErrorCode.PARAM_MISSING,
@@ -248,6 +254,7 @@ public class ProjectServiceImpl implements ProjectService {
     }
 
     @Override
+    @CacheEvict(cacheNames = "projectList", allEntries = true)
     public void delete(Long id) {
         Project project = getById(id);
         // 06 §3.4：RUNNING 任务 → CANCELLED（快扫线程会检查取消）

@@ -8,6 +8,12 @@ spring:
     driver-class-name: org.postgresql.Driver
     hikari:
       maximum-pool-size: 10
+  data:
+    redis:
+      # AD-017：redis 宿主端口改绑 6380（避 polycode 6379 冲突）；容器内仍 6379
+      host: ${REDIS_HOST:127.0.0.1}
+      port: ${REDIS_PORT:6380}
+      timeout: 2s
   servlet:
     multipart:
       max-file-size: 200MB
