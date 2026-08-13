@@ -27,12 +27,13 @@
   --text-secondary: #5b6b7c;
   --text-tertiary: #8a99a8;
 
-  /* 背景：报告纸质感（暖灰底 + 纯白卡 + 淡灰分隔） */
-  --bg-page: #f4f6f8;
+  /* 背景：极浅蓝（用户偏好——比纯灰多一分温度，仍克制） */
+  --bg-page: #f2f6fb;
+  --bg-page-deep: #e9f0f9;
   --bg-card: #ffffff;
-  --bg-muted: #fafbfc;
-  --border-color: #e3e8ee;
-  --border-strong: #cfd6de;
+  --bg-muted: #f5f8fc;
+  --border-color: #e3e8ef;
+  --border-strong: #cfd8e4;
 
   /* 语义状态（正/负/警告/信息/紫/青） */
   --ok-color: #16a34a;
@@ -81,7 +82,12 @@
   --font-mono: ui-monospace, Consolas, 'Courier New', monospace;
 }
 
+html {
+  background: var(--bg-page);
+}
+
 body {
+  margin: 0;
   font-family: var(--font-family);
   font-size: var(--font-size-base);
   background: var(--bg-page);
@@ -140,11 +146,11 @@ body {
   --text-secondary: #9aa7b4;
   --text-tertiary: #6b7885;
 
-  --bg-page: #10161f;
-  --bg-card: #1a2230;
-  --bg-muted: #141c27;
-  --border-color: #2b3646;
-  --border-strong: #3a4657;
+  --bg-page: #101826;
+  --bg-card: #182235;
+  --bg-muted: #141e2e;
+  --border-color: #2b3a52;
+  --border-strong: #3a4c68;
 
   --ok-color: #4ade80;
   --ok-weak: rgba(74, 222, 128, 0.16);

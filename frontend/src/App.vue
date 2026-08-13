@@ -124,6 +124,7 @@ function toggleTheme() {
 .app-main {
   flex: 1;
   padding: 20px 24px 48px;
+  width: 100%;
 }
 
 @media (max-width: 720px) {
