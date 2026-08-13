@@ -118,6 +118,7 @@ cd frontend && npm install && npm run dev
 | 前端窗口报 `npm` 找不到 package.json | 子窗口 cd 失败：确保双击 `start-dev.bat`（不要手动在仓库根跑 npm）；前端窗口标题应为 `EvoCode-frontend` |
 | 分析结果里演化/技术债为空 | 项目是 zip 上传（非 git）→ 演化 `available=false` 属正常；技术债需架构/质量/演化数据支撑 |
 | AI 医生/文档生成报 LLM 未配置 | 根目录 `.env` 配 `LLM_API_KEY`（见上方配置节），重启服务 |
+| 未启动 Redis，项目列表接口会报错吗 | 不会：TD-05 列表缓存走 Spring Cache + Redis，Redis 不可达时 `CacheErrorHandler` 降级直查库（仍 200），仅失去缓存加速（AD-018） |
 
 > 手动分步（等价）仅一处：见上方「快速开始 → 手动分步」——统一以 `scripts/` 入口为准（start-dev.bat / init-db.ps1），不在此重复命令。
 
