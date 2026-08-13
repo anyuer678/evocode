@@ -5,6 +5,7 @@ import com.evocode.config.EvocodeProperties;
 import com.evocode.dto.project.ProjectResp;
 import com.evocode.dto.project.ProjectUpdateReq;
 import com.evocode.mapper.AnalysisMapper;
+import com.evocode.mapper.AnalysisReportMapper;
 import com.evocode.mapper.ArchViolationMapper;
 import com.evocode.mapper.ArchitectureEdgeMapper;
 import com.evocode.mapper.ArchitectureNodeMapper;
@@ -69,6 +70,7 @@ class ProjectServiceImplTest {
     private KnowledgeChunkMapper knowledgeChunkMapper;
     private TechDebtMapper techDebtMapper;
     private GeneratedDocMapper generatedDocMapper;
+    private AnalysisReportMapper analysisReportMapper;
     private EvocodeProperties props;
     private ProjectServiceImpl service;
 
@@ -94,11 +96,13 @@ class ProjectServiceImplTest {
         knowledgeChunkMapper = Mockito.mock(KnowledgeChunkMapper.class);
         techDebtMapper = Mockito.mock(TechDebtMapper.class);
         generatedDocMapper = Mockito.mock(GeneratedDocMapper.class);
+        analysisReportMapper = Mockito.mock(AnalysisReportMapper.class);
         service = new ProjectServiceImpl(projectMapper, analysisMapper, fileNodeMapper,
                 qualityIssueMapper, architectureNodeMapper, architectureEdgeMapper,
                 archViolationMapper, commitStatMapper, fileChangeStatMapper, hotspotMapper,
                 chatSessionMapper, chatMessageMapper, knowledgeChunkMapper, techDebtMapper,
-                generatedDocMapper, uploadService, gitCloneService, quickScanService, props);
+                generatedDocMapper, analysisReportMapper, uploadService, gitCloneService,
+                quickScanService, props);
         doAnswer(inv -> {
             Project p = inv.getArgument(0);
             p.setId(1L);

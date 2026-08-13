@@ -32,6 +32,8 @@ mybatis-plus:
 
 server:
   port: ${BACKEND_PORT:8080}
+  # 审查 H2：项目铁律「仅监听 127.0.0.1，禁止暴露公网」——默认仅本机回环，勿删
+  address: ${SERVER_ADDRESS:127.0.0.1}
 
 evocode:
   data-dir: ${DATA_DIR:data}

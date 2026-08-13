@@ -2,6 +2,7 @@ package com.evocode.mapper;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.evocode.entity.AnalysisReport;
+import org.apache.ibatis.annotations.Delete;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.ResultMap;
@@ -22,4 +23,11 @@ public interface AnalysisReportMapper extends BaseMapper<AnalysisReport> {
             """)
     @ResultMap("mybatis-plus_AnalysisReport")
     AnalysisReport selectLatestByProject(@Param("projectId") Long projectId);
+
+    /** 项目级联删除（审查：analysis 逻辑删除，FK 不生效 → 需显式清理 analysis_report 孤儿行）。 */
+    @Delete("""
+            DELETE FROM analysis_report
+            WHERE analysis_id IN (SELECT id FROM analysis WHERE project_id = #{projectId})
+            """)
+    int deleteByProjectId(@Param("projectId") Long projectId);
 }

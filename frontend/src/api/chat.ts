@@ -96,6 +96,8 @@ export async function sendChatMessage(
       sawDone = true
       handlers.onDone?.(Number(obj.messageId))
     } else if (event === 'error') {
+      // 审查 H1：error 后流必然 EOF（后端 emitter.complete()），置标志避免重复 CONNECTION_LOST
+      sawDone = true
       handlers.onError?.(String(obj.code ?? 'LLM_FAILED'), String(obj.message ?? '回答生成失败'))
     }
   }
@@ -122,16 +124,22 @@ export async function sendChatMessage(
 
   const drain = (chunk: string) => {
     buffer += chunk
-    let sep: number
-    // 兼容 \n\n 与 \r\n\r\n 分块
-    while (
-      (sep = Math.min(
-        buffer.indexOf('\n\n') >= 0 ? buffer.indexOf('\n\n') : Number.MAX_SAFE_INTEGER,
-        buffer.indexOf('\r\n\r\n') >= 0 ? buffer.indexOf('\r\n\r\n') : Number.MAX_SAFE_INTEGER,
-      )) < Number.MAX_SAFE_INTEGER
-    ) {
+    // 审查 H2：按实际分隔符长度切分（\n\n=2 字节，\r\n\r\n=4 字节），否则残留 \r\n 污染下一事件块
+    while (true) {
+      const nn = buffer.indexOf('\n\n')
+      const rnrn = buffer.indexOf('\r\n\r\n')
+      let sep = -1
+      let skip = 0
+      if (nn >= 0 && (rnrn < 0 || nn <= rnrn)) {
+        sep = nn
+        skip = 2
+      } else if (rnrn >= 0) {
+        sep = rnrn
+        skip = 4
+      }
+      if (sep < 0) break
       const block = buffer.slice(0, sep)
-      buffer = buffer.slice(sep + 2)
+      buffer = buffer.slice(sep + skip)
       parseBlock(block)
     }
   }

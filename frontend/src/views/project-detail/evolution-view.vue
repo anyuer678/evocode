@@ -38,6 +38,14 @@ type ECOption = ComposeOption<
   | LegendComponentOption
 >
 
+/** 审查 X1：ECharts tooltip 默认 HTML 渲染，作者名/文件路径来自被分析仓库，须转义 */
+function escapeHtml(s: unknown): string {
+  return String(s ?? '').replace(
+    /[&<>"']/g,
+    (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c] ?? c,
+  )
+}
+
 const props = defineProps<{ projectId: number }>()
 
 const RANGES = [
@@ -88,7 +96,11 @@ function renderChart(holder: typeof trendEl, option: ECOption): void {
 
 function buildTrendOption(trend: EvolutionTrend[]): ECOption {
   return {
-    tooltip: { trigger: 'axis' },
+    tooltip: {
+      trigger: 'axis',
+      formatter: (params: unknown) =>
+        escapeHtml((params as Array<{ axisValue?: unknown }>)[0]?.axisValue ?? ''),
+    },
     legend: { data: ['提交数', '新增行数'], top: 0 },
     grid: { left: 50, right: 50, top: 32, bottom: 28 },
     xAxis: { type: 'category', data: trend.map((t) => t.week.slice(0, 7)) },
@@ -118,7 +130,16 @@ function buildTrendOption(trend: EvolutionTrend[]): ECOption {
 function buildFilesOption(files: EvolutionTopFile[]): ECOption {
   const top = files.slice(0, 8)
   return {
-    tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+    tooltip: {
+      trigger: 'axis',
+      axisPointer: { type: 'shadow' },
+      formatter: (params: unknown) => {
+        const ps = params as Array<{ axisValue?: unknown; value?: unknown; seriesName?: string }>
+        const first = ps[0]
+        if (first?.axisValue == null) return ''
+        return `<b>${escapeHtml(first.axisValue)}</b><br/>${escapeHtml(first.seriesName ?? '')}：${escapeHtml(first.value ?? '')}`
+      },
+    },
     grid: { left: 10, right: 40, top: 10, bottom: 8, containLabel: true },
     xAxis: { type: 'value', minInterval: 1 },
     yAxis: {
@@ -139,7 +160,13 @@ function buildFilesOption(files: EvolutionTopFile[]): ECOption {
 
 function buildAuthorsOption(authors: EvolutionAuthor[]): ECOption {
   return {
-    tooltip: { trigger: 'item', formatter: '{b}: {c} 次提交 ({d}%)' },
+    tooltip: {
+      trigger: 'item',
+      formatter: (p: unknown) => {
+        const d = p as { name?: unknown; value?: unknown; percent?: unknown }
+        return `${escapeHtml(d.name ?? '')}: ${String(d.value ?? 0)} 次提交 (${String(d.percent ?? 0)}%)`
+      },
+    },
     legend: { type: 'scroll', bottom: 0 },
     series: [
       {

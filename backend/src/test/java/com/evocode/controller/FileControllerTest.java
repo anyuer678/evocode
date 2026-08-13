@@ -56,6 +56,31 @@ class FileControllerTest {
     }
 
     @Test
+    void symlinkEscapingRootRejected() throws Exception {
+        // 审查 H1：白名单命中符号链接文件，真实目标在根外 → toRealPath 校验须拦截
+        FileNode node = new FileNode();
+        node.setPath("link.txt");
+        node.setLanguage("OTHER");
+        when(fileNodeMapper.selectOne(any())).thenReturn(node);
+        Path outside = Files.createTempFile("outside-secret", ".txt");
+        Files.writeString(outside, "secret");
+        Path link = root.resolve("link.txt");
+        try {
+            Files.createSymbolicLink(link, outside);
+        } catch (UnsupportedOperationException | java.nio.file.FileSystemException e) {
+            org.junit.jupiter.api.Assumptions.assumeTrue(false, "无符号链接权限，跳过");
+            return;
+        }
+        try {
+            BusinessException e = assertThrows(BusinessException.class,
+                    () -> controller.content(1L, "link.txt"));
+            assertEquals(2005, e.getCode());
+        } finally {
+            Files.deleteIfExists(outside);
+        }
+    }
+
+    @Test
     void whitelistPathResolvingOutsideRootRejected() throws Exception {
         FileNode node = new FileNode();
         node.setPath("../escape.txt");

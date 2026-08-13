@@ -14,6 +14,14 @@ echarts.use([GraphChart, TooltipComponent, LegendComponent, CanvasRenderer])
 
 type ECOption = ComposeOption<GraphSeriesOption | TooltipComponentOption>
 
+/** 审查 X1：ECharts tooltip 默认 HTML 渲染，节点名/文件路径来自被分析仓库，须转义 */
+function escapeHtml(s: unknown): string {
+  return String(s ?? '').replace(
+    /[&<>"']/g,
+    (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c] ?? c,
+  )
+}
+
 const props = defineProps<{ projectId: number }>()
 
 const arch = ref<ArchitectureResult | null>(null)
@@ -107,9 +115,9 @@ function buildOption(data: ArchitectureResult, width: number): ECOption {
         const d = p as { dataType?: string; data?: Record<string, unknown>; name?: string }
         if (d.dataType !== 'edge') {
           const n = d.data ?? {}
-          return `<b>${n.name ?? d.name}</b><br/>类型：${String(n.category ?? '')}<br/>出度：${String(n.outDegree ?? 0)} / 入度：${String(n.inDegree ?? 0)}<br/><span style="color:#888">${String(n.filePath ?? '')}</span>`
+          return `<b>${escapeHtml(n.name ?? d.name)}</b><br/>类型：${escapeHtml(n.category ?? '')}<br/>出度：${escapeHtml(n.outDegree ?? 0)} / 入度：${escapeHtml(n.inDegree ?? 0)}<br/><span style="color:#888">${escapeHtml(n.filePath ?? '')}</span>`
         }
-        return d.name ?? ''
+        return escapeHtml(d.name ?? '')
       },
     },
     legend: {

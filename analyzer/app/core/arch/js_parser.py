@@ -9,16 +9,34 @@ TS 用 language_typescript（.ts/.tsx 走同一 parser，tree-sitter 对 JSX/TS 
 
 from __future__ import annotations
 
+import threading
+
 import tree_sitter_javascript
 import tree_sitter_typescript
 from tree_sitter import Language, Parser
 
 from .base import ArchNode, infer_node_type
 
+# 审查 H1：Parser 非线程安全 → 按线程缓存；Language 不可变可共享
 _LANG_JS = Language(tree_sitter_javascript.language())
 _LANG_TS = Language(tree_sitter_typescript.language_typescript())
-_PARSER_JS = Parser(_LANG_JS)
-_PARSER_TS = Parser(_LANG_TS)
+_local = threading.local()
+
+
+def _get_parser_js() -> Parser:
+    parser = getattr(_local, "parser_js", None)
+    if parser is None:
+        parser = Parser(_LANG_JS)
+        _local.parser_js = parser
+    return parser
+
+
+def _get_parser_ts() -> Parser:
+    parser = getattr(_local, "parser_ts", None)
+    if parser is None:
+        parser = Parser(_LANG_TS)
+        _local.parser_ts = parser
+    return parser
 
 
 def _text(node) -> str:
@@ -118,9 +136,9 @@ def _parse(
 
 def parse_js_file(file_path: str, source: bytes):
     """JavaScript（.js/.jsx/.mjs/.cjs）。"""
-    return _parse(file_path, source, _PARSER_JS)
+    return _parse(file_path, source, _get_parser_js())
 
 
 def parse_ts_file(file_path: str, source: bytes):
     """TypeScript（.ts/.tsx）。"""
-    return _parse(file_path, source, _PARSER_TS)
+    return _parse(file_path, source, _get_parser_ts())

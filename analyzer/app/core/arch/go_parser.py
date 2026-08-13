@@ -10,13 +10,24 @@ Go 约定：method_declaration 的接收者（receiver）是类型名 → 节点
 
 from __future__ import annotations
 
+import threading
+
 import tree_sitter_go
 from tree_sitter import Language, Parser
 
 from .base import ArchNode, infer_node_type
 
+# 审查 H1：Parser 非线程安全 → 按线程缓存；Language 不可变可共享
 _LANG = Language(tree_sitter_go.language())
-_PARSER = Parser(_LANG)
+_local = threading.local()
+
+
+def _get_parser() -> Parser:
+    parser = getattr(_local, "parser", None)
+    if parser is None:
+        parser = Parser(_LANG)
+        _local.parser = parser
+    return parser
 
 
 def _text(node) -> str:
@@ -65,7 +76,7 @@ def _receiver_type(node) -> str | None:
 def parse_go_file(
     file_path: str, source: bytes
 ) -> tuple[list[ArchNode], list[tuple[str, list[str]]]]:
-    tree = _PARSER.parse(source)
+    tree = _get_parser().parse(source)
     root = tree.root_node
     file_stem = file_path.rsplit("/", 1)[-1]
 

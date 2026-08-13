@@ -26,6 +26,7 @@ import com.evocode.enums.AnalysisStatus;
 import com.evocode.enums.ProjectStatus;
 import com.evocode.enums.ProjectSourceType;
 import com.evocode.mapper.AnalysisMapper;
+import com.evocode.mapper.AnalysisReportMapper;
 import com.evocode.mapper.ArchViolationMapper;
 import com.evocode.mapper.ArchitectureEdgeMapper;
 import com.evocode.mapper.ArchitectureNodeMapper;
@@ -75,6 +76,7 @@ public class ProjectServiceImpl implements ProjectService {
     private final KnowledgeChunkMapper knowledgeChunkMapper;
     private final TechDebtMapper techDebtMapper;
     private final GeneratedDocMapper generatedDocMapper;
+    private final AnalysisReportMapper analysisReportMapper;
     private final UploadService uploadService;
     private final GitCloneService gitCloneService;
     private final QuickScanService quickScanService;
@@ -92,7 +94,7 @@ public class ProjectServiceImpl implements ProjectService {
                               ChatMessageMapper chatMessageMapper,
                               KnowledgeChunkMapper knowledgeChunkMapper,
                               TechDebtMapper techDebtMapper,
-                              GeneratedDocMapper generatedDocMapper,
+                              GeneratedDocMapper generatedDocMapper, AnalysisReportMapper analysisReportMapper,
                               UploadService uploadService, GitCloneService gitCloneService,
                               QuickScanService quickScanService, EvocodeProperties props) {
         this.projectMapper = projectMapper;
@@ -110,6 +112,7 @@ public class ProjectServiceImpl implements ProjectService {
         this.knowledgeChunkMapper = knowledgeChunkMapper;
         this.techDebtMapper = techDebtMapper;
         this.generatedDocMapper = generatedDocMapper;
+        this.analysisReportMapper = analysisReportMapper;
         this.uploadService = uploadService;
         this.gitCloneService = gitCloneService;
         this.quickScanService = quickScanService;
@@ -257,6 +260,7 @@ public class ProjectServiceImpl implements ProjectService {
         return toResp(getById(id));
     }
 
+    @Transactional
     @Override
     @CacheEvict(cacheNames = "projectList", allEntries = true)
     public void delete(Long id) {
@@ -282,6 +286,8 @@ public class ProjectServiceImpl implements ProjectService {
         knowledgeChunkMapper.deleteByProjectId(id);
         techDebtMapper.delete(new QueryWrapper<TechDebt>().eq("project_id", id));
         generatedDocMapper.delete(new QueryWrapper<GeneratedDoc>().eq("project_id", id));
+        // 审查：SPI-6 拆表后 analysis 为逻辑删除（FK 不生效），须显式清理 analysis_report 孤儿行
+        analysisReportMapper.deleteByProjectId(id);
         analysisMapper.delete(new QueryWrapper<Analysis>().eq("project_id", id));
         projectMapper.deleteById(id);
         deleteRecursive(Path.of(project.getStoragePath()));

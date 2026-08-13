@@ -7,13 +7,25 @@
 
 from __future__ import annotations
 
+import threading
+
 import tree_sitter_python
 from tree_sitter import Language, Parser
 
 from .base import ArchNode, infer_node_type
 
+# 审查 H1：tree-sitter Parser 非线程安全（C 层解析，跨线程并发可能崩溃）→ 按线程缓存；
+# Language 不可变、线程安全，可共享
 _LANG = Language(tree_sitter_python.language())
-_PARSER = Parser(_LANG)
+_local = threading.local()
+
+
+def _get_parser() -> Parser:
+    parser = getattr(_local, "parser", None)
+    if parser is None:
+        parser = Parser(_LANG)
+        _local.parser = parser
+    return parser
 
 
 def _text(node) -> str:
@@ -45,7 +57,7 @@ def parse_python_file(
     caller_calls 为 (调用者 node_key, 候选调用名列表)；边匹配在全局节点集合上进行
     （archscan 聚合后统一处理，支持跨文件调用）。
     """
-    tree = _PARSER.parse(source)
+    tree = _get_parser().parse(source)
     root = tree.root_node
 
     nodes: list[ArchNode] = []

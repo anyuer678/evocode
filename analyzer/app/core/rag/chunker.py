@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 
+import threading
 from dataclasses import dataclass
 
 import tree_sitter_java
@@ -20,10 +21,23 @@ _MAX_TOKENS = 800
 _SLIDE_WINDOW_TOKENS = 400
 _SLIDE_OVERLAP_TOKENS = 50
 
-_PARSERS: dict[str, Parser] = {
-    "python": Parser(Language(tree_sitter_python.language())),
-    "java": Parser(Language(tree_sitter_java.language())),
+# 审查 H1：Parser 非线程安全 → 按线程缓存（threading.local）；Language 不可变可共享
+_LANG_FACTORIES: dict[str, Language] = {
+    "python": Language(tree_sitter_python.language()),
+    "java": Language(tree_sitter_java.language()),
 }
+_local = threading.local()
+
+
+def _get_parsers() -> dict[str, Parser]:
+    parsers = getattr(_local, "parsers", None)
+    if parsers is None:
+        parsers = {lang: Parser(lang_obj) for lang, lang_obj in _LANG_FACTORIES.items()}
+        _local.parsers = parsers
+    return parsers
+
+
+_SUPPORTED = frozenset(_LANG_FACTORIES)
 
 # 每种语言：符号节点类型 → 名称字段
 _SYMBOL_TYPES: dict[str, dict[str, str]] = {
@@ -40,8 +54,6 @@ _SYMBOL_TYPES: dict[str, dict[str, str]] = {
         "constructor_declaration": "name",
     },
 }
-
-_SUPPORTED = frozenset(_PARSERS)
 
 
 @dataclass
@@ -106,7 +118,7 @@ def _symbol_chunks(
     """按符号切片，返回 (chunks, 符号字节区间)。
     符号内部不再下沉（子符号并入父切片）。
     """
-    parser = _PARSERS[language]
+    parser = _get_parsers()[language]
     tree = parser.parse(source.encode("utf-8"))
     root = tree.root_node
     symbol_fields = _SYMBOL_TYPES[language]

@@ -114,7 +114,15 @@ public class FileController {
         Path target;
         try {
             target = PathSafetyUtil.resolveInside(root, path);
-        } catch (IllegalArgumentException e) {
+            // 符号链接逃逸防护（审查 H1）：resolveInside 仅文本归一化，须 toRealPath 解析
+            // 真实路径并校验仍在根内（与 ChatStreamer.loadFileRef 一致）；文件不存在亦拒绝
+            Path realRoot = root.toRealPath();
+            Path realTarget = target.toRealPath();
+            if (!realTarget.startsWith(realRoot)) {
+                throw new BusinessException(ErrorCode.FILE_CONTENT_FORBIDDEN, "路径逃逸拦截");
+            }
+            target = realTarget;
+        } catch (IOException | IllegalArgumentException e) {
             throw new BusinessException(ErrorCode.FILE_CONTENT_FORBIDDEN, null);
         }
         // ③ ≤2MB ④ 二进制探测 ⑤ UTF-8 读取
