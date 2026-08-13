@@ -13,22 +13,24 @@ import org.apache.ibatis.annotations.Select;
 public interface ProjectMapper extends BaseMapper<Project> {
 
     /**
-     * 列表页（06 §3.2）：healthScore = 最近一次 SUCCEEDED 报告的 healthScore（JOIN 子查询，避免全表扫描）。
+     * 列表页（06 §3.2）：healthScore = 最近一次 SUCCEEDED 报告的 healthScore（LATERAL JOIN analysis_report 列，
+     * SPI-6 拆表后替代 report_json JSONB 提取子查询）。
      * orderColumn/order 由服务层白名单映射后传入，防注入。
-     * 注：language 筛选用 jsonb_exists 函数（jsonb `?` 操作符与 JDBC 占位符冲突，pgjdbc 参数错乱 → 500）；
-     * healthScore 加数值校验防御历史浮点字符串（`::int` 直接转换会抛异常）。
+     * 注：language 筛选用 jsonb_exists 函数（jsonb `?` 操作符与 JDBC 占位符冲突，pgjdbc 参数错乱 → 500）。
      */
     @Select("""
             <script>
             SELECT p.id, p.name, p.source_type, p.lang_stats, p.framework_tags, p.loc_total,
                    p.file_count, p.status, p.last_analyzed_at, p.created_at,
-                   (SELECT (CASE WHEN (a.report_json ->> 'healthScore') ~ '^\\d+(\\.\\d+)?$'
-                                 THEN (a.report_json ->> 'healthScore')::numeric::int END)
-                    FROM analysis a
-                    WHERE a.project_id = p.id AND a.deleted = 0 AND a.status = 'SUCCEEDED'
-                      AND a.report_json IS NOT NULL
-                    ORDER BY a.id DESC LIMIT 1) AS health_score
+                   latest.health_score AS health_score
             FROM project p
+            LEFT JOIN LATERAL (
+                SELECT ar.health_score
+                FROM analysis_report ar
+                JOIN analysis a ON a.id = ar.analysis_id
+                WHERE a.project_id = p.id AND a.deleted = 0 AND a.status = 'SUCCEEDED'
+                ORDER BY a.id DESC LIMIT 1
+            ) latest ON true
             WHERE p.deleted = 0
             <if test="keyword != null and keyword != ''">
                 AND p.name LIKE CONCAT('%', #{keyword}, '%')

@@ -235,11 +235,11 @@ class ProjectServiceImplTest {
 
     @Test
     void list_healthScoreSortMapsNullsLast() {
-        // healthScore → health_score NULLS LAST（PG 默认 NULLS FIRST，无报告项目需垫底）
+        // SPI-6：healthScore → health_score 列 + DESC NULLS LAST（PG 语法要求 NULLS 在 ASC/DESC 之后）
         service.list(1, 10, null, null, null, "healthScore", "desc");
         verify(projectMapper).selectSummaryPage(any(), any(), any(), any(),
-                org.mockito.ArgumentMatchers.eq("health_score NULLS LAST"),
-                org.mockito.ArgumentMatchers.eq("desc"));
+                org.mockito.ArgumentMatchers.eq("health_score"),
+                org.mockito.ArgumentMatchers.eq("desc NULLS LAST"));
     }
 
     @Test

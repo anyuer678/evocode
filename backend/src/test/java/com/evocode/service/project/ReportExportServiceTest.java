@@ -2,9 +2,11 @@ package com.evocode.service.project;
 
 import com.evocode.common.BusinessException;
 import com.evocode.entity.Analysis;
+import com.evocode.entity.AnalysisReport;
 import com.evocode.entity.Project;
 import com.evocode.mapper.AnalysisMapper;
 import com.evocode.mapper.ProjectMapper;
+import com.evocode.service.report.ReportStorageService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
@@ -15,7 +17,6 @@ import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
 /** ReportExportService（P9b）：Markdown 导出纯字符串。 */
@@ -23,22 +24,32 @@ class ReportExportServiceTest {
 
     private AnalysisMapper analysisMapper;
     private ProjectMapper projectMapper;
+    private ReportStorageService reportStorageService;
     private ReportExportService service;
 
     @BeforeEach
     void setUp() {
         analysisMapper = Mockito.mock(AnalysisMapper.class);
         projectMapper = Mockito.mock(ProjectMapper.class);
-        service = new ReportExportService(analysisMapper, projectMapper);
+        reportStorageService = Mockito.mock(ReportStorageService.class);
+        service = new ReportExportService(analysisMapper, projectMapper, reportStorageService);
     }
 
-    private Analysis analysisWithReport() {
+    private Analysis analysis() {
         Analysis a = new Analysis();
         a.setId(42L);
         a.setStatus("SUCCEEDED");
         a.setFinishedAt(OffsetDateTime.parse("2026-08-11T10:00:00+08:00"));
         a.setReportSource("RULES");
-        a.setReportJson(Map.of(
+        return a;
+    }
+
+    private AnalysisReport reportWith() {
+        AnalysisReport r = new AnalysisReport();
+        r.setAnalysisId(42L);
+        r.setHealthScore(82);
+        r.setLevel("GOOD");
+        r.setReportJson(Map.of(
                 "healthScore", 82,
                 "level", "GOOD",
                 "summary", "整体健康",
@@ -52,7 +63,7 @@ class ReportExportServiceTest {
                         "detail", "A→B→A", "suggestion", "分层", "references", List.of("x.java:1"))),
                 "recommendations", List.of(Map.of(
                         "phase", "近期", "items", List.of("拆分模块", "补充测试")))));
-        return a;
+        return r;
     }
 
     @Test
@@ -61,7 +72,8 @@ class ReportExportServiceTest {
         p.setId(7L);
         p.setName("demo");
         when(projectMapper.selectById(7L)).thenReturn(p);
-        when(analysisMapper.selectOne(any())).thenReturn(analysisWithReport());
+        when(reportStorageService.getLatestByProject(7L)).thenReturn(reportWith());
+        when(analysisMapper.selectById(42L)).thenReturn(analysis());
 
         String md = service.exportLatest(7L);
         assertTrue(md.contains("# EvoCode 体检报告 —— demo"));
@@ -83,7 +95,7 @@ class ReportExportServiceTest {
         Project p = new Project();
         p.setId(7L);
         when(projectMapper.selectById(7L)).thenReturn(p);
-        when(analysisMapper.selectOne(any())).thenReturn(null);
+        when(reportStorageService.getLatestByProject(7L)).thenReturn(null);
         assertThrows(BusinessException.class, () -> service.exportLatest(7L));
     }
 }

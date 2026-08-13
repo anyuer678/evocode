@@ -12,12 +12,14 @@ import com.evocode.dto.analysis.AnalysisStatusResp;
 import com.evocode.dto.analysis.ReportDetailResp;
 import com.evocode.dto.analysis.ReportHistoryResp;
 import com.evocode.entity.Analysis;
+import com.evocode.entity.AnalysisReport;
 import com.evocode.entity.Project;
 import com.evocode.enums.AnalysisStatus;
 import com.evocode.enums.AnalysisType;
 import com.evocode.enums.Stage;
 import com.evocode.mapper.AnalysisMapper;
 import com.evocode.mapper.ProjectMapper;
+import com.evocode.service.report.ReportStorageService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
@@ -37,12 +39,14 @@ public class AnalysisServiceImpl implements AnalysisService {
     private final AnalysisMapper analysisMapper;
     private final ProjectMapper projectMapper;
     private final AnalysisRunner analysisRunner;
+    private final ReportStorageService reportStorageService;
 
     public AnalysisServiceImpl(AnalysisMapper analysisMapper, ProjectMapper projectMapper,
-                               AnalysisRunner analysisRunner) {
+                               AnalysisRunner analysisRunner, ReportStorageService reportStorageService) {
         this.analysisMapper = analysisMapper;
         this.projectMapper = projectMapper;
         this.analysisRunner = analysisRunner;
+        this.reportStorageService = reportStorageService;
     }
 
     @Override
@@ -112,18 +116,22 @@ public class AnalysisServiceImpl implements AnalysisService {
     @Override
     public ReportDetailResp report(Long analysisId) {
         Analysis analysis = analysisMapper.selectById(analysisId);
-        if (analysis == null || analysis.getReportJson() == null) {
-            throw new BusinessException(ErrorCode.PROJECT_NOT_FOUND, "该分析不存在或无报告");
+        if (analysis == null) {
+            throw new BusinessException(ErrorCode.PROJECT_NOT_FOUND, "该分析不存在");
+        }
+        AnalysisReport r = reportStorageService.getByAnalysisId(analysisId);
+        if (r == null || r.getReportJson() == null) {
+            throw new BusinessException(ErrorCode.PROJECT_NOT_FOUND, "该分析暂无报告");
         }
         return new ReportDetailResp(analysis.getId(),
                 analysis.getFinishedAt() != null ? analysis.getFinishedAt() : analysis.getCreatedAt(),
-                analysis.getReportSource(), analysis.getPromptVersion(), analysis.getReportJson());
+                analysis.getReportSource(), analysis.getPromptVersion(), r.getReportJson());
     }
 
     @Override
     public AnalysisStatusResp regenerate(Long analysisId) {
         Analysis analysis = analysisMapper.selectById(analysisId);
-        if (analysis == null || analysis.getReportJson() == null) {
+        if (analysis == null || reportStorageService.getByAnalysisId(analysisId) == null) {
             throw new BusinessException(ErrorCode.PROJECT_NOT_FOUND, "该分析不存在或无报告");
         }
         if (AnalysisStatus.RUNNING.name().equals(analysis.getStatus())) {
@@ -153,32 +161,26 @@ public class AnalysisServiceImpl implements AnalysisService {
         List<Analysis> list = analysisMapper.selectList(new QueryWrapper<Analysis>()
                 .eq("project_id", projectId)
                 .eq("status", AnalysisStatus.SUCCEEDED.name())
-                .isNotNull("report_json")
                 .orderByDesc("id")
                 .last("LIMIT " + Math.max(1, Math.min(limit, 20))));
         List<ReportHistoryResp> result = new ArrayList<>(list.size());
         for (Analysis a : list) {
-            result.add(toReportHistoryResp(a));
+            AnalysisReport r = reportStorageService.getByAnalysisId(a.getId());
+            if (r != null) {
+                result.add(toReportHistoryResp(a, r));
+            }
         }
         return result;
     }
 
     @SuppressWarnings("unchecked")
-    private ReportHistoryResp toReportHistoryResp(Analysis a) {
-        Map<String, Object> report = a.getReportJson();
-        Integer healthScore = null;
-        String level = null;
+    private ReportHistoryResp toReportHistoryResp(Analysis a, AnalysisReport r) {
+        Map<String, Object> report = r.getReportJson();
+        Integer healthScore = r.getHealthScore();
+        String level = r.getLevel();
         List<ReportHistoryResp.Dimension> dims = List.of();
         List<ReportHistoryResp.Risk> risks = List.of();
         if (report != null) {
-            Object score = report.get("healthScore");
-            if (score instanceof Number n) {
-                healthScore = n.intValue();
-            }
-            Object lv = report.get("level");
-            if (lv != null) {
-                level = lv.toString();
-            }
             Object dimsObj = report.get("dimensions");
             if (dimsObj instanceof List<?> dimList) {
                 dims = new ArrayList<>(dimList.size());
@@ -214,11 +216,8 @@ public class AnalysisServiceImpl implements AnalysisService {
     }
 
     private AnalysisHistoryResp toHistoryResp(Analysis a) {
-        Integer healthScore = null;
-        Map<String, Object> report = a.getReportJson();
-        if (report != null && report.get("healthScore") instanceof Number n) {
-            healthScore = n.intValue();
-        }
+        AnalysisReport r = reportStorageService.getByAnalysisId(a.getId());
+        Integer healthScore = r == null ? null : r.getHealthScore();
         return new AnalysisHistoryResp(a.getId(), a.getType(), a.getStatus(), a.getProgress(),
                 a.getStage(), a.getErrorMessage(), a.getStartedAt(), a.getFinishedAt(),
                 a.getReportSource(), healthScore);

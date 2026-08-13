@@ -17,6 +17,7 @@ import com.evocode.service.EvolutionService;
 import com.evocode.service.analysis.AnalysisProgressPublisher;
 import com.evocode.service.debt.TechDebtService;
 import com.evocode.service.dependency.DependencyService;
+import com.evocode.service.report.ReportStorageService;
 import com.evocode.service.scan.FileNodeService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -56,12 +57,13 @@ class AnalysisRunnerTest {
     private final DependencyService dependencyService = mock(DependencyService.class);
     private final TechDebtService techDebtService = mock(TechDebtService.class);
     private final AnalysisProgressPublisher progressPublisher = mock(AnalysisProgressPublisher.class);
+    private final ReportStorageService reportStorageService = mock(ReportStorageService.class);
 
     private AnalysisRunner newRunner() {
         return new AnalysisRunner(
                 analysisMapper, projectMapper, analyzerClient, fileNodeService, qualityIssueMapper,
                 architectureService, evolutionService, dependencyService, techDebtService,
-                progressPublisher);
+                progressPublisher, reportStorageService);
     }
 
     private Analysis newAnalysis() {
@@ -123,7 +125,11 @@ class AnalysisRunnerTest {
         assertEquals(100, last.getProgress());
         assertEquals("RULES", last.getReportSource());
         assertEquals("report-1.0", last.getPromptVersion());
-        assertEquals(82, last.getReportJson().get("healthScore"));
+        // SPI-6：报告落 analysis_report（saveReport），不再写 analysis.report_json
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<Map<String, Object>> reportCaptor = ArgumentCaptor.forClass(Map.class);
+        verify(reportStorageService).saveReport(eq(10L), reportCaptor.capture());
+        assertEquals(82, reportCaptor.getValue().get("healthScore"));
 
         ArgumentCaptor<Project> projectCaptor = ArgumentCaptor.forClass(Project.class);
         verify(projectMapper, atLeastOnce()).updateById(projectCaptor.capture());
@@ -218,7 +224,10 @@ class AnalysisRunnerTest {
         assertEquals(AnalysisStatus.SUCCEEDED.name(), last.getStatus());
         assertEquals(Stage.DONE.name(), last.getStage());
         assertEquals("LLM", last.getReportSource());
-        assertEquals(88, last.getReportJson().get("healthScore"));
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<Map<String, Object>> reportCaptor = ArgumentCaptor.forClass(Map.class);
+        verify(reportStorageService).saveReport(eq(10L), reportCaptor.capture());
+        assertEquals(88, reportCaptor.getValue().get("healthScore"));
         org.junit.jupiter.api.Assertions.assertNotNull(last.getRegeneratedAt());
     }
 

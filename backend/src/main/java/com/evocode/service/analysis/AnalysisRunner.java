@@ -17,6 +17,7 @@ import com.evocode.service.ArchitectureService;
 import com.evocode.service.EvolutionService;
 import com.evocode.service.debt.TechDebtService;
 import com.evocode.service.dependency.DependencyService;
+import com.evocode.service.report.ReportStorageService;
 import com.evocode.service.scan.FileNodeService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Async;
@@ -52,12 +53,14 @@ public class AnalysisRunner {
     private final DependencyService dependencyService;
     private final TechDebtService techDebtService;
     private final AnalysisProgressPublisher progressPublisher;
+    private final ReportStorageService reportStorageService;
 
     public AnalysisRunner(AnalysisMapper analysisMapper, ProjectMapper projectMapper,
                           AnalyzerClient analyzerClient, FileNodeService fileNodeService,
                           QualityIssueMapper qualityIssueMapper, ArchitectureService architectureService,
                           EvolutionService evolutionService, DependencyService dependencyService,
-                          TechDebtService techDebtService, AnalysisProgressPublisher progressPublisher) {
+                          TechDebtService techDebtService, AnalysisProgressPublisher progressPublisher,
+                          ReportStorageService reportStorageService) {
         this.analysisMapper = analysisMapper;
         this.projectMapper = projectMapper;
         this.analyzerClient = analyzerClient;
@@ -68,6 +71,7 @@ public class AnalysisRunner {
         this.dependencyService = dependencyService;
         this.techDebtService = techDebtService;
         this.progressPublisher = progressPublisher;
+        this.reportStorageService = reportStorageService;
     }
 
     @Async("quickScanExecutor")
@@ -170,7 +174,7 @@ public class AnalysisRunner {
 
         AnalyzerClient.ReportResp report = analyzerClient.report(
                 project.getId(), scan, qualityMetrics, historySummaries(project.getId(), analysis.getId()));
-        analysis.setReportJson(report.report());
+        reportStorageService.saveReport(analysis.getId(), report.report());
         analysis.setReportSource(report.source());
         analysis.setPromptVersion(report.promptVersion());
 

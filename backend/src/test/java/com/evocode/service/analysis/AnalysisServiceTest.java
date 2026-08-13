@@ -6,11 +6,13 @@ import com.evocode.dto.analysis.AnalysisResp;
 import com.evocode.dto.analysis.AnalysisStatusResp;
 import com.evocode.dto.analysis.ReportHistoryResp;
 import com.evocode.entity.Analysis;
+import com.evocode.entity.AnalysisReport;
 import com.evocode.entity.Project;
 import com.evocode.enums.AnalysisStatus;
 import com.evocode.enums.Stage;
 import com.evocode.mapper.AnalysisMapper;
 import com.evocode.mapper.ProjectMapper;
+import com.evocode.service.report.ReportStorageService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -35,11 +37,12 @@ class AnalysisServiceTest {
     private final AnalysisMapper analysisMapper = mock(AnalysisMapper.class);
     private final ProjectMapper projectMapper = mock(ProjectMapper.class);
     private final AnalysisRunner runner = mock(AnalysisRunner.class);
+    private final ReportStorageService reportStorageService = mock(ReportStorageService.class);
     private AnalysisServiceImpl service;
 
     @BeforeEach
     void setUp() {
-        service = new AnalysisServiceImpl(analysisMapper, projectMapper, runner);
+        service = new AnalysisServiceImpl(analysisMapper, projectMapper, runner, reportStorageService);
     }
 
     private Project newProject() {
@@ -54,6 +57,16 @@ class AnalysisServiceTest {
         a.setProjectId(7L);
         a.setType("FULL");
         return a;
+    }
+
+    private AnalysisReport newReport(Integer healthScore, String level, Map<String, Object> reportJson) {
+        AnalysisReport r = new AnalysisReport();
+        r.setId(1L);
+        r.setAnalysisId(10L);
+        r.setHealthScore(healthScore);
+        r.setLevel(level);
+        r.setReportJson(reportJson);
+        return r;
     }
 
     @Test
@@ -129,10 +142,11 @@ class AnalysisServiceTest {
     void reportReturnsStoredReport() {
         Analysis a = newAnalysis();
         a.setStatus(AnalysisStatus.SUCCEEDED.name());
-        a.setReportJson(Map.of("healthScore", 82));
         a.setReportSource("RULES");
         a.setPromptVersion("report-1.0");
         when(analysisMapper.selectById(10L)).thenReturn(a);
+        when(reportStorageService.getByAnalysisId(10L))
+                .thenReturn(newReport(82, "GOOD", Map.of("healthScore", 82)));
 
         var resp = service.report(10L);
         assertEquals(10L, resp.analysisId());
@@ -143,7 +157,8 @@ class AnalysisServiceTest {
 
     @Test
     void reportRejectsWhenMissing() {
-        when(analysisMapper.selectById(10L)).thenReturn(newAnalysis()); // 无 report_json
+        when(analysisMapper.selectById(10L)).thenReturn(newAnalysis()); // 无报告
+        when(reportStorageService.getByAnalysisId(10L)).thenReturn(null);
         BusinessException e = assertThrows(BusinessException.class, () -> service.report(10L));
         assertEquals(2001, e.getCode());
     }
@@ -152,8 +167,8 @@ class AnalysisServiceTest {
     void regenerateRejectsWhenRunning() {
         Analysis a = newAnalysis();
         a.setStatus(AnalysisStatus.RUNNING.name());
-        a.setReportJson(Map.of("healthScore", 82));
         when(analysisMapper.selectById(10L)).thenReturn(a);
+        when(reportStorageService.getByAnalysisId(10L)).thenReturn(newReport(82, "GOOD", Map.of()));
         BusinessException e = assertThrows(BusinessException.class, () -> service.regenerate(10L));
         assertEquals(2008, e.getCode());
     }
@@ -162,8 +177,8 @@ class AnalysisServiceTest {
     void regenerateTriggersRunner() {
         Analysis a = newAnalysis();
         a.setStatus(AnalysisStatus.SUCCEEDED.name());
-        a.setReportJson(Map.of("healthScore", 82));
         when(analysisMapper.selectById(10L)).thenReturn(a);
+        when(reportStorageService.getByAnalysisId(10L)).thenReturn(newReport(82, "GOOD", Map.of()));
 
         var resp = service.regenerate(10L);
         assertEquals(AnalysisStatus.RUNNING.name(), resp.status());
@@ -187,14 +202,13 @@ class AnalysisServiceTest {
 
         List<ReportHistoryResp> resp = service.reportHistory(7L, 10);
         assertEquals(0, resp.size());
-        // 校验查询条件：project_id + SUCCEEDED + report_json 非空 + 倒序
+        // 校验查询条件：project_id + SUCCEEDED + 倒序（报告已拆表，不再按 report_json 过滤）
         @SuppressWarnings("unchecked")
         var captor = ArgumentCaptor.forClass(QueryWrapper.class);
         verify(analysisMapper).selectList(captor.capture());
         QueryWrapper<?> wrapper = captor.getValue();
         assertTrue(wrapper.getSqlSegment().contains("project_id ="));
         assertTrue(wrapper.getSqlSegment().contains("status ="));
-        assertTrue(wrapper.getSqlSegment().contains("report_json IS NOT NULL"));
         assertTrue(wrapper.getSqlSegment().contains("ORDER BY id DESC"));
         assertTrue(wrapper.getSqlSegment().contains("LIMIT"));
     }
@@ -206,14 +220,13 @@ class AnalysisServiceTest {
         a.setStatus(AnalysisStatus.SUCCEEDED.name());
         a.setFinishedAt(OffsetDateTime.parse("2026-08-10T10:01:00Z"));
         a.setReportSource("RULES");
-        a.setReportJson(Map.of(
-                "healthScore", 82,
-                "level", "GOOD",
+        // healthScore/level 走 analysis_report 列；dimensions/risks 从 report_json 解析
+        when(reportStorageService.getByAnalysisId(10L)).thenReturn(newReport(82, "GOOD", Map.of(
                 "dimensions", List.of(
                         Map.of("key", "quality", "score", 76, "stars", 4),
                         Map.of("key", "structure", "score", 88, "stars", 4)),
                 "risks", List.of(
-                        Map.of("level", "HIGH", "title", "Spring Boot 2.5 已停止官方支持"))));
+                        Map.of("level", "HIGH", "title", "Spring Boot 2.5 已停止官方支持")))));
         when(analysisMapper.selectList(any(QueryWrapper.class))).thenReturn(List.of(a));
 
         List<ReportHistoryResp> resp = service.reportHistory(7L, 10);
@@ -237,8 +250,8 @@ class AnalysisServiceTest {
         when(projectMapper.selectById(7L)).thenReturn(newProject());
         Analysis a = newAnalysis();
         a.setStatus(AnalysisStatus.SUCCEEDED.name());
-        // 历史脏数据：healthScore 为字符串
-        a.setReportJson(Map.of("healthScore", "82", "level", "GOOD"));
+        // 非数字 healthScore → analysis_report 列存 NULL（V010 迁移数值防御）
+        when(reportStorageService.getByAnalysisId(10L)).thenReturn(newReport(null, "GOOD", Map.of()));
         when(analysisMapper.selectList(any(QueryWrapper.class))).thenReturn(List.of(a));
 
         List<ReportHistoryResp> resp = service.reportHistory(7L, 10);

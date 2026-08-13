@@ -4,10 +4,11 @@ import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.evocode.common.BusinessException;
 import com.evocode.common.ErrorCode;
 import com.evocode.entity.Analysis;
+import com.evocode.entity.AnalysisReport;
 import com.evocode.entity.Project;
-import com.evocode.enums.AnalysisStatus;
 import com.evocode.mapper.AnalysisMapper;
 import com.evocode.mapper.ProjectMapper;
+import com.evocode.service.report.ReportStorageService;
 import org.springframework.stereotype.Service;
 
 import java.time.OffsetDateTime;
@@ -30,10 +31,13 @@ public class ReportExportService {
 
     private final AnalysisMapper analysisMapper;
     private final ProjectMapper projectMapper;
+    private final ReportStorageService reportStorageService;
 
-    public ReportExportService(AnalysisMapper analysisMapper, ProjectMapper projectMapper) {
+    public ReportExportService(AnalysisMapper analysisMapper, ProjectMapper projectMapper,
+                               ReportStorageService reportStorageService) {
         this.analysisMapper = analysisMapper;
         this.projectMapper = projectMapper;
+        this.reportStorageService = reportStorageService;
     }
 
     /** 最新 SUCCEEDED 且含 report_json 的分析 → Markdown 字符串。无报告 → 2001。 */
@@ -43,16 +47,12 @@ public class ReportExportService {
         if (project == null) {
             throw new BusinessException(ErrorCode.PROJECT_NOT_FOUND, "项目不存在");
         }
-        Analysis analysis = analysisMapper.selectOne(new QueryWrapper<Analysis>()
-                .eq("project_id", projectId)
-                .eq("status", AnalysisStatus.SUCCEEDED.name())
-                .isNotNull("report_json")
-                .orderByDesc("id")
-                .last("LIMIT 1"));
-        if (analysis == null || analysis.getReportJson() == null) {
+        AnalysisReport reportRow = reportStorageService.getLatestByProject(projectId);
+        if (reportRow == null || reportRow.getReportJson() == null) {
             throw new BusinessException(ErrorCode.PROJECT_NOT_FOUND, "该项目尚无成功分析报告");
         }
-        Map<String, Object> r = analysis.getReportJson();
+        Analysis analysis = analysisMapper.selectById(reportRow.getAnalysisId());
+        Map<String, Object> r = reportRow.getReportJson();
         StringBuilder sb = new StringBuilder(4096);
         String name = project.getName() == null ? "未知项目" : project.getName();
         sb.append("# EvoCode 体检报告 —— ").append(name).append("\n\n");
