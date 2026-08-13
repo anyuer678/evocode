@@ -130,7 +130,7 @@ analyzer/    Python FastAPI 分析服务（扫描/质量/架构/演化/AI）
 frontend/    Vue3 前端
 scripts/     一键启动/初始化/冒烟脚本
 docs/        需求、开发指导、开发规范 + decisions/devlog/screenshots
-samples/     演示用示例项目（zip，小体积）【规划中，P7 产品化时创建】
+samples/     演示用示例项目（zip，小体积）：demo-store 多语言订单服务
 ```
 
 ## 开发路线（里程碑）
