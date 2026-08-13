@@ -14,6 +14,7 @@ from .go_parser import parse_go_file
 from .java_parser import parse_java_file
 from .js_parser import parse_js_file, parse_ts_file
 from .python_parser import parse_python_file
+from .registry import FuncParser, ParserRegistry
 
 logger = logging.getLogger("evocode.analyzer.arch")
 
@@ -29,54 +30,61 @@ _SKIP_DIRS = {
     ".idea",
     ".vscode",
 }
-_PY_EXTS = {".py"}
-_JAVA_EXTS = {".java"}
-_JS_EXTS = {".js", ".jsx", ".mjs", ".cjs"}
-_TS_EXTS = {".ts", ".tsx"}
-_GO_EXTS = {".go"}
 
 
-def _iter_source_files(code_dir: Path):
+def _build_default_registry() -> ParserRegistry:
+    """默认注册 5 语言解析器（SPI-1 配置点：新增语言在此 register 一行）。"""
+    registry = ParserRegistry()
+    registry.register(FuncParser(frozenset({".py"}), "python", parse_python_file))
+    registry.register(FuncParser(frozenset({".java"}), "java", parse_java_file))
+    registry.register(
+        FuncParser(
+            frozenset({".js", ".jsx", ".mjs", ".cjs"}), "javascript", parse_js_file
+        )
+    )
+    registry.register(
+        FuncParser(frozenset({".ts", ".tsx"}), "typescript", parse_ts_file)
+    )
+    registry.register(FuncParser(frozenset({".go"}), "go", parse_go_file))
+    return registry
+
+
+_DEFAULT_REGISTRY = _build_default_registry()
+
+
+def _iter_source_files(code_dir: Path, registry: ParserRegistry):
+    exts = registry.supported_extensions()
     for path in code_dir.rglob("*"):
         if path.is_dir():
             continue
         parts = set(path.parts)
         if parts & _SKIP_DIRS:
             continue
-        if (
-            path.suffix in _PY_EXTS
-            or path.suffix in _JAVA_EXTS
-            or path.suffix in _JS_EXTS
-            or path.suffix in _TS_EXTS
-            or path.suffix in _GO_EXTS
-        ):
+        if path.suffix.lower() in exts:
             yield path
 
 
 def architecture_scan(code_dir: str, languages: list[str] | None = None) -> dict:
-    """扫描项目架构，返回契约结构 dict（06 §5.5）。"""
+    """扫描项目架构，返回契约结构 dict（06 §5.5）。
+
+    languages 非空时仅扫描指定语言的解析器（忽略大小写）；空/None 扫描全部。
+    """
     root = Path(code_dir)
     if not root.is_dir():
         raise FileNotFoundError(f"codeDir not found: {code_dir}")
 
+    active = _DEFAULT_REGISTRY.select_languages(languages)
+
     nodes: list = []
     all_calls: list[tuple[str, list[str]]] = []
-    for path in _iter_source_files(root):
+    for path in _iter_source_files(root, _DEFAULT_REGISTRY):
+        parser = _DEFAULT_REGISTRY.by_extension(path.suffix)
+        if parser is None or parser not in active:
+            continue
         rel = str(path.relative_to(root)).replace("\\", "/")
         try:
             source = path.read_bytes()
-            if path.suffix in _PY_EXTS:
-                file_nodes, calls = parse_python_file(rel, source)
-            elif path.suffix in _JAVA_EXTS:
-                file_nodes, calls = parse_java_file(rel, source)
-            elif path.suffix in _TS_EXTS:
-                file_nodes, calls = parse_ts_file(rel, source)
-            elif path.suffix in _JS_EXTS:
-                file_nodes, calls = parse_js_file(rel, source)
-            elif path.suffix in _GO_EXTS:
-                file_nodes, calls = parse_go_file(rel, source)
-            else:
-                continue
+            file_nodes, calls = parser.parse(rel, source)
         except Exception as exc:
             logger.warning("解析失败跳过 %s：%s", rel, exc)
             continue
