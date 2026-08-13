@@ -1,4 +1,4 @@
-# EvoCode API 契约（详细版）
+﻿# EvoCode API 契约（详细版）
 
 > 对外 REST（`/api/v1`）+ analyzer 内部 API（`/analyze/v1`）+ SSE 协议
 > 版本：v1.0 · 2026-08-10 · 对应架构修订（05 审查 P0-1/P0-3/P1-1/2/3/4 已落实）
@@ -581,7 +581,7 @@ data: {"messageId": 9527}
 
 ---
 
-## 5. Analyzer 内部 API（仅 127.0.0.1:8081）
+## 5. Analyzer 内部 API（仅 127.0.0.1:8091）
 
 > 统一错误体（非 200）：`{"error": {"code": "…", "message": "…"}}`，映射规则见 §2/开发指导 §6.2。
 

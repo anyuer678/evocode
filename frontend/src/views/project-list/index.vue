@@ -749,17 +749,16 @@ onUnmounted(() => {
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
   padding: var(--space-4);
-  box-shadow: var(--shadow-xs);
   cursor: pointer;
   transition:
-    box-shadow var(--transition),
+    border-color var(--transition),
     transform var(--transition),
     opacity var(--transition);
   animation: card-in 250ms ease both;
 }
 .project-card:hover {
-  box-shadow: var(--shadow-lg);
-  transform: translateY(-2px);
+  border-color: var(--border-strong);
+  transform: translateY(-1px);
 }
 .project-card:hover .card-title {
   color: var(--primary-color);

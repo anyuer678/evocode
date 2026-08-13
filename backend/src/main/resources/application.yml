@@ -44,7 +44,8 @@ server:
 
 evocode:
   data-dir: ${DATA_DIR:data}
-  analyzer-url: ${ANALYZER_URL:http://127.0.0.1:8081}
+  # 审查：8081 与本机 polycode-auth 容器冲突 → 默认 8091（ANALYZER_URL 仍可覆盖）
+  analyzer-url: ${ANALYZER_URL:http://127.0.0.1:8091}
 
 logging:
   level:

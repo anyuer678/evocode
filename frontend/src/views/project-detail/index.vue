@@ -37,6 +37,32 @@ const route = useRoute()
 const router = useRouter()
 const projectId = Number(route.params.id)
 
+// 分区导航：当前激活的功能区（体检报告/质量/架构/演化/依赖/AI医生/技术债/文档/文件）
+// 反 AI 味守则：导航用克制的序号/文字标识，不用 emoji
+type SectionKey =
+  | 'report'
+  | 'quality'
+  | 'architecture'
+  | 'evolution'
+  | 'dependency'
+  | 'doctor'
+  | 'debt'
+  | 'doc'
+  | 'files'
+const activeSection = ref<SectionKey>('report')
+
+const SECTIONS: { key: SectionKey; label: string; desc: string }[] = [
+  { key: 'report', label: '体检报告', desc: '健康分 · 诊断 · 风险' },
+  { key: 'quality', label: '质量分析', desc: 'Sonar 静态扫描' },
+  { key: 'architecture', label: '架构分析', desc: '分层 · 调用关系' },
+  { key: 'evolution', label: '演化分析', desc: '提交趋势 · 热点' },
+  { key: 'dependency', label: '依赖分析', desc: '依赖清单 · EOL 风险' },
+  { key: 'doctor', label: 'AI 医生', desc: '项目问答 · 引用溯源' },
+  { key: 'debt', label: '技术债', desc: '债务登记 · 状态跟踪' },
+  { key: 'doc', label: '项目文档', desc: 'README / 架构 / API' },
+  { key: 'files', label: '文件地图', desc: '代码浏览 · 预览' },
+]
+
 const detail = ref<ProjectDetail | null>(null)
 const loadError = ref('')
 
@@ -101,14 +127,6 @@ const langOptions = computed(() => {
   return Object.entries(stats)
     .sort((a, b) => b[1] - a[1])
     .map(([lang]) => lang)
-})
-
-const langBars = computed(() => {
-  const stats = detail.value?.langStats
-  if (!stats) return []
-  return Object.entries(stats)
-    .sort((a, b) => b[1] - a[1])
-    .map(([lang, pct]) => ({ lang, pct: Number(pct) }))
 })
 
 // 审查修复：拆分轮询 timer——此前 pollIfRunning(3s 快扫) 与 pollAnalysis(2s 任务)
@@ -405,8 +423,9 @@ async function onDelete() {
   }
 }
 
-function stars(n: number): string {
-  return '★'.repeat(Math.max(0, Math.min(5, n))) + '☆'.repeat(Math.max(0, 5 - Math.min(5, n)))
+function scoreLevelClass(level: string | undefined | null): string {
+  const lv = (level ?? '').toLowerCase()
+  return lv === 'excellent' || lv === 'good' || lv === 'fair' || lv === 'poor' ? lv : ''
 }
 
 function fmtSize(bytes: number): string {
@@ -454,14 +473,35 @@ onBeforeUnmount(() => {
       </div>
     </div>
 
-    <div class="title-row">
-      <h1>{{ detail.name }}</h1>
-      <span class="badge" :class="(STATUS_META[detail.status] ?? STATUS_FALLBACK).cls">
-        {{ (STATUS_META[detail.status] ?? STATUS_FALLBACK).label }}
-      </span>
-      <span v-if="detail.sourceType === 'GIT'" class="repo-url">{{ detail.repoUrl }}</span>
+    <!-- 项目身份区（始终可见） -->
+    <div class="identity">
+      <div class="identity-main">
+        <div class="title-row">
+          <h1>{{ detail.name }}</h1>
+          <span class="badge" :class="(STATUS_META[detail.status] ?? STATUS_FALLBACK).cls">
+            {{ (STATUS_META[detail.status] ?? STATUS_FALLBACK).label }}
+          </span>
+          <span v-if="detail.sourceType === 'GIT'" class="repo-url">{{ detail.repoUrl }}</span>
+        </div>
+        <p v-if="detail.description" class="desc">{{ detail.description }}</p>
+      </div>
+      <div class="identity-stats">
+        <div class="stat">
+          <span class="stat-num">{{ detail.locTotal.toLocaleString() }}</span
+          ><span class="stat-key">LOC</span>
+        </div>
+        <div class="stat">
+          <span class="stat-num">{{ detail.fileCount.toLocaleString() }}</span
+          ><span class="stat-key">文件</span>
+        </div>
+        <div class="stat">
+          <span class="stat-num" :class="report ? scoreLevelClass(report.report.level) : ''">{{
+            report?.report.healthScore ?? '—'
+          }}</span
+          ><span class="stat-key">健康分</span>
+        </div>
+      </div>
     </div>
-    <p v-if="detail.description" class="desc">{{ detail.description }}</p>
 
     <div v-if="detail.status === 'ANALYZING'" class="notice">
       自动快扫进行中…档案与报告生成后自动刷新
@@ -471,70 +511,19 @@ onBeforeUnmount(() => {
     </div>
     <div v-if="loadError" class="alert-fail">{{ loadError }}</div>
 
-    <!-- 档案区 -->
-    <div class="cards">
-      <div class="card">
-        <h3>规模</h3>
-        <div class="metrics">
-          <div class="metric">
-            <div class="value">{{ detail.locTotal.toLocaleString() }}</div>
-            <div class="key">代码行数 LOC</div>
-          </div>
-          <div class="metric">
-            <div class="value">{{ detail.fileCount.toLocaleString() }}</div>
-            <div class="key">文件数</div>
-          </div>
-          <div class="metric">
-            <div class="value">{{ detail.ignoredCount ?? '-' }}</div>
-            <div class="key">忽略文件</div>
-          </div>
-        </div>
+    <!-- P9e：实时进度（SSE 驱动；断线回退轮询后此块消失） -->
+    <div v-if="liveProgress" class="live-progress">
+      <div class="live-row">
+        <span class="live-label">分析中 · {{ liveProgress.stage ?? '' }}</span>
+        <span class="live-pct">{{ liveProgress.progress }}%</span>
       </div>
-
-      <div class="card">
-        <h3>技术栈</h3>
-        <div v-if="detail.frameworkTags.length" class="tags">
-          <span v-for="t in detail.frameworkTags" :key="t" class="tag">{{ t }}</span>
-        </div>
-        <span v-else class="muted">尚未识别（快扫完成后显示）</span>
+      <div class="progress-track">
+        <div class="progress-bar" :style="{ width: liveProgress.progress + '%' }"></div>
       </div>
-
-      <div class="card">
-        <h3>语言分布</h3>
-        <div v-if="langBars.length" class="langs">
-          <div v-for="bar in langBars" :key="bar.lang" class="lang-row">
-            <span class="lang-name">{{ bar.lang }}</span>
-            <div class="bar-track">
-              <div class="bar-fill" :style="{ width: Math.min(100, bar.pct) + '%' }" />
-            </div>
-            <span class="lang-pct">{{ bar.pct.toFixed(1) }}%</span>
-          </div>
-        </div>
-        <span v-else class="muted">快扫完成后显示</span>
-      </div>
-
-      <div class="card">
-        <h3>最近分析</h3>
-        <dl class="kv">
-          <dt>状态</dt>
-          <dd>{{ detail.latestAnalysis ? detail.latestAnalysis.status : '未开始' }}</dd>
-          <dt>阶段</dt>
-          <dd>{{ detail.latestAnalysis?.stage ?? '-' }}</dd>
-          <dt>进度</dt>
-          <dd>
-            {{
-              detail.latestAnalysis?.progress != null ? detail.latestAnalysis.progress + '%' : '-'
-            }}
-          </dd>
-          <dt>最近扫描</dt>
-          <dd>{{ fmtTime(detail.lastAnalyzedAt) }}</dd>
-          <dt>创建时间</dt>
-          <dd>{{ fmtTime(detail.createdAt) }}</dd>
-        </dl>
-      </div>
+      <p v-if="liveProgress.message" class="hint">{{ liveProgress.message }}</p>
     </div>
 
-    <!-- 分析操作 -->
+    <!-- 分析操作条 -->
     <div class="analysis-ops">
       <button class="btn-primary" type="button" :disabled="starting" @click="startAnalysis">
         {{ starting ? '发起中…' : '发起完整分析' }}
@@ -551,271 +540,323 @@ onBeforeUnmount(() => {
       <span class="hint">完整分析 = 重新扫描 + AI 健康报告（约 1-3 分钟）</span>
     </div>
 
-    <!-- P9e：实时进度（SSE 驱动；断线回退轮询后此块消失） -->
-    <div v-if="liveProgress" class="live-progress">
-      <div class="live-row">
-        <span class="live-label">分析中 · {{ liveProgress.stage ?? '' }}</span>
-        <span class="live-pct">{{ liveProgress.progress }}%</span>
-      </div>
-      <div class="progress-track">
-        <div class="progress-bar" :style="{ width: liveProgress.progress + '%' }"></div>
-      </div>
-      <p v-if="liveProgress.message" class="hint">{{ liveProgress.message }}</p>
-    </div>
-
-    <!-- P9e：Toast（完成/失败提示） -->
+    <!-- P9e：Toast -->
     <Transition name="toast">
       <div v-if="toast" class="toast">{{ toast }}</div>
     </Transition>
 
-    <!-- P9c：历史趋势折叠区（默认收起） -->
-    <ReportHistoryView :project-id="projectId" />
-
-    <!-- 体检报告 -->
-    <div v-if="reportLoading" class="report loading">报告加载中…</div>
-    <section v-else-if="report" class="report">
-      <div class="report-head">
-        <h2>体检报告 #{{ report.analysisId }}</h2>
-        <span class="badge" :class="(LEVEL_META[report.report.level] ?? LEVEL_FALLBACK).cls">
-          {{ (LEVEL_META[report.report.level] ?? LEVEL_FALLBACK).label }}
-        </span>
-        <span class="badge source" :class="report.source === 'LLM' ? 'src-llm' : 'src-rules'">
-          {{ report.source === 'LLM' ? 'AI 报告' : '规则报告' }}
-        </span>
-        <span class="muted prompt">
-          {{ report.promptVersion }} · {{ fmtTime(report.generatedAt) }}
-        </span>
-      </div>
-
-      <div class="report-body">
-        <div class="score-panel">
-          <div class="score-num" :class="'lv-' + report.report.level.toLowerCase()">
-            {{ report.report.healthScore }}
-          </div>
-          <div class="score-label">健康分（满分 100）</div>
-          <p class="summary">{{ report.report.summary }}</p>
-        </div>
-
-        <div class="dims">
-          <div v-for="d in report.report.dimensions" :key="d.key" class="dim">
-            <div class="dim-head">
-              <span class="dim-name">{{ DIM_LABEL[d.key] }}</span>
-              <span class="dim-score">{{ d.score }}</span>
-            </div>
-            <div class="stars">{{ stars(d.stars) }}</div>
-            <div class="dim-summary">{{ d.summary }}</div>
-          </div>
-        </div>
-      </div>
-
-      <div v-if="report.report.risks.length" class="report-section">
-        <h3>风险</h3>
-        <div
-          v-for="(r, i) in report.report.risks"
-          :key="i"
-          class="risk"
-          :class="'rk-' + r.level.toLowerCase()"
-        >
-          <div class="risk-head">
-            <span class="risk-level">{{ r.level }}</span>
-            <span class="risk-title">{{ r.title }}</span>
-          </div>
-          <p class="risk-detail">{{ r.detail }}</p>
-          <p class="risk-suggestion">建议：{{ r.suggestion }}</p>
-        </div>
-      </div>
-
-      <div v-if="report.report.recommendations.length" class="report-section">
-        <h3>演化建议</h3>
-        <div v-for="(rec, i) in report.report.recommendations" :key="i" class="rec">
-          <div class="rec-phase">{{ rec.phase }}</div>
-          <ul>
-            <li v-for="item in rec.items" :key="item">{{ item }}</li>
-          </ul>
-        </div>
-      </div>
-    </section>
-    <section v-else-if="analyses.length" class="report empty-report">
-      该分析暂无报告（仅快扫的项目没有报告，发起完整分析后生成）
-    </section>
-
-    <!-- 分析历史 -->
-    <div v-if="analyses.length" class="history">
-      <h2>分析历史</h2>
-      <table class="table">
-        <thead>
-          <tr>
-            <th>ID</th>
-            <th>类型</th>
-            <th>状态</th>
-            <th>进度</th>
-            <th>健康分</th>
-            <th>来源</th>
-            <th>完成时间</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr
-            v-for="a in analyses"
-            :key="a.id"
-            :class="{ selected: a.id === selectedId }"
-            @click="selectHistory(a)"
-          >
-            <td>#{{ a.id }}</td>
-            <td>{{ a.type }}</td>
-            <td>
-              <span class="badge" :class="(ANA_STATUS_META[a.status] ?? ANA_STATUS_FALLBACK).cls">
-                {{ (ANA_STATUS_META[a.status] ?? ANA_STATUS_FALLBACK).label }}
-              </span>
-            </td>
-            <td>{{ a.progress }}%{{ a.stage ? ' · ' + a.stage : '' }}</td>
-            <td>
-              <span v-if="a.healthScore != null" class="score">{{ a.healthScore }}</span>
-              <span v-else class="muted">-</span>
-            </td>
-            <td>{{ a.source ?? '-' }}</td>
-            <td class="muted">{{ fmtTime(a.finishedAt) }}</td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-
-    <!-- 质量分析 -->
-    <div v-if="quality" class="quality">
-      <div class="quality-head">
-        <h2>质量分析</h2>
-        <span v-if="quality.metrics.available" class="quality-badge on"> Sonar 已接入 </span>
-        <span v-else class="quality-badge off">Sonar 未启用</span>
-      </div>
-
-      <div v-if="quality.metrics.available" class="q-metrics">
-        <div class="q-metric">
-          <div class="value fail">{{ quality.metrics.bugs }}</div>
-          <div class="key">Bug</div>
-        </div>
-        <div class="q-metric">
-          <div class="value critical">{{ quality.metrics.vulnerabilities }}</div>
-          <div class="key">漏洞</div>
-        </div>
-        <div class="q-metric">
-          <div class="value">{{ quality.metrics.codeSmells }}</div>
-          <div class="key">异味</div>
-        </div>
-      </div>
-
-      <table v-if="quality.items.length" class="table">
-        <thead>
-          <tr>
-            <th>严重度</th>
-            <th>类型</th>
-            <th>位置</th>
-            <th>问题</th>
-            <th>AI 解释</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="item in quality.items" :key="item.id">
-            <td>
-              <span class="sev" :class="(SEVERITY_META[item.severity] ?? SEVERITY_FALLBACK).cls">
-                {{ (SEVERITY_META[item.severity] ?? SEVERITY_FALLBACK).label }}
-              </span>
-            </td>
-            <td>
-              <span class="tag">{{ item.kind }}</span>
-            </td>
-            <td class="path">
-              {{ item.filePath }}<span v-if="item.line != null">:{{ item.line }}</span>
-            </td>
-            <td class="q-msg">{{ item.message }}</td>
-            <td class="muted">
-              <span v-if="item.aiStatus === 'DONE' && item.aiExplanation">已解释</span>
-              <span v-else-if="item.aiStatus === 'FAILED'" class="fail-text">解释失败</span>
-              <span v-else>待解释</span>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-
-      <p v-else class="empty">
-        {{
-          quality.metrics.available
-            ? 'Sonar 扫描完成，暂未发现问题。'
-            : '质量分析未启用：配置 Sonar（SONAR_HOST_URL / SONAR_TOKEN）后发起完整分析即可获得真实质量指标。'
-        }}
-      </p>
-    </div>
-
-    <!-- 依赖分析（P9d） -->
-    <DependencyView v-if="detail?.status === 'READY'" :project-id="projectId" />
-    <!-- 架构分析（P4c） -->
-    <ArchitectureView v-if="detail?.status === 'READY'" :project-id="projectId" />
-    <!-- 演化分析（P5c） -->
-    <EvolutionView v-if="detail?.status === 'READY'" :project-id="projectId" />
-    <!-- AI 医生（P6c） -->
-    <DoctorView v-if="detail?.status === 'READY'" :project-id="projectId" />
-    <!-- 技术债（P7a） -->
-    <TechDebtView v-if="detail?.status === 'READY'" :project-id="projectId" />
-    <!-- 文档（P7b） -->
-    <DocView v-if="detail?.status === 'READY'" :project-id="projectId" />
-
-    <!-- 文件地图 -->
-    <div class="files">
-      <h2>文件地图</h2>
-      <div class="toolbar">
-        <select v-model="langFilter" class="input select" @change="onFileSearch">
-          <option value="">全部语言</option>
-          <option v-for="l in langOptions" :key="l" :value="l">{{ l }}</option>
-        </select>
-        <input
-          v-model="fileKeyword"
-          class="input"
-          placeholder="按路径搜索…"
-          @keyup.enter="onFileSearch"
-        />
-        <button class="btn" type="button" @click="onFileSearch">搜索</button>
-      </div>
-
-      <table class="table">
-        <thead>
-          <tr>
-            <th class="sortable" @click="onFileSort('path')">路径</th>
-            <th>语言</th>
-            <th class="sortable" @click="onFileSort('loc')">LOC</th>
-            <th class="sortable" @click="onFileSort('sizeBytes')">大小</th>
-            <th>操作</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="f in files" :key="f.path">
-            <td class="path">{{ f.path }}</td>
-            <td>
-              <span class="tag">{{ f.language || '-' }}</span>
-            </td>
-            <td>{{ f.loc }}</td>
-            <td>{{ fmtSize(f.sizeBytes) }}</td>
-            <td>
-              <button class="btn small" type="button" @click="openFile(f)">查看内容</button>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-      <p v-if="!fileLoading && fileTotal === 0" class="empty">暂无文件（快扫完成后显示）</p>
-      <div v-if="fileTotal > fileSize" class="pager">
-        <button class="btn small" type="button" :disabled="filePage <= 1" @click="prevFilePage">
-          上一页
-        </button>
-        <span class="page-info">
-          第 {{ filePage }} / {{ Math.max(1, Math.ceil(fileTotal / fileSize)) }} 页 · 共
-          {{ fileTotal }} 条
-        </span>
+    <!-- 分区工作台：左侧功能区导航 + 右侧内容区 -->
+    <div class="workspace">
+      <nav class="section-nav" aria-label="功能区">
         <button
-          class="btn small"
+          v-for="(s, i) in SECTIONS"
+          :key="s.key"
           type="button"
-          :disabled="filePage >= Math.ceil(fileTotal / fileSize)"
-          @click="nextFilePage"
+          class="section-item"
+          :class="{ active: activeSection === s.key }"
+          @click="activeSection = s.key"
         >
-          下一页
+          <span class="section-index" aria-hidden="true">{{ String(i + 1).padStart(2, '0') }}</span>
+          <span class="section-text">
+            <span class="section-label">{{ s.label }}</span>
+            <span class="section-desc">{{ s.desc }}</span>
+          </span>
         </button>
+      </nav>
+
+      <div class="section-content">
+        <!-- 体检报告 -->
+        <div v-show="activeSection === 'report'" class="section-pane">
+          <ReportHistoryView :project-id="projectId" />
+
+          <div v-if="reportLoading" class="report loading">报告加载中…</div>
+          <section v-else-if="report" class="report">
+            <div class="report-head">
+              <h2>体检报告 #{{ report.analysisId }}</h2>
+              <span class="badge" :class="(LEVEL_META[report.report.level] ?? LEVEL_FALLBACK).cls">
+                {{ (LEVEL_META[report.report.level] ?? LEVEL_FALLBACK).label }}
+              </span>
+              <span class="badge source" :class="report.source === 'LLM' ? 'src-llm' : 'src-rules'">
+                {{ report.source === 'LLM' ? 'AI 报告' : '规则报告' }}
+              </span>
+              <span class="muted prompt">
+                {{ report.promptVersion }} · {{ fmtTime(report.generatedAt) }}
+              </span>
+            </div>
+
+            <div class="report-body">
+              <div class="score-panel">
+                <div class="score-block">
+                  <span class="score-num" :class="'lv-' + report.report.level.toLowerCase()">{{
+                    report.report.healthScore
+                  }}</span>
+                  <span class="score-label">健康分 / 100</span>
+                </div>
+                <div class="score-rule" aria-hidden="true"></div>
+                <p class="summary">{{ report.report.summary }}</p>
+              </div>
+
+              <div class="dims">
+                <div v-for="d in report.report.dimensions" :key="d.key" class="dim">
+                  <div class="dim-head">
+                    <span class="dim-name">{{ DIM_LABEL[d.key] }}</span>
+                    <span class="dim-score">{{ d.score }}</span>
+                  </div>
+                  <div class="dim-bar-track">
+                    <div
+                      class="dim-bar-fill"
+                      :class="'lv-' + report.report.level.toLowerCase()"
+                      :style="{ width: Math.min(100, d.score) + '%' }"
+                    />
+                  </div>
+                  <div class="dim-summary">{{ d.summary }}</div>
+                </div>
+              </div>
+            </div>
+
+            <div v-if="report.report.risks.length" class="report-section">
+              <h3>风险</h3>
+              <div
+                v-for="(r, i) in report.report.risks"
+                :key="i"
+                class="risk"
+                :class="'rk-' + r.level.toLowerCase()"
+              >
+                <div class="risk-head">
+                  <span class="risk-level">{{ r.level }}</span>
+                  <span class="risk-title">{{ r.title }}</span>
+                </div>
+                <p class="risk-detail">{{ r.detail }}</p>
+                <p class="risk-suggestion">建议：{{ r.suggestion }}</p>
+              </div>
+            </div>
+
+            <div v-if="report.report.recommendations.length" class="report-section">
+              <h3>演化建议</h3>
+              <div v-for="(rec, i) in report.report.recommendations" :key="i" class="rec">
+                <div class="rec-phase">{{ rec.phase }}</div>
+                <ul>
+                  <li v-for="item in rec.items" :key="item">{{ item }}</li>
+                </ul>
+              </div>
+            </div>
+          </section>
+          <section v-else-if="analyses.length" class="report empty-report">
+            该分析暂无报告（仅快扫的项目没有报告，发起完整分析后生成）
+          </section>
+
+          <!-- 分析历史 -->
+          <div v-if="analyses.length" class="history">
+            <h2>分析历史</h2>
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>类型</th>
+                  <th>状态</th>
+                  <th>进度</th>
+                  <th>健康分</th>
+                  <th>来源</th>
+                  <th>完成时间</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr
+                  v-for="a in analyses"
+                  :key="a.id"
+                  :class="{ selected: a.id === selectedId }"
+                  @click="selectHistory(a)"
+                >
+                  <td>#{{ a.id }}</td>
+                  <td>{{ a.type }}</td>
+                  <td>
+                    <span
+                      class="badge"
+                      :class="(ANA_STATUS_META[a.status] ?? ANA_STATUS_FALLBACK).cls"
+                    >
+                      {{ (ANA_STATUS_META[a.status] ?? ANA_STATUS_FALLBACK).label }}
+                    </span>
+                  </td>
+                  <td>{{ a.progress }}%{{ a.stage ? ' · ' + a.stage : '' }}</td>
+                  <td>
+                    <span v-if="a.healthScore != null" class="score">{{ a.healthScore }}</span>
+                    <span v-else class="muted">-</span>
+                  </td>
+                  <td>{{ a.source ?? '-' }}</td>
+                  <td class="muted">{{ fmtTime(a.finishedAt) }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- 质量分析 -->
+        <div v-show="activeSection === 'quality'" class="section-pane">
+          <div v-if="quality" class="quality">
+            <div class="quality-head">
+              <h2>质量分析</h2>
+              <span v-if="quality.metrics.available" class="quality-badge on"> Sonar 已接入 </span>
+              <span v-else class="quality-badge off">Sonar 未启用</span>
+            </div>
+
+            <div v-if="quality.metrics.available" class="q-metrics">
+              <div class="q-metric">
+                <div class="value fail">{{ quality.metrics.bugs }}</div>
+                <div class="key">Bug</div>
+              </div>
+              <div class="q-metric">
+                <div class="value critical">{{ quality.metrics.vulnerabilities }}</div>
+                <div class="key">漏洞</div>
+              </div>
+              <div class="q-metric">
+                <div class="value">{{ quality.metrics.codeSmells }}</div>
+                <div class="key">异味</div>
+              </div>
+            </div>
+
+            <table v-if="quality.items.length" class="table">
+              <thead>
+                <tr>
+                  <th>严重度</th>
+                  <th>类型</th>
+                  <th>位置</th>
+                  <th>问题</th>
+                  <th>AI 解释</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="item in quality.items" :key="item.id">
+                  <td>
+                    <span
+                      class="sev"
+                      :class="(SEVERITY_META[item.severity] ?? SEVERITY_FALLBACK).cls"
+                    >
+                      {{ (SEVERITY_META[item.severity] ?? SEVERITY_FALLBACK).label }}
+                    </span>
+                  </td>
+                  <td>
+                    <span class="tag">{{ item.kind }}</span>
+                  </td>
+                  <td class="path">
+                    {{ item.filePath }}<span v-if="item.line != null">:{{ item.line }}</span>
+                  </td>
+                  <td class="q-msg">{{ item.message }}</td>
+                  <td class="muted">
+                    <span v-if="item.aiStatus === 'DONE' && item.aiExplanation">已解释</span>
+                    <span v-else-if="item.aiStatus === 'FAILED'" class="fail-text">解释失败</span>
+                    <span v-else>待解释</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+
+            <p v-else class="empty">
+              {{
+                quality.metrics.available
+                  ? 'Sonar 扫描完成，暂未发现问题。'
+                  : '质量分析未启用：配置 Sonar（SONAR_HOST_URL / SONAR_TOKEN）后发起完整分析即可获得真实质量指标。'
+              }}
+            </p>
+          </div>
+        </div>
+
+        <!-- 架构分析 -->
+        <div v-show="activeSection === 'architecture'" class="section-pane">
+          <ArchitectureView v-if="detail?.status === 'READY'" :project-id="projectId" />
+        </div>
+
+        <!-- 演化分析 -->
+        <div v-show="activeSection === 'evolution'" class="section-pane">
+          <EvolutionView v-if="detail?.status === 'READY'" :project-id="projectId" />
+        </div>
+
+        <!-- 依赖分析 -->
+        <div v-show="activeSection === 'dependency'" class="section-pane">
+          <DependencyView v-if="detail?.status === 'READY'" :project-id="projectId" />
+        </div>
+
+        <!-- AI 医生 -->
+        <div v-show="activeSection === 'doctor'" class="section-pane">
+          <DoctorView v-if="detail?.status === 'READY'" :project-id="projectId" />
+        </div>
+
+        <!-- 技术债 -->
+        <div v-show="activeSection === 'debt'" class="section-pane">
+          <TechDebtView v-if="detail?.status === 'READY'" :project-id="projectId" />
+        </div>
+
+        <!-- 文档 -->
+        <div v-show="activeSection === 'doc'" class="section-pane">
+          <DocView v-if="detail?.status === 'READY'" :project-id="projectId" />
+        </div>
+
+        <!-- 文件地图 -->
+        <div v-show="activeSection === 'files'" class="section-pane">
+          <div class="files">
+            <h2>文件地图</h2>
+            <div class="toolbar">
+              <select v-model="langFilter" class="input select" @change="onFileSearch">
+                <option value="">全部语言</option>
+                <option v-for="l in langOptions" :key="l" :value="l">{{ l }}</option>
+              </select>
+              <input
+                v-model="fileKeyword"
+                class="input"
+                placeholder="按路径搜索…"
+                @keyup.enter="onFileSearch"
+              />
+              <button class="btn" type="button" @click="onFileSearch">搜索</button>
+            </div>
+
+            <table class="table">
+              <thead>
+                <tr>
+                  <th class="sortable" @click="onFileSort('path')">路径</th>
+                  <th>语言</th>
+                  <th class="sortable" @click="onFileSort('loc')">LOC</th>
+                  <th class="sortable" @click="onFileSort('sizeBytes')">大小</th>
+                  <th>操作</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="f in files" :key="f.path">
+                  <td class="path">{{ f.path }}</td>
+                  <td>
+                    <span class="tag">{{ f.language || '-' }}</span>
+                  </td>
+                  <td>{{ f.loc }}</td>
+                  <td>{{ fmtSize(f.sizeBytes) }}</td>
+                  <td>
+                    <button class="btn small" type="button" @click="openFile(f)">查看内容</button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+            <p v-if="!fileLoading && fileTotal === 0" class="empty">暂无文件（快扫完成后显示）</p>
+            <div v-if="fileTotal > fileSize" class="pager">
+              <button
+                class="btn small"
+                type="button"
+                :disabled="filePage <= 1"
+                @click="prevFilePage"
+              >
+                上一页
+              </button>
+              <span class="page-info">
+                第 {{ filePage }} / {{ Math.max(1, Math.ceil(fileTotal / fileSize)) }} 页 · 共
+                {{ fileTotal }} 条
+              </span>
+              <button
+                class="btn small"
+                type="button"
+                :disabled="filePage >= Math.ceil(fileTotal / fileSize)"
+                @click="nextFilePage"
+              >
+                下一页
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -837,12 +878,283 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
+/* ---- 页面容器与项目身份区 ---- */
 .page {
-  background: var(--bg-page);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
-  padding: 24px 28px;
+  /* 反 AI 味守则：页面贴边铺满，不用带边框的居中卡片壳 */
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  padding: 0;
 }
+.identity {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 14px;
+  padding: 0 0 16px;
+  border-bottom: 2px solid var(--text-primary);
+}
+.identity-main {
+  min-width: 0;
+  flex: 1;
+}
+.identity-stats {
+  display: flex;
+  gap: 28px;
+  flex-shrink: 0;
+}
+.identity-stats .stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+.identity-stats .stat-num {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+.identity-stats .stat-num.excellent {
+  color: var(--health-excellent);
+}
+.identity-stats .stat-num.good {
+  color: var(--health-good);
+}
+.identity-stats .stat-num.fair {
+  color: var(--health-fair);
+}
+.identity-stats .stat-num.poor {
+  color: var(--health-poor);
+}
+.identity-stats .stat-key {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+/* ---- 分区工作台：左侧导航 + 右侧内容 ---- */
+.workspace {
+  display: grid;
+  grid-template-columns: 200px minmax(0, 1fr);
+  gap: 16px;
+  margin-top: 16px;
+  align-items: start;
+}
+.section-nav {
+  position: sticky;
+  top: 72px;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 0;
+  border-right: 1px solid var(--border-color);
+  background: transparent;
+}
+.section-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 12px;
+  border: none;
+  border-left: 2px solid transparent;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 13.5px;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background var(--transition),
+    color var(--transition);
+}
+.section-item:hover {
+  background: var(--bg-muted);
+  color: var(--text-primary);
+}
+.section-item.active {
+  border-left-color: var(--primary-color);
+  background: var(--bg-muted);
+  color: var(--text-primary);
+  font-weight: 600;
+}
+.section-index {
+  font-size: 11px;
+  width: 22px;
+  text-align: left;
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-tertiary);
+}
+.section-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.section-desc {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  font-weight: 400;
+}
+.section-content {
+  min-width: 0;
+  background: transparent;
+  border: none;
+  padding: 4px 8px 4px 24px;
+  overflow-x: auto;
+}
+.section-pane[style*='display: none'] {
+  display: none !important;
+}
+
+/* ---- 体检报告：报告单风格（大号分数 + 细线分隔） ---- */
+.score-panel {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+.score-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+  min-width: 96px;
+}
+.score-num {
+  font-size: 44px;
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.score-num.lv-excellent,
+.score-num.excellent {
+  color: var(--health-excellent);
+}
+.score-num.lv-good,
+.score-num.good {
+  color: var(--health-good);
+}
+.score-num.lv-fair,
+.score-num.fair {
+  color: var(--health-fair);
+}
+.score-num.lv-poor,
+.score-num.poor {
+  color: var(--health-poor);
+}
+.score-label {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  letter-spacing: 0.06em;
+}
+.score-rule {
+  width: 1px;
+  height: 64px;
+  background: var(--border-color);
+  flex-shrink: 0;
+}
+.score-panel .summary {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.7;
+  color: var(--text-secondary);
+}
+.report-body {
+  display: grid;
+  grid-template-columns: 130px minmax(0, 1fr);
+  gap: 24px;
+  margin-top: 18px;
+}
+.dims {
+  min-width: 0;
+}
+.dim {
+  padding: 12px 0;
+  border-bottom: 1px dashed var(--border-color);
+}
+.dim:last-child {
+  border-bottom: none;
+}
+.dim-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+.dim-name {
+  font-size: 13.5px;
+  font-weight: 600;
+}
+.dim-score {
+  font-size: 15px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.dim-bar-track {
+  height: 8px;
+  border-radius: 4px;
+  background: var(--bg-muted);
+  overflow: hidden;
+}
+.dim-bar-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.4s ease;
+}
+.dim-bar-fill.lv-excellent {
+  background: var(--health-excellent);
+}
+.dim-bar-fill.lv-good {
+  background: var(--health-good);
+}
+.dim-bar-fill.lv-fair {
+  background: var(--health-fair);
+}
+.dim-bar-fill.lv-poor {
+  background: var(--health-poor);
+}
+.dim-summary {
+  margin-top: 6px;
+  font-size: 12.5px;
+  color: var(--text-secondary);
+}
+
+@media (max-width: 860px) {
+  .workspace {
+    grid-template-columns: 1fr;
+  }
+  .section-nav {
+    position: static;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 0 4px;
+    border-right: none;
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 4px;
+    overflow-x: auto;
+  }
+  .section-item {
+    width: auto;
+    padding: 8px 10px;
+    border-left: none;
+    border-bottom: 2px solid transparent;
+  }
+  .section-item.active {
+    border-left-color: transparent;
+    border-bottom-color: var(--primary-color);
+  }
+  .section-desc {
+    display: none;
+  }
+  .identity-stats {
+    gap: 16px;
+  }
+  .score-panel {
+    flex-direction: column;
+    text-align: center;
+  }
+}
+
 .head {
   display: flex;
   justify-content: space-between;
@@ -920,96 +1232,6 @@ onBeforeUnmount(() => {
   background: rgba(220, 38, 38, 0.08);
   color: var(--fail-color);
   font-size: 13px;
-}
-.cards {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  gap: 14px;
-  margin-top: 18px;
-}
-.card {
-  background: var(--bg-card);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
-  padding: 16px;
-}
-.card h3 {
-  margin: 0 0 12px;
-  font-size: 13px;
-  color: var(--text-secondary);
-  font-weight: 600;
-}
-.metrics {
-  display: flex;
-  gap: 24px;
-}
-.metric .value {
-  font-size: 22px;
-  font-weight: 700;
-}
-.metric .key {
-  margin-top: 2px;
-  font-size: 12px;
-  color: var(--text-secondary);
-}
-.tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-.tag {
-  padding: 2px 8px;
-  border-radius: 4px;
-  background: var(--bg-muted);
-  font-size: 12px;
-}
-.langs {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-.lang-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-size: 12px;
-}
-.lang-name {
-  width: 90px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.bar-track {
-  flex: 1;
-  height: 6px;
-  border-radius: 3px;
-  background: var(--bg-muted);
-  overflow: hidden;
-}
-.bar-fill {
-  height: 100%;
-  border-radius: 3px;
-  background: var(--primary-color);
-}
-.lang-pct {
-  width: 48px;
-  text-align: right;
-  color: var(--text-secondary);
-}
-.kv {
-  margin: 0;
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 6px 14px;
-  font-size: 13px;
-}
-.kv dt {
-  color: var(--text-secondary);
-}
-.kv dd {
-  margin: 0;
-  text-align: right;
 }
 /* ---- 分析操作 ---- */
 .analysis-ops {
@@ -1134,64 +1356,6 @@ onBeforeUnmount(() => {
 .src-rules {
   color: var(--text-secondary);
   background: rgba(107, 114, 128, 0.12);
-}
-.report-body {
-  display: flex;
-  gap: 28px;
-  margin-top: 18px;
-}
-.score-panel {
-  flex: 0 0 240px;
-}
-.score-num {
-  font-size: 56px;
-  font-weight: 800;
-  line-height: 1;
-}
-.score-label {
-  margin-top: 6px;
-  font-size: 12px;
-  color: var(--text-secondary);
-}
-.summary {
-  margin-top: 12px;
-  font-size: 13px;
-  line-height: 1.7;
-  color: var(--text-primary);
-}
-.dims {
-  flex: 1;
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 14px;
-}
-.dim {
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
-  padding: 12px;
-}
-.dim-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-}
-.dim-name {
-  font-size: 13px;
-  font-weight: 600;
-}
-.dim-score {
-  font-size: 20px;
-  font-weight: 700;
-}
-.stars {
-  margin: 6px 0;
-  color: #f59e0b;
-  letter-spacing: 2px;
-}
-.dim-summary {
-  font-size: 12px;
-  color: var(--text-secondary);
-  line-height: 1.6;
 }
 .report-section {
   margin-top: 20px;

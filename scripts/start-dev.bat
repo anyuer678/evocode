@@ -5,7 +5,7 @@ cd /d "%~dp0.."
 
 echo ================================================
 echo   EvoCode one-click launcher
-echo   backend :18080  analyzer :8081  frontend :5173
+echo   backend :18080  analyzer :8091  frontend :5173
 echo ================================================
 
 rem ---------- 0. dependency check ----------
@@ -21,7 +21,7 @@ echo.
 echo [1/5] starting postgres/redis (docker compose) ...
 docker compose -f docker-compose.yml up -d
 if errorlevel 1 (
-    rem Docker Desktop 引擎瞬时抖动：容器已在运行时继续，不阻塞一键启动
+    rem Docker Desktop 引擎瞬时抖动：容器已在运行时继续，不阻塞一键启�?
     echo   [warn] docker compose up failed, checking existing containers ...
     docker ps --filter "name=evocode-postgres" | findstr /C:"evocode-postgres" >nul 2>&1
     if errorlevel 1 goto :fail_docker
@@ -47,10 +47,10 @@ if errorlevel 1 goto :fail_migrate
 
 rem ---------- 3. analyzer ----------
 echo.
-echo [3/5] starting analyzer :8081 (own window, close to stop) ...
+echo [3/5] starting analyzer :8091 (own window, close to stop) ...
 rem RAG vector search needs direct PG access; default matches docker-compose, overridable via env / root .env
 if not defined ANALYZER_PG_DSN set ANALYZER_PG_DSN=postgresql://evocode:evocode_dev@127.0.0.1:5432/evocode
-start "EvoCode-analyzer" cmd /k "set ANALYZER_PG_DSN=%ANALYZER_PG_DSN% & cd /d ""%~dp0..\analyzer"" & .venv\Scripts\python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8081"
+start "EvoCode-analyzer" cmd /k "set ANALYZER_PG_DSN=%ANALYZER_PG_DSN% & cd /d ""%~dp0..\analyzer"" & .venv\Scripts\python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8091"
 
 rem ---------- 4. backend ----------
 echo.
@@ -87,8 +87,8 @@ timeout /t 2 /nobreak >nul
 goto :waitbe
 :beok
 echo   [backend ] OK  http://127.0.0.1:18080/api/v1/health
-curl -s -f -o nul http://127.0.0.1:8081/health 2>nul
-if not errorlevel 1 (echo   [analyzer] OK  http://127.0.0.1:8081/health) else (echo   [analyzer] not ready, check the EvoCode-analyzer window)
+curl -s -f -o nul http://127.0.0.1:8091/health 2>nul
+if not errorlevel 1 (echo   [analyzer] OK  http://127.0.0.1:8091/health) else (echo   [analyzer] not ready, check the EvoCode-analyzer window)
 curl -s -f -o nul http://127.0.0.1:5173/ 2>nul
 if not errorlevel 1 (echo   [frontend] OK  http://localhost:5173) else (echo   [frontend] not ready, check the EvoCode-frontend window)
 

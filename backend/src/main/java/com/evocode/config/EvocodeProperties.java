@@ -13,8 +13,8 @@ public class EvocodeProperties {
     /** 代码库磁盘根目录（data/projects/{id}/） */
     private String dataDir = "data";
 
-    /** analyzer 内部服务地址（仅 127.0.0.1） */
-    private String analyzerUrl = "http://127.0.0.1:8081";
+    /** analyzer 内部服务地址（仅 127.0.0.1；审查：8081 与本机 polycode-auth 冲突，改 8091） */
+    private String analyzerUrl = "http://127.0.0.1:8091";
 
     /** LLM 超时/重试（chat 场景使用，随 P6 落地） */
     private int llmTimeoutSeconds = 60;

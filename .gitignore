@@ -40,3 +40,6 @@ Thumbs.db
 
 # 偶发 curl 输出落盘（排查时产生）
 -w
+
+# playwright MCP 临时产物（截图/快照）
+.playwright-mcp/

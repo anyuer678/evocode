@@ -1,5 +1,5 @@
-ï»¿# EvoCode ç¯å¢ƒè‡ªæ£€ï¼ˆé¡µé¢æ‰“ä¸å¼€/æ¥å£ 500 æ—¶å…ˆè·‘è¿™ä¸ªï¼‰
-# ç”¨æ³•ï¼š.\scripts\check-env.ps1
+# EvoCode »·¾³×Ô¼ì£¨Ò³Ãæ´ò²»¿ª/½Ó¿Ú 500 Ê±ÏÈÅÜÕâ¸ö£©
+# ÓÃ·¨£º.\scripts\check-env.ps1
 $ErrorActionPreference = 'Continue'
 $root = Split-Path -Parent $PSScriptRoot
 $issues = @()
@@ -10,59 +10,59 @@ function Check($name, $ok, $hint) {
     if (-not $ok) { $script:issues += $hint }
 }
 
-Write-Host '==== EvoCode ç¯å¢ƒè‡ªæ£€ ====' -ForegroundColor Cyan
+Write-Host '==== EvoCode »·¾³×Ô¼ì ====' -ForegroundColor Cyan
 
-# 1. Docker å¼•æ“ + å®¹å™¨
-Write-Host '--- 1. åŸºç¡€è®¾æ–½ ---' -ForegroundColor Yellow
+# 1. Docker ÒıÇæ + ÈİÆ÷
+Write-Host '--- 1. »ù´¡ÉèÊ© ---' -ForegroundColor Yellow
 docker ps > $null 2>&1
 $dockerOk = ($LASTEXITCODE -eq 0)
-Check 'Docker å¼•æ“' $dockerOk 'å¯åŠ¨ Docker Desktopï¼Œç­‰å¼•æ“å°±ç»ªï¼ˆæ‰˜ç›˜å›¾æ ‡å˜ç»¿ï¼‰åé‡è·‘æœ¬è„šæœ¬'
+Check 'Docker ÒıÇæ' $dockerOk 'Æô¶¯ Docker Desktop£¬µÈÒıÇæ¾ÍĞ÷£¨ÍĞÅÌÍ¼±ê±äÂÌ£©ºóÖØÅÜ±¾½Å±¾'
 
 if ($dockerOk) {
     $pg = docker ps --filter "name=evocode-postgres" --format "{{.Names}}" 2>$null
     $redis = docker ps --filter "name=evocode-redis" --format "{{.Names}}" 2>$null
-    Check 'PG å®¹å™¨ evocode-postgres' ($pg -match 'evocode-postgres') 'docker compose up -d postgres'
-    Check 'Redis å®¹å™¨ evocode-redis' ($redis -match 'evocode-redis') 'docker compose up -d redis'
+    Check 'PG ÈİÆ÷ evocode-postgres' ($pg -match 'evocode-postgres') 'docker compose up -d postgres'
+    Check 'Redis ÈİÆ÷ evocode-redis' ($redis -match 'evocode-redis') 'docker compose up -d redis'
 }
 
-# 2. ç«¯å£
-Write-Host '--- 2. ç«¯å£ ---' -ForegroundColor Yellow
+# 2. ¶Ë¿Ú
+Write-Host '--- 2. ¶Ë¿Ú ---' -ForegroundColor Yellow
 $portHint = @{
-    5432 = 'docker compose up -d postgresï¼ˆå¼•æ“å°±ç»ªåï¼‰'
+    5432 = 'docker compose up -d postgres£¨ÒıÇæ¾ÍĞ÷ºó£©'
     6380 = 'docker compose up -d redis'
-    18080 = 'backend æœªå¯åŠ¨ï¼šå¼•æ“å°±ç»ªåè·‘ scripts\start-dev.batï¼ˆæˆ– java -jar backend\target\...jarï¼‰'
-    8081  = 'analyzer æœªå¯åŠ¨ï¼šåŒ start-dev.bat'
-    5173  = 'frontend æœªå¯åŠ¨ï¼šåŒ start-dev.bat'
+    18080 = 'backend Î´Æô¶¯£ºÒıÇæ¾ÍĞ÷ºóÅÜ scripts\start-dev.bat£¨»ò java -jar backend\target\...jar£©'
+    8091  = 'analyzer Î´Æô¶¯£ºÍ¬ start-dev.bat'
+    5173  = 'frontend Î´Æô¶¯£ºÍ¬ start-dev.bat'
 }
-foreach ($p in 5432, 6380, 18080, 8081, 5173) {
+foreach ($p in 5432, 6380, 18080, 8091, 5173) {
     $r = Test-NetConnection 127.0.0.1 -Port $p -WarningAction SilentlyContinue
-    $label = switch ($p) { 5432 { 'PG' } 6380 { 'Redis' } 18080 { 'backend' } 8081 { 'analyzer' } 5173 { 'frontend' } }
-    Check ("ç«¯å£ {0} ({1})" -f $p, $label) $r.TcpTestSucceeded $portHint[$p]
+    $label = switch ($p) { 5432 { 'PG' } 6380 { 'Redis' } 18080 { 'backend' } 8091 { 'analyzer' } 5173 { 'frontend' } }
+    Check ("¶Ë¿Ú {0} ({1})" -f $p, $label) $r.TcpTestSucceeded $portHint[$p]
 }
 
-# 3. ä¾èµ–ä¸æ„å»ºäº§ç‰©
-Write-Host '--- 3. ä¾èµ–/äº§ç‰© ---' -ForegroundColor Yellow
-Check 'backend jar å­˜åœ¨' (Test-Path "$root\backend\target\evocode-backend-0.1.0-SNAPSHOT.jar") 'éœ€å…ˆè·‘ start-dev.batï¼ˆè‡ªåŠ¨ mvn packageï¼‰æˆ– cd backend; .\mvnw.cmd -q -DskipTests package'
-Check 'analyzer .venv å­˜åœ¨' (Test-Path "$root\analyzer\.venv\Scripts\python.exe") 'cd analyzer; python -m venv .venv; .venv\Scripts\pip install -r requirements.txt'
-Check 'frontend node_modules å­˜åœ¨' (Test-Path "$root\frontend\node_modules") 'cd frontend; npm install'
+# 3. ÒÀÀµÓë¹¹½¨²úÎï
+Write-Host '--- 3. ÒÀÀµ/²úÎï ---' -ForegroundColor Yellow
+Check 'backend jar ´æÔÚ' (Test-Path "$root\backend\target\evocode-backend-0.1.0-SNAPSHOT.jar") 'ĞèÏÈÅÜ start-dev.bat£¨×Ô¶¯ mvn package£©»ò cd backend; .\mvnw.cmd -q -DskipTests package'
+Check 'analyzer .venv ´æÔÚ' (Test-Path "$root\analyzer\.venv\Scripts\python.exe") 'cd analyzer; python -m venv .venv; .venv\Scripts\pip install -r requirements.txt'
+Check 'frontend node_modules ´æÔÚ' (Test-Path "$root\frontend\node_modules") 'cd frontend; npm install'
 
-# 4. é…ç½®
-Write-Host '--- 4. é…ç½®ï¼ˆæ ¹ .envï¼‰---' -ForegroundColor Yellow
+# 4. ÅäÖÃ
+Write-Host '--- 4. ÅäÖÃ£¨¸ù .env£©---' -ForegroundColor Yellow
 $envFile = "$root\.env"
 if (Test-Path $envFile) {
     $envContent = Get-Content $envFile -Raw
-    Check 'LLM_API_KEY å·²é…ç½®' ($envContent -match 'LLM_API_KEY\s*=\s*\S') 'å¯é€‰ï¼šä¸é…åˆ™ AI åŒ»ç”Ÿ/æ–‡æ¡£é™çº§ï¼ˆæŠ¥å‘Šèµ°è§„åˆ™ç‰ˆï¼‰'
-    Check 'ANALYZER_PG_DSN å·²é…ç½®' ($envContent -match 'ANALYZER_PG_DSN\s*=\s*\S') 'å¯é€‰ï¼šstart-dev.bat æœ‰å†…ç½®é»˜è®¤ï¼Œæ”¹è¿‡ DB å¯†ç æ‰éœ€è¦'
+    Check 'LLM_API_KEY ÒÑÅäÖÃ' ($envContent -match 'LLM_API_KEY\s*=\s*\S') '¿ÉÑ¡£º²»ÅäÔò AI Ò½Éú/ÎÄµµ½µ¼¶£¨±¨¸æ×ß¹æÔò°æ£©'
+    Check 'ANALYZER_PG_DSN ÒÑÅäÖÃ' ($envContent -match 'ANALYZER_PG_DSN\s*=\s*\S') '¿ÉÑ¡£ºstart-dev.bat ÓĞÄÚÖÃÄ¬ÈÏ£¬¸Ä¹ı DB ÃÜÂë²ÅĞèÒª'
 } else {
-    Write-Host '[INFO] æ ¹ .env ä¸å­˜åœ¨ï¼ˆå¯é€‰é…ç½®ï¼›å¤åˆ¶ .env.example å³å¯ï¼‰' -ForegroundColor DarkGray
+    Write-Host '[INFO] ¸ù .env ²»´æÔÚ£¨¿ÉÑ¡ÅäÖÃ£»¸´ÖÆ .env.example ¼´¿É£©' -ForegroundColor DarkGray
 }
 
-# 5. æ±‡æ€»
-Write-Host '==== æ±‡æ€» ====' -ForegroundColor Cyan
+# 5. »ã×Ü
+Write-Host '==== »ã×Ü ====' -ForegroundColor Cyan
 if ($issues.Count -eq 0) {
-    Write-Host 'å…¨éƒ¨å°±ç»ªã€‚å¯åŠ¨ï¼šåŒå‡» scripts\start-dev.batï¼Œæ‰“å¼€ http://localhost:5173' -ForegroundColor Green
+    Write-Host 'È«²¿¾ÍĞ÷¡£Æô¶¯£ºË«»÷ scripts\start-dev.bat£¬´ò¿ª http://localhost:5173' -ForegroundColor Green
 } else {
-    Write-Host "å‘ç° $($issues.Count) ä¸ªé—®é¢˜ï¼š" -ForegroundColor Red
+    Write-Host "·¢ÏÖ $($issues.Count) ¸öÎÊÌâ£º" -ForegroundColor Red
     $issues | ForEach-Object { Write-Host "  - $_" -ForegroundColor Yellow }
-    Write-Host 'ä¿®å¤åé‡è·‘æœ¬è„šæœ¬ï¼›ä»å¤±è´¥è¯·è´´å‡º scripts\start-dev.bat ä¸»çª—å£ä¸ backend çª—å£çš„è¾“å‡ºã€‚'
+    Write-Host 'ĞŞ¸´ºóÖØÅÜ±¾½Å±¾£»ÈÔÊ§°ÜÇëÌù³ö scripts\start-dev.bat Ö÷´°¿ÚÓë backend ´°¿ÚµÄÊä³ö¡£'
 }

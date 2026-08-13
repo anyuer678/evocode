@@ -1,9 +1,9 @@
-ï»¿# EvoCode å†’çƒŸæ£€æŸ¥ï¼ˆwinï¼‰ï¼šä¸‰ç«¯å¥åº·æ£€æŸ¥
-# ç”¨æ³•ï¼š.\scripts\smoke.ps1        ï¼ˆé»˜è®¤ 8081/18080/5173ï¼Œä¸ start-dev.bat ç«¯å£çº¦å®šä¸€è‡´ï¼‰
-# å¯è¦†ç›–ï¼š$env:SMOKE_ANALYZER_URL / $env:SMOKE_BACKEND_URL / $env:SMOKE_FRONTEND_URL
+# EvoCode Ã°ÑÌ¼ì²é£¨win£©£ºÈı¶Ë½¡¿µ¼ì²é
+# ÓÃ·¨£º.\scripts\smoke.ps1        £¨Ä¬ÈÏ 8091/18080/5173£¬Óë start-dev.bat ¶Ë¿ÚÔ¼¶¨Ò»ÖÂ£©
+# ¿É¸²¸Ç£º$env:SMOKE_ANALYZER_URL / $env:SMOKE_BACKEND_URL / $env:SMOKE_FRONTEND_URL
 $ErrorActionPreference = 'Stop'
 $targets = @(
-    @{ Name = 'analyzer';  Url = if ($env:SMOKE_ANALYZER_URL) { $env:SMOKE_ANALYZER_URL } else { 'http://127.0.0.1:8081/health' } },
+    @{ Name = 'analyzer';  Url = if ($env:SMOKE_ANALYZER_URL) { $env:SMOKE_ANALYZER_URL } else { 'http://127.0.0.1:8091/health' } },
     @{ Name = 'backend';   Url = if ($env:SMOKE_BACKEND_URL) { $env:SMOKE_BACKEND_URL } else { 'http://127.0.0.1:18080/api/v1/health' } },
     @{ Name = 'frontend';  Url = if ($env:SMOKE_FRONTEND_URL) { $env:SMOKE_FRONTEND_URL } else { 'http://127.0.0.1:5173/' } }
 )
@@ -17,4 +17,4 @@ foreach ($t in $targets) {
         Write-Host ("[{0}] FAIL  {1}  ->  {2}" -f $t.Name, $t.Url, $_.Exception.Message) -ForegroundColor Red
     }
 }
-if ($fail) { exit 1 } else { Write-Host 'å†’çƒŸé€šè¿‡ï¼šä¸‰ç«¯å¯è¾¾' -ForegroundColor Green }
+if ($fail) { exit 1 } else { Write-Host 'Ã°ÑÌÍ¨¹ı£ºÈı¶Ë¿É´ï' -ForegroundColor Green }

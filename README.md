@@ -1,4 +1,4 @@
-# EvoCode
+﻿# EvoCode
 
 > **AI Software Evolution Platform** · 基于大模型的软件维护与演化平台
 > 让 AI 持续理解、诊断、维护已有软件 —— 做软件的"体检 + 医生 + 健康档案"
@@ -106,7 +106,7 @@ scripts\dev-down.bat      :: 停止（按端口停止 backend/analyzer/frontend�
 ```
 
 - 各服务在**独立窗口**运行（`EvoCode-analyzer` / `EvoCode-backend` / `EvoCode-frontend`），关闭窗口即停；主窗口做健康检查，失败会停留显示错误原因（不闪退）。
-- 端口约定：**backend 18080**、**analyzer 8081**（backend 的 `analyzer-url` 默认即此）、**frontend 5173**。
+- 端口约定：**backend 18080**、**analyzer 8091**（backend 的 `analyzer-url` 默认即此）、**frontend 5173**。
 - 数据库迁移自动执行（幂等，`init-db.ps1` 按序跑 `db/migration/V*.sql`，`schema_version` 记录跳过已应用；V001–V011）。
 - **SonarQube 为可选组件**：默认一键启动不拉起（体积大）；需要真实质量指标时 `docker compose --profile full up -d` 单独启动。未启动/未配置时质量维度降级为代理指标（`metrics.available=false`，前端显示 N/A），不阻塞分析全链路（TD-07）。
 
@@ -130,7 +130,7 @@ ANALYZER_PG_DSN=postgresql://evocode:evocode_dev@127.0.0.1:5432/evocode
 docker compose up -d                          # postgres(pgvector) / redis
 scripts/init-db.ps1                           # 执行 db/migration/V*.sql（幂等，win）
 cd analyzer && $env:ANALYZER_PG_DSN="postgresql://evocode:evocode_dev@127.0.0.1:5432/evocode"
-cd analyzer && .\.venv\Scripts\python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8081
+cd analyzer && .\.venv\Scripts\python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8091
 cd backend && $env:BACKEND_PORT=18080; java -jar target\evocode-backend-0.1.0-SNAPSHOT.jar
 # 注：backend 弃用 mvn spring-boot:run（本机报 ClassNotFound），统一 java -jar 打包产物
 cd frontend && npm install && npm run dev
