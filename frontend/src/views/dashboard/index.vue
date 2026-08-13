@@ -11,7 +11,7 @@ import {
 } from 'echarts/components'
 import { CanvasRenderer } from 'echarts/renderers'
 import type { ECharts } from 'echarts/core'
-import { NCard, NEmpty, NList, NListItem, NStatistic } from 'naive-ui'
+import { NButton, NCard, NEmpty, NList, NListItem, NStatistic } from 'naive-ui'
 import { listProjects } from '../../api/project'
 import type { ProjectSummary } from '../../types/api'
 

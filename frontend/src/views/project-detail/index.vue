@@ -1,5 +1,5 @@
 ﻿<script setup lang="ts">
-import { h, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, h, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import type { DataTableColumns } from 'naive-ui'
 import {
   NAlert,
@@ -7,6 +7,7 @@ import {
   NCard,
   NDataTable,
   NEmpty,
+  NInput,
   NModal,
   NProgress,
   NSpin,
@@ -47,7 +48,8 @@ import type {
 } from '../../types/api'
 
 const route = useRoute()
-const projectId = Number(route.params.id)
+// 审查修复：路由参数响应式（从 /projects/13 直接跳 /projects/14 时组件复用需刷新）
+const projectId = computed(() => Number(route.params.id))
 
 // 分区导航：当前激活的功能区（体检报告/质量/架构/演化/依赖/AI医生/技术债/文档/文件）
 // 反 AI 味守则：导航用克制的序号/文字标识，不用 emoji
@@ -136,7 +138,7 @@ function showToast(msg: string): void {
 /** 订阅项目分析进度；SUCCEEDED/FAILED → Toast + 刷新数据并关闭连接。 */
 function connectProgress(): void {
   closeProgress?.()
-  closeProgress = subscribeAnalysisProgress(projectId, {
+  closeProgress = subscribeAnalysisProgress(projectId.value, {
     onEvent: (e) => {
       liveProgress.value = e
       if (e.status === 'SUCCEEDED' || e.status === 'FAILED' || e.status === 'CANCELLED') {
@@ -171,7 +173,7 @@ function connectProgress(): void {
 
 async function loadDetail() {
   try {
-    detail.value = await getProjectDetail(projectId)
+    detail.value = await getProjectDetail(projectId.value)
     loadError.value = ''
   } catch (e) {
     loadError.value = e instanceof Error ? e.message : String(e)
@@ -203,7 +205,7 @@ function pollIfRunning() {
 
 async function loadHistory() {
   try {
-    const data = await listAnalyses(projectId)
+    const data = await listAnalyses(projectId.value)
     analyses.value = data.items
     // 默认选中最近一条有报告的分析（否则最新一条）
     const withReport = data.items.find((a) => a.healthScore != null && a.status === 'SUCCEEDED')
@@ -244,7 +246,7 @@ async function startAnalysis() {
   starting.value = true
   loadError.value = ''
   try {
-    const created = await createAnalysis(projectId)
+    const created = await createAnalysis(projectId.value)
     await loadDetail()
     connectProgress()
     pollAnalysis(created.id)
@@ -296,7 +298,7 @@ function pollAnalysis(analysisId: number) {
 async function loadQuality() {
   qualityLoading.value = true
   try {
-    quality.value = await getQualityIssues(projectId, { page: 1, size: 20 })
+    quality.value = await getQualityIssues(projectId.value, { page: 1, size: 20 })
   } catch {
     quality.value = null
   } finally {
@@ -309,7 +311,7 @@ async function loadQuality() {
 async function loadFiles() {
   fileLoading.value = true
   try {
-    const data = await listFiles(projectId, {
+    const data = await listFiles(projectId.value, {
       page: filePage.value,
       size: fileSize.value,
       language: langFilter.value || undefined,
@@ -335,7 +337,7 @@ async function openFile(item: FileNodeItem) {
   contentLoading.value = true
   content.value = null
   try {
-    content.value = await getFileContent(projectId, item.path)
+    content.value = await getFileContent(projectId.value, item.path)
   } catch (e) {
     content.value = {
       path: item.path,
@@ -365,7 +367,7 @@ function fmtTime(iso: string | null): string {
   return new Date(iso).toLocaleString('zh-CN', { hour12: false })
 }
 
-onMounted(async () => {
+async function loadAll() {
   await loadDetail()
   const st = detail.value?.status
   if (st === 'READY') {
@@ -379,7 +381,29 @@ onMounted(async () => {
   } else {
     pollIfRunning()
   }
-})
+}
+
+onMounted(loadAll)
+
+// 审查修复：路由参数变化（同组件复用跳转其他项目）时重置状态并重载
+watch(
+  () => route.params.id,
+  () => {
+    activeSection.value = 'report'
+    detail.value = null
+    report.value = null
+    analyses.value = []
+    quality.value = null
+    files.value = []
+    content.value = null
+    loadError.value = ''
+    if (projectTimer) window.clearInterval(projectTimer)
+    if (analysisTimer) window.clearInterval(analysisTimer)
+    closeProgress?.()
+    closeProgress = null
+    void loadAll()
+  },
+)
 
 onBeforeUnmount(() => {
   if (projectTimer) window.clearInterval(projectTimer)

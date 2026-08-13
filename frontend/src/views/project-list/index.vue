@@ -154,7 +154,8 @@ async function onExport(item: ProjectSummary) {
     a.href = url
     a.download = `evocode-report-${item.id}.md`
     a.click()
-    URL.revokeObjectURL(url)
+    // 审查修复：立即 revoke 可能导致部分浏览器下载中断，延迟释放
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000)
   } catch (e) {
     message.error(e instanceof Error ? e.message : String(e))
   }

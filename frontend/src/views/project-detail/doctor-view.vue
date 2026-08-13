@@ -80,7 +80,15 @@ async function createSession() {
 }
 
 async function selectSession(id: number) {
-  if (loading.value || streaming.value || id === activeId.value) return
+  if (loading.value || id === activeId.value) return
+  // 审查修复：流式回答进行中允许切换会话——先取消旧流，避免阻塞输入
+  if (streaming.value) {
+    streamAbort?.abort()
+    streamAbort = null
+    streaming.value = false
+    streamText.value = ''
+    streamError.value = ''
+  }
   activeId.value = id
   messages.value = []
   loading.value = true
@@ -200,7 +208,11 @@ async function send() {
   }
 }
 
+// 审查修复：Monaco 预览竞态守卫——快速点击多个引用时，过期响应丢弃
+let previewSeq = 0
+
 async function previewFile(file: string, line: number) {
+  const seq = ++previewSeq
   preview.value = { path: file, line }
   await nextTick()
   if (!editorEl.value) return
@@ -208,11 +220,13 @@ async function previewFile(file: string, line: number) {
   try {
     data = await getFileContent(props.projectId, file)
   } catch (err) {
+    if (seq !== previewSeq) return
     console.error('读取文件失败', err)
     preview.value = null
     return
   }
   const monaco = await import('monaco-editor')
+  if (seq !== previewSeq) return
   try {
     editor?.dispose()
     editor = monaco.editor.create(editorEl.value, {

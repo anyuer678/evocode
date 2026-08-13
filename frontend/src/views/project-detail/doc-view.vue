@@ -183,7 +183,7 @@ onMounted(load)
 </script>
 <template>
   <NCard size="small" class="docs">
-    <NTabs v-model:value="activeType" type="line" @update:value="switchTab">
+    <NTabs :value="activeType" type="line" @update:value="switchTab">
       <NTabPane v-for="t in tabs" :key="t.value" :name="t.value" :tab="t.label" />
     </NTabs>
 
