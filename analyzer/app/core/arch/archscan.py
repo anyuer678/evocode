@@ -10,7 +10,9 @@ import logging
 from pathlib import Path
 
 from .base import ArchEdge, check_layer_violations, node_metrics
+from .go_parser import parse_go_file
 from .java_parser import parse_java_file
+from .js_parser import parse_js_file, parse_ts_file
 from .python_parser import parse_python_file
 
 logger = logging.getLogger("evocode.analyzer.arch")
@@ -29,6 +31,9 @@ _SKIP_DIRS = {
 }
 _PY_EXTS = {".py"}
 _JAVA_EXTS = {".java"}
+_JS_EXTS = {".js", ".jsx", ".mjs", ".cjs"}
+_TS_EXTS = {".ts", ".tsx"}
+_GO_EXTS = {".go"}
 
 
 def _iter_source_files(code_dir: Path):
@@ -38,7 +43,13 @@ def _iter_source_files(code_dir: Path):
         parts = set(path.parts)
         if parts & _SKIP_DIRS:
             continue
-        if path.suffix in _PY_EXTS or path.suffix in _JAVA_EXTS:
+        if (
+            path.suffix in _PY_EXTS
+            or path.suffix in _JAVA_EXTS
+            or path.suffix in _JS_EXTS
+            or path.suffix in _TS_EXTS
+            or path.suffix in _GO_EXTS
+        ):
             yield path
 
 
@@ -56,8 +67,16 @@ def architecture_scan(code_dir: str, languages: list[str] | None = None) -> dict
             source = path.read_bytes()
             if path.suffix in _PY_EXTS:
                 file_nodes, calls = parse_python_file(rel, source)
-            else:
+            elif path.suffix in _JAVA_EXTS:
                 file_nodes, calls = parse_java_file(rel, source)
+            elif path.suffix in _TS_EXTS:
+                file_nodes, calls = parse_ts_file(rel, source)
+            elif path.suffix in _JS_EXTS:
+                file_nodes, calls = parse_js_file(rel, source)
+            elif path.suffix in _GO_EXTS:
+                file_nodes, calls = parse_go_file(rel, source)
+            else:
+                continue
         except Exception as exc:
             logger.warning("解析失败跳过 %s：%s", rel, exc)
             continue
