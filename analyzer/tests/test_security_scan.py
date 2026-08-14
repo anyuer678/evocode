@@ -60,3 +60,33 @@ def test_clean_code_no_issues(tmp_path):
         "ok.py": "def f(x):\n    return x + 1\n",
     })
     assert security_scan(code) == []
+
+
+def test_unsafe_pickle_detected(tmp_path):
+    code = _tree(tmp_path, {
+        "load.py": "import pickle\ndata = pickle.loads(open('x','rb').read())\n",
+    })
+    issues = security_scan(code)
+    hits = [i for i in issues if i["ruleKey"] == "DANGEROUS-CALL" and "反序列化" in i["message"]]  # noqa: E501
+    assert hits
+    assert "禁用 pickle" in hits[0]["suggestion"]
+
+
+def test_weak_hash_detected(tmp_path):
+    code = _tree(tmp_path, {
+        "hash.py": "import hashlib\nh = hashlib.md5(password.encode()).hexdigest()\n",
+    })
+    issues = security_scan(code)
+    hits = [i for i in issues if i["ruleKey"] == "DANGEROUS-CALL" and "弱哈希" in i["message"]]  # noqa: E501
+    assert hits
+    assert "bcrypt" in hits[0]["suggestion"]
+
+
+def test_plaintext_password_compare_detected(tmp_path):
+    code = _tree(tmp_path, {
+        "auth.py": "if user.password == input_password:\n    grant()\n",
+    })
+    issues = security_scan(code)
+    hits = [i for i in issues if i["ruleKey"] == "PLAINTEXT-PASSWORD-COMPARE"]
+    assert hits
+    assert "bcrypt" in hits[0]["suggestion"]

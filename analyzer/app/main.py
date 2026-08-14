@@ -11,6 +11,7 @@ from fastapi.responses import JSONResponse, StreamingResponse
 
 from .config import get_settings
 from .core.arch.archscan import architecture_scan
+from .core.bloated_scan import bloated_scan
 from .core.complexity_scan import complexity_scan
 from .core.dependency.depscan import scan_dependencies
 from .core.docgen import generate_doc
@@ -20,6 +21,7 @@ from .core.evolution import evolution_scan
 from .core.explain import explain
 from .core.filescanner import scan_project
 from .core.llm import OpenAICompatClient
+from .core.magicnumber_scan import magicnumber_scan
 from .core.prompts import REPORT_PROMPT_VERSION
 from .core.rag.service import RagService
 from .core.rag.vectorstore import KnowledgeStore
@@ -27,6 +29,7 @@ from .core.reportgen import generate_report
 from .core.security_scan import security_scan
 from .core.sonar import quality_scan
 from .core.style_scan import style_scan
+from .core.todomarker_scan import todomarker_scan
 from .schemas import (
     ArchEdge,
     ArchNode,
@@ -269,6 +272,15 @@ def quality(req: QualityRequest) -> QualityResult:
         extra_issues.append(issue)
     for issue in style_scan(code_dir):
         issue.setdefault("source", "STYLE")
+        extra_issues.append(issue)
+    for issue in todomarker_scan(code_dir):
+        issue.setdefault("source", "TODO_MARKER")
+        extra_issues.append(issue)
+    for issue in bloated_scan(code_dir):
+        issue.setdefault("source", "BLOATED")
+        extra_issues.append(issue)
+    for issue in magicnumber_scan(code_dir):
+        issue.setdefault("source", "MAGIC_NUMBER")
         extra_issues.append(issue)
 
     result = quality_scan(req.projectId, str(code_dir), settings)

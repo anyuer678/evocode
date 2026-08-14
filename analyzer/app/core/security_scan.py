@@ -38,7 +38,22 @@ _DANGEROUS_FUNC = [
     (r"\bexecCommand\s*\(", "命令执行", "校验输入并避免 shell 拼接"),
     (r"\bchild_process\.exec\s*\(", "Node 命令执行", "用 execFile/spawn（参数数组）避免 shell 注入"),  # noqa: E501
     (r"\brm\s+-rf\s+", "危险删除", "改为受限删除（校验路径前缀+白名单），禁止通配根目录"),  # noqa: E501
+    # 不安全反序列化（可导致 RCE/反序列化攻击）
+    (r"\bpickle\.loads?\s*\(", "不安全反序列化", "禁用 pickle 处理不可信输入；改用 JSON（结构数据）或专门的反序列化库"),  # noqa: E501
+    (r"\byaml\.load\s*\([^)]*Loader=.*yaml\.Load\b|yaml\.load\s*\([^)]*\)(?!.*SafeLoader)", "YAML 不安全加载", "用 yaml.safe_load 替代 yaml.load，避免任意对象构造攻击"),  # noqa: E501
+    (r"\breadObject\s*\(", "Java 反序列化", "对不可信流禁用 Java 反序列化（ObjectInputStream）；用 JSON/白名单序列化"),  # noqa: E501
+    # 弱哈希（用于密码/敏感数据）
+    (r"\bmd5\s*\(|\bhashlib\.md5\s*\(|MessageDigest\.getInstance\(\s*[\"']MD5[\"']", "弱哈希算法", "改用 bcrypt/argon2/scrypt（加盐慢哈希）存储密码；MD5/SHA1 仅可用于校验和"),  # noqa: E501
+    (r"\bsha1\s*\(|\bhashlib\.sha1\s*\(|MessageDigest\.getInstance\(\s*[\"']SHA-?1[\"']", "弱哈希算法", "改用 bcrypt/argon2/scrypt（加盐慢哈希）存储密码；SHA1 仅可用于校验和"),  # noqa: E501
+    # 不安全的随机数（用于安全令牌/密码重置）
+    (r"\bMath\.random\s*\(|\brandom\.random\s*\(|\bRandom\(\).*next", "不安全随机数", "安全场景（令牌/密钥/密码）用 CSPRNG：Java SecureRandom / Python secrets / crypto.getRandomValues"),  # noqa: E501
 ]
+
+# 明文密码比较：==/equals/strcmp 对 password/passwd 等变量（无法取到真值，只报比较行为）
+_PLAINTEXT_PW_CMP = re.compile(
+    r"(?:password|passwd|pwd|secret|token)\s*(?:==|!=|\.equals\s*\(|\.contentEquals\s*\(|strcmp\s*\()",
+    re.IGNORECASE,
+)
 
 # SQL 拼接：SQL 关键字 + 字符串连接
 _SQL_CONCAT = re.compile(
@@ -90,6 +105,19 @@ def _scan_file(rel: str, text: str) -> list[dict]:
                 "severity": "CRITICAL",
                 "message": "SQL 语句字符串拼接，存在注入风险",
                 "suggestion": "改用参数化查询（PreparedStatement/? 占位符/ORM），禁止拼接用户输入。",  # noqa: E501
+                "line": i,
+            })
+        # 4. 明文密码比较
+        if _PLAINTEXT_PW_CMP.search(stripped):
+            issues.append({
+                "ruleKey": "PLAINTEXT-PASSWORD-COMPARE",
+                "kind": "VULNERABILITY",
+                "severity": "CRITICAL",
+                "message": "直接比较密码明文/哈希值",
+                "suggestion": (
+                    "密码校验改用安全哈希比较：bcrypt.checkpw / PasswordEncoder.matches，"  # noqa: E501
+                    "并用恒定时间比较避免时序攻击。"
+                ),
                 "line": i,
             })
     return issues
