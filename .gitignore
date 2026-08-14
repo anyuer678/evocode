@@ -43,3 +43,6 @@ Thumbs.db
 
 # playwright MCP 临时产物（截图/快照）
 .playwright-mcp/
+
+# MkDocs 构建产物
+site/
