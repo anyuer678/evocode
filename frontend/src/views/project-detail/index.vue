@@ -864,13 +864,14 @@ const fileColumns: DataTableColumns<FileNodeItem> = [
 }
 .detail-head {
   display: flex;
-  align-items: flex-end;
+  align-items: center;
   justify-content: space-between;
   gap: 16px;
-  padding: 14px 16px;
+  padding: 18px 20px;
   background: #fff;
   border: 1px solid #e2e8f0;
-  border-radius: 6px;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
 }
 .detail-head-title-row {
   display: flex;
@@ -880,7 +881,7 @@ const fileColumns: DataTableColumns<FileNodeItem> = [
 }
 .detail-name {
   margin: 0;
-  font-size: 20px;
+  font-size: 22px;
   font-weight: 700;
 }
 .detail-repo {
@@ -898,7 +899,7 @@ const fileColumns: DataTableColumns<FileNodeItem> = [
 }
 .detail-head-stats {
   display: flex;
-  gap: 24px;
+  gap: 28px;
   flex-shrink: 0;
 }
 .stat {
@@ -906,14 +907,11 @@ const fileColumns: DataTableColumns<FileNodeItem> = [
   flex-direction: column;
   align-items: center;
   gap: 2px;
+  min-width: 56px;
 }
 .stat-num {
-  font-size: 20px;
+  font-size: 22px;
   font-weight: 700;
-}
-.stat-key {
-  font-size: 11px;
-  color: #8798ab;
 }
 .stat-num.excellent {
   color: #0f9d58;
@@ -926,6 +924,11 @@ const fileColumns: DataTableColumns<FileNodeItem> = [
 }
 .stat-num.poor {
   color: #d64545;
+}
+.stat-key {
+  font-size: 11px;
+  color: #8798ab;
+  letter-spacing: 0.04em;
 }
 .detail-alert {
   margin: 0;

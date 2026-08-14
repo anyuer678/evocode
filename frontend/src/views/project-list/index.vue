@@ -3,7 +3,17 @@ import { computed, ref, h, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useMessage } from 'naive-ui'
 import type { DataTableColumns } from 'naive-ui'
-import { NButton, NDataTable, NInput, NProgress, NSelect, NSpace, NTag, useDialog } from 'naive-ui'
+import {
+  NButton,
+  NCard,
+  NDataTable,
+  NInput,
+  NProgress,
+  NSelect,
+  NSpace,
+  NTag,
+  useDialog,
+} from 'naive-ui'
 import { listProjects, deleteProject, exportReport } from '../../api/project'
 import type { ProjectStatus, ProjectSummary } from '../../types/api'
 
@@ -381,10 +391,15 @@ onMounted(load)
       @update:sorter="onSortChange"
     />
 
-    <div v-if="!loading && total === 0" class="empty-state">
-      <p>还没有项目，创建一个开始体检</p>
-      <NButton type="primary" @click="router.push('/projects/create')">新建项目</NButton>
-    </div>
+    <NCard v-if="!loading && total === 0" size="small" class="empty-state">
+      <div class="list-onboarding">
+        <div class="list-onboard-title">还没有项目</div>
+        <p class="list-onboard-desc">
+          导入一个项目（zip 或 GitHub 仓库），EvoCode 会自动扫描并生成软件健康档案。
+        </p>
+        <NButton type="primary" @click="router.push('/projects/create')">＋ 新建项目</NButton>
+      </div>
+    </NCard>
   </div>
 </template>
 
@@ -450,11 +465,25 @@ onMounted(load)
   color: #8798ab;
 }
 .empty-state {
-  padding: 60px 0;
-  text-align: center;
-  color: #8798ab;
+  padding: 12px 0;
 }
-.empty-state p {
-  margin-bottom: 16px;
+.list-onboarding {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 40px 0 32px;
+  text-align: center;
+}
+.list-onboard-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: #1b2633;
+}
+.list-onboard-desc {
+  margin: 0 0 8px;
+  font-size: 13.5px;
+  color: #8798ab;
+  max-width: 420px;
 }
 </style>

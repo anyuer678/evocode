@@ -195,18 +195,23 @@ onBeforeUnmount(() => {
 <template>
   <div class="dash">
     <h2 class="dash__title">全局总览</h2>
+    <p class="dash__subtitle">跨项目健康分布 · 语言构成 · 状态总览</p>
 
     <div class="dash__stats">
-      <NCard size="small">
+      <NCard size="small" class="dash__stat-card">
+        <div class="dash__stat-icon icon-blue">▤</div>
         <NStatistic label="项目总数" :value="projects.length" />
       </NCard>
-      <NCard size="small">
+      <NCard size="small" class="dash__stat-card">
+        <div class="dash__stat-icon icon-green">♥</div>
         <NStatistic label="平均健康分" :value="Number(avgHealth.toFixed(1))" />
       </NCard>
-      <NCard size="small">
+      <NCard size="small" class="dash__stat-card">
+        <div class="dash__stat-icon icon-amber">✓</div>
         <NStatistic label="已分析项目" :value="readyCount" />
       </NCard>
-      <NCard size="small">
+      <NCard size="small" class="dash__stat-card">
+        <div class="dash__stat-icon icon-slate">≡</div>
         <NStatistic label="总代码行数" :value="totalLoc" />
       </NCard>
     </div>
@@ -223,13 +228,24 @@ onBeforeUnmount(() => {
       </NCard>
     </div>
     <NCard v-else size="small" class="dash__empty">
-      <NEmpty description="还没有项目，去「项目档案」页创建并分析，这里会展示全局健康分布">
-        <template #extra>
-          <NButton size="small" type="primary" @click="router.push('/projects/create')">
-            新建项目
-          </NButton>
-        </template>
-      </NEmpty>
+      <div class="dash__onboarding">
+        <div class="dash__onboard-title">开始你的第一次软件体检</div>
+        <div class="dash__onboard-steps">
+          <div class="dash__step">
+            <span class="dash__step-num">1</span>
+            <span class="dash__step-text">导入项目（zip 或 GitHub）</span>
+          </div>
+          <div class="dash__step">
+            <span class="dash__step-num">2</span>
+            <span class="dash__step-text">自动快扫生成健康档案</span>
+          </div>
+          <div class="dash__step">
+            <span class="dash__step-num">3</span>
+            <span class="dash__step-text">查看诊断与 AI 建议</span>
+          </div>
+        </div>
+        <NButton type="primary" @click="router.push('/projects/create')">＋ 新建项目</NButton>
+      </div>
     </NCard>
 
     <h3 class="dash__sub">最近分析</h3>
@@ -263,14 +279,98 @@ onBeforeUnmount(() => {
   gap: 14px;
 }
 .dash__title {
-  margin: 0;
-  font-size: 20px;
+  margin: 0 0 4px;
+  font-size: 22px;
   font-weight: 700;
+}
+.dash__subtitle {
+  margin: 0 0 16px;
+  font-size: 13px;
+  color: #8798ab;
 }
 .dash__stats {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 14px;
+  margin-bottom: 16px;
+}
+.dash__stat-card {
+  transition:
+    transform 150ms ease,
+    box-shadow 150ms ease;
+}
+.dash__stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.08);
+}
+.dash__stat-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  font-size: 16px;
+  margin-bottom: 8px;
+}
+.icon-blue {
+  background: rgba(22, 104, 220, 0.1);
+  color: #1668dc;
+}
+.icon-green {
+  background: rgba(15, 157, 88, 0.1);
+  color: #0f9d58;
+}
+.icon-amber {
+  background: rgba(232, 137, 12, 0.1);
+  color: #e8890c;
+}
+.icon-slate {
+  background: rgba(85, 102, 122, 0.1);
+  color: #55667a;
+}
+.dash__empty {
+  padding: 8px 0;
+}
+.dash__onboarding {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+  padding: 36px 0 28px;
+  text-align: center;
+}
+.dash__onboard-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: #1b2633;
+}
+.dash__onboard-steps {
+  display: flex;
+  gap: 28px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+.dash__step {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.dash__step-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: rgba(22, 104, 220, 0.1);
+  color: #1668dc;
+  font-size: 12px;
+  font-weight: 700;
+}
+.dash__step-text {
+  font-size: 13.5px;
+  color: #55667a;
 }
 .dash__charts {
   display: grid;
