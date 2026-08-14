@@ -11,6 +11,7 @@ from fastapi.responses import JSONResponse, StreamingResponse
 
 from .config import get_settings
 from .core.arch.archscan import architecture_scan
+from .core.complexity_scan import complexity_scan
 from .core.dependency.depscan import scan_dependencies
 from .core.docgen import generate_doc
 from .core.evolution import evolution_scan
@@ -21,6 +22,7 @@ from .core.prompts import REPORT_PROMPT_VERSION
 from .core.rag.service import RagService
 from .core.rag.vectorstore import KnowledgeStore
 from .core.reportgen import generate_report
+from .core.security_scan import security_scan
 from .core.sonar import quality_scan
 from .schemas import (
     ArchEdge,
@@ -240,25 +242,43 @@ def quality(req: QualityRequest) -> QualityResult:
     """质量分析（06 §5.3）。
 
     Sonar 不可达/未配置 → 200 + metrics.available=false（非错误）。
+    安全扫描/复杂度扫描始终执行（确定性规则），作为额外
+    issues（source=SECURITY/COMPLEXITY）。
     """
     code_dir = Path(req.codeDir)
     if not code_dir.is_dir():
         raise HTTPException(status_code=404, detail="codeDir not found")
     _assert_allowed_root(code_dir)
+
+    # 确定性规则扫描（不依赖 Sonar）：安全反模式 + 高复杂度函数
+    extra_issues: list[dict] = []
+    for issue in security_scan(code_dir):
+        issue.setdefault("source", "SECURITY")
+        extra_issues.append(issue)
+    for issue in complexity_scan(code_dir):
+        issue.setdefault("source", "COMPLEXITY")
+        extra_issues.append(issue)
+
     result = quality_scan(req.projectId, str(code_dir), settings)
     if result is None:
-        logger.info("quality N/A project=%s", req.projectId)
-        return QualityResult(metrics=QualityMetrics(available=False))
+        logger.info("quality N/A project=%s extra_issues=%s",
+                    req.projectId, len(extra_issues))
+        return QualityResult(
+            metrics=QualityMetrics(available=False),
+            issues=[QualityIssue(**i) for i in extra_issues],
+        )
     logger.info(
-        "quality done project=%s bugs=%s smells=%s issues=%s",
+        "quality done project=%s bugs=%s smells=%s issues=%s extra=%s",
         req.projectId,
         result["metrics"].get("bugs"),
         result["metrics"].get("codeSmells"),
         len(result["issues"]),
+        len(extra_issues),
     )
+    all_issues = result["issues"] + extra_issues
     return QualityResult(
         metrics=QualityMetrics(**result["metrics"]),
-        issues=[QualityIssue(**i) for i in result["issues"]],
+        issues=[QualityIssue(**i) for i in all_issues],
     )
 
 

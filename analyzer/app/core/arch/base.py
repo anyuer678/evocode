@@ -115,6 +115,72 @@ def _hop_layer(src_type: str, dst_type: str) -> str:
     return "下层模块"
 
 
+def check_cycles(edges: list[ArchEdge]) -> list[ArchViolation]:
+    """检测依赖环（Tarjan SCC，size>1 或自环）：A→B→C→A。
+
+    环形依赖是最严重的架构债务——导致难解耦、难测试、变更相互波及。
+    """
+    # 邻接表
+    adj: dict[str, list[str]] = {}
+    for e in edges:
+        adj.setdefault(e.source, []).append(e.target)
+        adj.setdefault(e.target, [])
+
+    index_counter = 0
+    stack: list[str] = []
+    on_stack: set[str] = set()
+    index: dict[str, int] = {}
+    lowlink: dict[str, int] = {}
+    sccs: list[list[str]] = []
+
+    def strongconnect(v: str) -> None:
+        nonlocal index_counter
+        index[v] = index_counter
+        lowlink[v] = index_counter
+        index_counter += 1
+        stack.append(v)
+        on_stack.add(v)
+        for w in adj.get(v, []):
+            if w not in index:
+                strongconnect(w)
+                lowlink[v] = min(lowlink[v], lowlink[w])
+            elif w in on_stack:
+                lowlink[v] = min(lowlink[v], index[w])
+        if lowlink[v] == index[v]:
+            comp: list[str] = []
+            while True:
+                w = stack.pop()
+                on_stack.remove(w)
+                comp.append(w)
+                if w == v:
+                    break
+            if len(comp) > 1:
+                sccs.append(comp)
+
+    for v in adj:
+        if v not in index:
+            strongconnect(v)
+
+    violations: list[ArchViolation] = []
+    for comp in sccs:
+        comp.sort()
+        names = " → ".join(comp + [comp[0]])
+        violations.append(
+            ArchViolation(
+                violation_type="CYCLE",
+                description=f"模块存在环形依赖：{names}",
+                severity="MAJOR",
+                suggestion=(
+                    f"打破环 {names}：抽取出环内公共依赖为独立模块（如接口/抽象层），"
+                    "让依赖单向化；从环中最小节点开始消除反向依赖。"
+                ),
+                source=comp[0],
+                target=comp[-1],
+            )
+        )
+    return violations
+
+
 def node_metrics(nodes: list[ArchNode], edges: list[ArchEdge]) -> dict[str, dict]:
     """节点出入度指标：{node_key: {inDegree, outDegree, depCount}}。"""
     out_deg: dict[str, int] = {}

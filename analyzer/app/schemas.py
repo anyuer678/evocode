@@ -91,6 +91,7 @@ class QualityMetrics(BaseModel):
 
 
 class QualityIssue(BaseModel):
+    source: str = "SONAR"
     ruleKey: str
     severity: str
     kind: str

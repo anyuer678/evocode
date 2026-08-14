@@ -9,7 +9,7 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
-from .base import ArchEdge, check_layer_violations, node_metrics
+from .base import ArchEdge, check_cycles, check_layer_violations, node_metrics
 from .go_parser import parse_go_file
 from .java_parser import parse_java_file
 from .js_parser import parse_js_file, parse_ts_file
@@ -119,6 +119,7 @@ def architecture_scan(code_dir: str, languages: list[str] | None = None) -> dict
 
     node_map = {n.node_key: n for n in nodes}
     violations = check_layer_violations(node_map, unique_edges)
+    violations += check_cycles(unique_edges)
     metrics = node_metrics(nodes, unique_edges)
 
     return {
