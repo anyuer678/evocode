@@ -55,6 +55,12 @@ onBeforeUnmount(() => {
   // 审查修复：卸载时取消进行中的 AI 医生流（此前流继续读，回调写已卸载组件）
   streamAbort?.abort()
   streamAbort = null
+  // 审查修复：置空 activeId 使 SSE 回调守卫拦截（abort 后 fetch catch 触发
+  // onError('CONNECTION_LOST')，若不置空会向已卸载组件写入失败消息）
+  activeId.value = null
+  // 审查修复：卸载时递增 previewSeq，使挂起的 monaco 动态 import 失效
+  // （否则 create(null) 抛错，仅靠 catch 兜底产生日志噪音）
+  previewSeq++
   editor?.dispose()
   editor = null
 })
@@ -131,13 +137,19 @@ async function removeSession(id: number) {
 async function send() {
   const content = input.value.trim()
   if (!content || streaming.value) return
+  // 审查修复：提前置 streaming 防 await 建会话期间重入（双击并发双流）
+  streaming.value = true
   let sessionId = activeId.value
   if (sessionId == null) {
     try {
       const s = await createChatSession(props.projectId)
       sessionId = s.id
+      // 审查修复：自动建会话后必须同步 activeId，否则 SSE 回调守卫
+      // (sessionId !== activeId.value) 恒真，首次提问回复全部丢失
+      activeId.value = sessionId
     } catch (e) {
       // 审查 M8：建会话失败不再静默丢失输入，展示错误
+      streaming.value = false
       streamError.value = `会话创建失败：${e instanceof Error ? e.message : String(e)}`
       return
     }
@@ -145,7 +157,6 @@ async function send() {
   const refPath = fileRef.value.trim() || null
   messages.value.push({ _localId: ++localSeq, id: null, role: 'USER', content, citations: null })
   input.value = ''
-  streaming.value = true
   streamText.value = ''
   streamError.value = ''
   streamCitations.value = []

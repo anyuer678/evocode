@@ -43,6 +43,20 @@ async function load() {
   }
 }
 
+// 审查修复：关闭编辑——未保存改动时确认（与切换/重新生成保护一致）。
+// 返回 false 表示用户取消关闭，调用方须阻止 NModal 隐藏。
+function closeEdit(): boolean {
+  if (editing.value && editContent.value !== doc.value?.content) {
+    const ok = window.confirm('当前有未保存的编辑，关闭将丢弃编辑内容。继续？')
+    if (!ok) {
+      editing.value = true // 强制保持打开（NModal 受控 :show="editing"）
+      return false
+    }
+  }
+  editing.value = false
+  return true
+}
+
 function switchTab(t: DocType) {
   if (generating.value) return
   if (editing.value && editContent.value !== doc.value?.content) {
@@ -218,7 +232,7 @@ onMounted(load)
       style="width: 80%; max-width: 900px"
       @update:show="
         (v: boolean) => {
-          if (!v) editing = false
+          if (!v) closeEdit()
         }
       "
     >
@@ -228,7 +242,7 @@ onMounted(load)
           <NButton :loading="saving" type="primary" @click="saveEdit">{{
             saving ? '保存中…' : '保存'
           }}</NButton>
-          <NButton @click="editing = false">取消</NButton>
+          <NButton @click="closeEdit">取消</NButton>
         </NSpace>
       </template>
       <NAlert v-if="editError" type="error" :show-icon="true" class="docs-edit-error">{{
