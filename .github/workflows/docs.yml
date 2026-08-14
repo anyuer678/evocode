@@ -9,6 +9,7 @@ on:
       - 'docs/**'
       - 'mkdocs.yml'
       - 'frontend/**'
+      - '.github/workflows/**'
   workflow_dispatch:
 
 permissions:
