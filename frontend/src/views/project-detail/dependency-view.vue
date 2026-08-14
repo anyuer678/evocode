@@ -1,6 +1,6 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import { computed, h, onMounted, ref } from 'vue'
-import { NCard, NDataTable, NEmpty, NSpin, NStatistic, NTag } from 'naive-ui'
+import { NAlert, NCard, NDataTable, NEmpty, NSpin, NStatistic, NTag } from 'naive-ui'
 import type { DataTableColumns } from 'naive-ui'
 import { fetchDependencies } from '../../api/dependency'
 import type { DependencyItem, DependencyResult } from '../../types/api'

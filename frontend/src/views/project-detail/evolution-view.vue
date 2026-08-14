@@ -11,7 +11,7 @@ import type {
   LegendComponentOption,
   TooltipComponentOption,
 } from 'echarts/components'
-import { NCard, NEmpty, NRadioButton, NRadioGroup, NSpin, NTag } from 'naive-ui'
+import { NAlert, NCard, NEmpty, NRadioButton, NRadioGroup, NSpin, NTag } from 'naive-ui'
 import { fetchEvolution } from '../../api/evolution'
 import type {
   EvolutionAuthor,

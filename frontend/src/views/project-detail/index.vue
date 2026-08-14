@@ -784,22 +784,22 @@ const fileColumns: DataTableColumns<FileNodeItem> = [
         </div>
 
         <!-- 架构 / 演化 / 依赖 / AI 医生 / 技术债 / 文档 -->
-        <div v-show="activeSection === 'architecture'" class="section-pane">
+        <div v-if="activeSection === 'architecture'" class="section-pane">
           <ArchitectureView v-if="detail?.status === 'READY'" :project-id="projectId" />
         </div>
-        <div v-show="activeSection === 'evolution'" class="section-pane">
+        <div v-if="activeSection === 'evolution'" class="section-pane">
           <EvolutionView v-if="detail?.status === 'READY'" :project-id="projectId" />
         </div>
-        <div v-show="activeSection === 'dependency'" class="section-pane">
+        <div v-if="activeSection === 'dependency'" class="section-pane">
           <DependencyView v-if="detail?.status === 'READY'" :project-id="projectId" />
         </div>
-        <div v-show="activeSection === 'doctor'" class="section-pane">
+        <div v-if="activeSection === 'doctor'" class="section-pane">
           <DoctorView v-if="detail?.status === 'READY'" :project-id="projectId" />
         </div>
-        <div v-show="activeSection === 'debt'" class="section-pane">
+        <div v-if="activeSection === 'debt'" class="section-pane">
           <TechDebtView v-if="detail?.status === 'READY'" :project-id="projectId" />
         </div>
-        <div v-show="activeSection === 'doc'" class="section-pane">
+        <div v-if="activeSection === 'doc'" class="section-pane">
           <DocView v-if="detail?.status === 'READY'" :project-id="projectId" />
         </div>
 
