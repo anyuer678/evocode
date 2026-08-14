@@ -231,6 +231,11 @@ v0.1 代码体检 MVP（上传→扫描→AI 报告）→ v0.2 质量(Sonar) →
 | v3.19 | 2026-08 | **SPI-5 压测评估 + AD-019 启动恢复**：并发压测基线（4 项目并发 FULL 全部 SUCCEEDED；backend 崩溃/重启后残留 PENDING/RUNNING 任务无声丢失——无恢复机制）；新增 StartupTaskRecovery（启动扫描残留 → 标记 FAILED「服务重启导致任务中断，请重新发起分析」+ 项目 ANALYZING → READY）；backend 158/158（详见 docs/devlog/2026-08-13-ad019.md） |
 | v3.20 | 2026-08 | **项目全面审查修复（两波）**：安全（FileController 符号链接穿越 toRealPath 拦截、backend 绑定 127.0.0.1、ECharts tooltip XSS 转义、analyzer codeDir 允许根白名单 ANALYZER_ALLOWED_ROOTS、Sonar token 改环境变量）；可靠性（SSE error 去重 + \\r\n\\n\r\n\\r\n\ 切分修复、180s 超时、Parser 线程隔离、分析取消检查、quality issues 补 analysisId、delete 事务 + analysis_report 清理、create TOCTOU 唯一索引 V011、任务恢复落 5003）；质量（错误码语义 2015、LLM 4xx 不重试 + 连接快速失败、status.json 原子写、枚举 fallback、列表请求守卫、失败态）；**Spring Boot 3.3.5 → 3.3.13（Tomcat CVE-2025-24813）**；三端门禁 backend 159 / analyzer 158+ruff / frontend lint+vitest 12+build 全绿 |
 | v3.21 | 2026-08 | **前端 Naive UI 全量重构 + 审查修复（v1.3）**：弃手写 CSS，全部页面组件化（NConfigProvider 主题 / 项目列表 NDataTable / 新建 NForm / Dashboard NStatistic+条形图 / 详情 NLayoutSider 分区导航 / 9 子视图含 ECharts/NDataTable/NModal）；analyzer 端口 8081→8091（避本机 polycode-auth 8081 冲突，全链路配置同步）；修复：报告显示（FAILED 项目加载历史、size=50 覆盖旧 SUCCEEDED、无报告不请求 404）、图表隐藏容器崩溃（pane v-show→v-if）、详情导航切换失效（n-menu 改自定义导航）、doctor 首问丢失（activeId 同步）/重入/卸载 abort、doc 未保存确认；多轮审查（后端 / 前端组件 / 前后端契约 / 5 子视图）；vitest 组件测试 23 用例（happy-dom + @vue/test-utils）；frontend lint + vitest 23 + build 全绿 |
+| v3.22 | 2026-08 | **建议引擎 + 12 类规则扫描 + 逐行分析（v1.4）**：诊断建议引擎（rule_advice 26 条 Sonar 规则映射「影响+修复」，不依赖 LLM）；新增 12 类确定性扫描（安全反模式/认知复杂度/架构环/重复代码/错误处理/风格/遗留标记/超大方法类/魔法数字，SECURITY 含反序列化/弱哈希/明文密码）；依赖建议打通前后端（suggestion 接口返回 + 前端建议列）；**文件预览逐行标注**（问题按行高亮 + 悬停看建议）；审查修复 P0（Sonar 不可用时规则扫描结果被丢弃）、P1（suggestion 不落库 ai_suggestion）及 5 处误报（for 当函数/字符串数字/重叠窗口/行尾 TODO/自环）；analyzer ruff + pytest ~234 / backend 全测 / frontend vitest 27 + lint + build 全绿 |
+
+## 贡献
+
+欢迎参与！报告 Bug、提需求、改进代码均可——详见 [CONTRIBUTING.md](CONTRIBUTING.md)。所有贡献默认按本项目 GPL-3.0 许可证发布。
 
 ## License
 
