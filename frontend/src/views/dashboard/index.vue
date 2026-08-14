@@ -11,7 +11,7 @@ import {
 } from 'echarts/components'
 import { CanvasRenderer } from 'echarts/renderers'
 import type { ECharts } from 'echarts/core'
-import { NButton, NCard, NEmpty, NList, NListItem, NStatistic } from 'naive-ui'
+import { NButton, NCard, NEmpty, NList, NListItem } from 'naive-ui'
 import { listProjects } from '../../api/project'
 import type { ProjectSummary } from '../../types/api'
 
@@ -194,59 +194,66 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="dash">
-    <h2 class="dash__title">全局总览</h2>
-    <p class="dash__subtitle">跨项目健康分布 · 语言构成 · 状态总览</p>
+    <div class="dash-head">
+      <div>
+        <h2 class="dash__title">全局总览</h2>
+        <p class="dash__subtitle">跨项目健康分布 · 语言构成 · 状态总览</p>
+      </div>
+      <NButton size="small" type="primary" @click="router.push('/projects/create')"
+        >＋ 新建项目</NButton
+      >
+    </div>
 
     <div class="dash__stats">
       <NCard size="small" class="dash__stat-card">
-        <div class="dash__stat-icon icon-blue">▤</div>
-        <NStatistic label="项目总数" :value="projects.length" />
+        <div class="dash__stat-inner">
+          <div class="dash__stat-icon icon-blue">▤</div>
+          <div class="dash__stat-meta">
+            <span class="dash__stat-num">{{ projects.length }}</span>
+            <span class="dash__stat-label">项目总数</span>
+          </div>
+        </div>
       </NCard>
       <NCard size="small" class="dash__stat-card">
-        <div class="dash__stat-icon icon-green">♥</div>
-        <NStatistic label="平均健康分" :value="Number(avgHealth.toFixed(1))" />
+        <div class="dash__stat-inner">
+          <div class="dash__stat-icon icon-green">♥</div>
+          <div class="dash__stat-meta">
+            <span class="dash__stat-num">{{ Number(avgHealth.toFixed(1)) }}</span>
+            <span class="dash__stat-label">平均健康分</span>
+          </div>
+        </div>
       </NCard>
       <NCard size="small" class="dash__stat-card">
-        <div class="dash__stat-icon icon-amber">✓</div>
-        <NStatistic label="已分析项目" :value="readyCount" />
+        <div class="dash__stat-inner">
+          <div class="dash__stat-icon icon-amber">✓</div>
+          <div class="dash__stat-meta">
+            <span class="dash__stat-num">{{ readyCount }}</span>
+            <span class="dash__stat-label">已分析项目</span>
+          </div>
+        </div>
       </NCard>
       <NCard size="small" class="dash__stat-card">
-        <div class="dash__stat-icon icon-slate">≡</div>
-        <NStatistic label="总代码行数" :value="totalLoc" />
+        <div class="dash__stat-inner">
+          <div class="dash__stat-icon icon-slate">≡</div>
+          <div class="dash__stat-meta">
+            <span class="dash__stat-num">{{ totalLoc.toLocaleString() }}</span>
+            <span class="dash__stat-label">总代码行数</span>
+          </div>
+        </div>
       </NCard>
     </div>
 
     <div v-if="projects.length" class="dash__charts">
-      <NCard size="small" class="dash__chart-card">
+      <NCard size="small" class="dash__chart-card" title="健康分分布">
         <div ref="healthEl" class="dash__chart" />
       </NCard>
-      <NCard size="small" class="dash__chart-card">
+      <NCard size="small" class="dash__chart-card" title="语言构成">
         <div ref="langEl" class="dash__chart" />
       </NCard>
-      <NCard size="small" class="dash__chart-card">
+      <NCard size="small" class="dash__chart-card" title="项目状态">
         <div ref="statusEl" class="dash__chart" />
       </NCard>
     </div>
-    <NCard v-else size="small" class="dash__empty">
-      <div class="dash__onboarding">
-        <div class="dash__onboard-title">开始你的第一次软件体检</div>
-        <div class="dash__onboard-steps">
-          <div class="dash__step">
-            <span class="dash__step-num">1</span>
-            <span class="dash__step-text">导入项目（zip 或 GitHub）</span>
-          </div>
-          <div class="dash__step">
-            <span class="dash__step-num">2</span>
-            <span class="dash__step-text">自动快扫生成健康档案</span>
-          </div>
-          <div class="dash__step">
-            <span class="dash__step-num">3</span>
-            <span class="dash__step-text">查看诊断与 AI 建议</span>
-          </div>
-        </div>
-        <NButton type="primary" @click="router.push('/projects/create')">＋ 新建项目</NButton>
-      </div>
-    </NCard>
 
     <h3 class="dash__sub">最近分析</h3>
     <NCard v-if="recent.length" size="small" :bordered="false">
@@ -278,21 +285,26 @@ onBeforeUnmount(() => {
   flex-direction: column;
   gap: 14px;
 }
+.dash-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+}
 .dash__title {
-  margin: 0 0 4px;
+  margin: 0;
   font-size: 22px;
   font-weight: 700;
 }
 .dash__subtitle {
-  margin: 0 0 16px;
+  margin: 4px 0 0;
   font-size: 13px;
   color: #8798ab;
 }
 .dash__stats {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 14px;
-  margin-bottom: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
 }
 .dash__stat-card {
   transition:
@@ -303,15 +315,20 @@ onBeforeUnmount(() => {
   transform: translateY(-2px);
   box-shadow: 0 4px 14px rgba(15, 23, 42, 0.08);
 }
+.dash__stat-inner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
 .dash__stat-icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
+  width: 40px;
+  height: 40px;
   border-radius: 8px;
-  font-size: 16px;
-  margin-bottom: 8px;
+  font-size: 18px;
+  flex-shrink: 0;
 }
 .icon-blue {
   background: rgba(22, 104, 220, 0.1);
@@ -329,48 +346,20 @@ onBeforeUnmount(() => {
   background: rgba(85, 102, 122, 0.1);
   color: #55667a;
 }
-.dash__empty {
-  padding: 8px 0;
-}
-.dash__onboarding {
+.dash__stat-meta {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 18px;
-  padding: 36px 0 28px;
-  text-align: center;
+  gap: 2px;
 }
-.dash__onboard-title {
-  font-size: 18px;
+.dash__stat-num {
+  font-size: 24px;
   font-weight: 700;
-  color: #1b2633;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
 }
-.dash__onboard-steps {
-  display: flex;
-  gap: 28px;
-  flex-wrap: wrap;
-  justify-content: center;
-}
-.dash__step {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.dash__step-num {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  background: rgba(22, 104, 220, 0.1);
-  color: #1668dc;
+.dash__stat-label {
   font-size: 12px;
-  font-weight: 700;
-}
-.dash__step-text {
-  font-size: 13.5px;
-  color: #55667a;
+  color: #8798ab;
 }
 .dash__charts {
   display: grid;

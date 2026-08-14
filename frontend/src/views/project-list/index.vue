@@ -24,6 +24,21 @@ const dialog = useDialog()
 const loading = ref(false)
 const items = ref<ProjectSummary[]>([])
 const total = ref(0)
+
+// 数据密集风：列表摘要统计（当前页 items 聚合）
+const summary = computed(() => {
+  const scored = items.value.filter((p) => p.healthScore != null)
+  const avg = scored.length
+    ? scored.reduce((s, p) => s + (p.healthScore ?? 0), 0) / scored.length
+    : 0
+  return {
+    total: total.value,
+    avgHealth: Number(avg.toFixed(1)),
+    ready: items.value.filter((p) => p.status === 'READY').length,
+    failed: items.value.filter((p) => p.status === 'FAILED').length,
+    loc: items.value.reduce((s, p) => s + (p.locTotal ?? 0), 0),
+  }
+})
 const page = ref(1)
 const size = ref(12)
 const keyword = ref('')
@@ -333,6 +348,35 @@ onMounted(load)
       <NButton type="primary" @click="router.push('/projects/create')">＋ 新建项目</NButton>
     </div>
 
+    <!-- 数据密集风：摘要统计条 -->
+    <div v-if="items.length" class="list-summary">
+      <div class="sum-item">
+        <span class="sum-num">{{ summary.total }}</span
+        ><span class="sum-key">项目</span>
+      </div>
+      <div class="sum-item">
+        <span
+          class="sum-num"
+          :class="
+            summary.avgHealth >= 80 ? 'c-green' : summary.avgHealth >= 60 ? 'c-amber' : 'c-red'
+          "
+          >{{ summary.avgHealth }}</span
+        ><span class="sum-key">平均健康分</span>
+      </div>
+      <div class="sum-item">
+        <span class="sum-num c-green">{{ summary.ready }}</span
+        ><span class="sum-key">就绪</span>
+      </div>
+      <div class="sum-item">
+        <span class="sum-num c-red">{{ summary.failed }}</span
+        ><span class="sum-key">失败</span>
+      </div>
+      <div class="sum-item">
+        <span class="sum-num">{{ summary.loc.toLocaleString() }}</span
+        ><span class="sum-key">总代码行</span>
+      </div>
+    </div>
+
     <div class="toolbar">
       <NInput
         v-model:value="keyword"
@@ -428,6 +472,38 @@ onMounted(load)
   display: flex;
   gap: 10px;
   align-items: center;
+}
+.list-summary {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.sum-item {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 6px 14px;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+}
+.sum-num {
+  font-size: 18px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.sum-key {
+  font-size: 12px;
+  color: #8798ab;
+}
+.c-green {
+  color: #0f9d58;
+}
+.c-amber {
+  color: #e8890c;
+}
+.c-red {
+  color: #d64545;
 }
 .cell-name {
   display: flex;
