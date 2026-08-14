@@ -1,5 +1,11 @@
 ﻿# EvoCode
 
+[![Version](https://img.shields.io/badge/版本-v1.3-blue)](https://github.com/anyuer678/evocode)
+[![Frontend](https://img.shields.io/badge/前端-Vue3%20%2B%20Naive%20UI-42b883)](https://github.com/anyuer678/evocode)
+[![Backend](https://img.shields.io/badge/后端-Spring%20Boot%203-6db33f)](https://github.com/anyuer678/evocode)
+[![Analyzer](https://img.shields.io/badge/分析器-FastAPI%20%2B%20tree--sitter-009688)](https://github.com/anyuer678/evocode)
+[![License](https://img.shields.io/badge/License-GPL--3.0-orange)](LICENSE)
+
 > **AI Software Evolution Platform** · 基于大模型的软件维护与演化平台
 > 让 AI 持续理解、诊断、维护已有软件 —— 做软件的"体检 + 医生 + 健康档案"
 
