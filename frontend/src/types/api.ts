@@ -320,6 +320,7 @@ export interface DependencyItem {
   reason: string | null
   latest: string | null
   isEol: boolean
+  suggestion: string | null
 }
 
 export interface DependencyResult {

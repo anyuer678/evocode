@@ -61,6 +61,12 @@ const columns = computed<DataTableColumns<DependencyItem>>(() => [
   },
   { title: '说明', key: 'reason', minWidth: 200, render: (r) => r.reason ?? '-' },
   { title: '建议版本', key: 'latest', width: 110, render: (r) => r.latest ?? '-' },
+  {
+    title: '建议',
+    key: 'suggestion',
+    minWidth: 180,
+    render: (r) => (r.suggestion ? h('span', { class: 'dep-suggestion' }, r.suggestion) : '-'),
+  },
 ])
 
 async function load(): Promise<void> {
@@ -138,5 +144,9 @@ onMounted(load)
 .dep-name {
   font-weight: 600;
   word-break: break-all;
+}
+.dep-suggestion {
+  color: #1668dc;
+  font-size: 12.5px;
 }
 </style>

@@ -11,6 +11,7 @@ import java.util.List;
 public record DependencyResp(boolean available, List<ItemResp> dependencies) {
 
     public record ItemResp(String name, String version, String type, String file,
-                           String risk, String reason, String latest, boolean isEol) {
+                           String risk, String reason, String latest, boolean isEol,
+                           String suggestion) {
     }
 }

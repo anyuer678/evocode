@@ -97,7 +97,7 @@ public class DependencyServiceImpl implements DependencyService {
                 .map(r -> new DependencyResp.ItemResp(
                         r.getName(), r.getVersion(), typeOf(r.getEcosystem()), r.getFile(),
                         r.getRiskLevel(), r.getRiskReason(), r.getLatestVersion(),
-                        Boolean.TRUE.equals(r.getIsEol())))
+                        Boolean.TRUE.equals(r.getIsEol()), r.getSuggestion()))
                 .toList();
         return new DependencyResp(true, items);
     }

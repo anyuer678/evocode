@@ -35,6 +35,7 @@ function makeDep(over: Partial<DependencyItem> = {}): DependencyItem {
     isEol: true,
     reason: 'Spring Boot 2.5 已 EOL',
     latest: '3.2+',
+    suggestion: '升级到 3.x（当前版本已停止支持）',
     ...over,
   }
 }
@@ -62,6 +63,8 @@ describe('DependencyView', () => {
     expect(text).toContain('总依赖')
     expect(text).toContain('EOL 依赖')
     expect(text).toContain('高风险')
+    // 审查修复：建议列渲染 suggestion
+    expect(text).toContain('升级到 3.x（当前版本已停止支持）')
   })
 
   it('无依赖时显示空态', async () => {

@@ -43,9 +43,9 @@ class DependencyServiceImplTest {
     void replaceInsertsRowsForAnalysis() {
         DependencyResp resp = new DependencyResp(true, List.of(
                 new DependencyResp.ItemResp("org.springframework.boot:spring-boot",
-                        "2.5.14", "MAVEN", "pom.xml", "HIGH", "已 EOL", "3.2+", true),
+                        "2.5.14", "MAVEN", "pom.xml", "HIGH", "已 EOL", "3.2+", true, null),
                 new DependencyResp.ItemResp("vue", "2.6.14", "NPM", "package.json",
-                        "HIGH", "Vue2 EOL", "3.x", true)));
+                        "HIGH", "Vue2 EOL", "3.x", true, null)));
 
         service.replaceForAnalysis(1L, 10L, resp);
 
@@ -58,9 +58,9 @@ class DependencyServiceImplTest {
     void replaceSuggestionIsActionableForEol() {
         DependencyResp resp = new DependencyResp(true, List.of(
                 new DependencyResp.ItemResp("vue", "2.6.14", "NPM", "package.json",
-                        "HIGH", "Vue 2 已停止官方支持", "3.x", true),
+                        "HIGH", "Vue 2 已停止官方支持", "3.x", true, null),
                 new DependencyResp.ItemResp("ok-lib", "1.0.0", "NPM", "package.json",
-                        null, null, null, false)));
+                        null, null, null, false, null)));
         service.replaceForAnalysis(1L, 10L, resp);
         var captor = org.mockito.ArgumentCaptor.forClass(Dependency.class);
         verify(dependencyMapper, org.mockito.Mockito.times(2)).insert(captor.capture());
@@ -120,6 +120,7 @@ class DependencyServiceImplTest {
         row.setRiskReason("Vue2 EOL");
         row.setLatestVersion("3.x");
         row.setIsEol(true);
+        row.setSuggestion("升级到 3.x（当前版本已停止支持）");
         when(dependencyMapper.selectList(any(Wrapper.class))).thenReturn(List.of(row));
 
         DependencyResp resp = service.getForProject(1L);
@@ -131,5 +132,6 @@ class DependencyServiceImplTest {
         assertEquals("NPM", item.type());
         assertEquals("HIGH", item.risk());
         assertTrue(item.isEol());
+        assertEquals("升级到 3.x（当前版本已停止支持）", item.suggestion());
     }
 }
