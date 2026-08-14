@@ -14,6 +14,8 @@ from .core.arch.archscan import architecture_scan
 from .core.complexity_scan import complexity_scan
 from .core.dependency.depscan import scan_dependencies
 from .core.docgen import generate_doc
+from .core.duplication_scan import duplication_scan
+from .core.errorhandling_scan import errorhandling_scan
 from .core.evolution import evolution_scan
 from .core.explain import explain
 from .core.filescanner import scan_project
@@ -24,6 +26,7 @@ from .core.rag.vectorstore import KnowledgeStore
 from .core.reportgen import generate_report
 from .core.security_scan import security_scan
 from .core.sonar import quality_scan
+from .core.style_scan import style_scan
 from .schemas import (
     ArchEdge,
     ArchNode,
@@ -242,8 +245,8 @@ def quality(req: QualityRequest) -> QualityResult:
     """质量分析（06 §5.3）。
 
     Sonar 不可达/未配置 → 200 + metrics.available=false（非错误）。
-    安全扫描/复杂度扫描始终执行（确定性规则），作为额外
-    issues（source=SECURITY/COMPLEXITY）。
+    确定性规则扫描始终执行（不依赖 Sonar）：安全/复杂度/重复代码/错误处理/风格，
+    作为额外 issues（source=SECURITY/COMPLEXITY/DUPLICATION/ERROR_HANDLING/STYLE）。
     """
     code_dir = Path(req.codeDir)
     if not code_dir.is_dir():
@@ -257,6 +260,15 @@ def quality(req: QualityRequest) -> QualityResult:
         extra_issues.append(issue)
     for issue in complexity_scan(code_dir):
         issue.setdefault("source", "COMPLEXITY")
+        extra_issues.append(issue)
+    for issue in duplication_scan(code_dir):
+        issue.setdefault("source", "DUPLICATION")
+        extra_issues.append(issue)
+    for issue in errorhandling_scan(code_dir):
+        issue.setdefault("source", "ERROR_HANDLING")
+        extra_issues.append(issue)
+    for issue in style_scan(code_dir):
+        issue.setdefault("source", "STYLE")
         extra_issues.append(issue)
 
     result = quality_scan(req.projectId, str(code_dir), settings)
