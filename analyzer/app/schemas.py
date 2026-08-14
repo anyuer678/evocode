@@ -97,6 +97,7 @@ class QualityIssue(BaseModel):
     filePath: str
     line: int | None = None
     message: str
+    suggestion: str = ""
 
 
 class QualityRequest(BaseModel):

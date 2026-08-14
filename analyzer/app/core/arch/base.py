@@ -94,12 +94,25 @@ def check_layer_violations(
                     violation_type="LAYER_VIOLATION",
                     description=f"{desc}（{src.name} → {dst.name}）",
                     severity=severity,
-                    suggestion="将数据访问迁移到下层模块，只调用相邻层",
+                    suggestion=(
+                        f"把 {src.name}（{src.file_path}）对 {dst.name} 的访问下沉到"
+                        f"{_hop_layer(src.node_type, dst.node_type)} 层：在中间层封装数据访问，"  # noqa: E501
+                        f"{src.name} 只依赖中间层接口，避免跨层调用。"
+                    ),
                     source=src.node_key,
                     target=dst.node_key,
                 )
             )
     return violations
+
+
+def _hop_layer(src_type: str, dst_type: str) -> str:
+    """跨层调用时建议经过的中间层（Controller→Entity 经 Service/Repository）。"""
+    if dst_type in ("ENTITY", "REPOSITORY"):
+        return "Service/Repository"
+    if src_type == "CONTROLLER":
+        return "Service"
+    return "下层模块"
 
 
 def node_metrics(nodes: list[ArchNode], edges: list[ArchEdge]) -> dict[str, dict]:

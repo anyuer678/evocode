@@ -15,6 +15,8 @@ from typing import Any
 
 import httpx
 
+from app.core.rule_advice import advice_for
+
 logger = logging.getLogger("evocode.analyzer.sonar")
 
 _METRIC_KEYS = (
@@ -186,14 +188,18 @@ class SonarClient:
             path = str(i.get("component") or "")
             if path.startswith(prefix):
                 path = path[len(prefix) :]
+            rule_key = str(i.get("rule") or "")
+            message = str(i.get("message") or "")
+            impact, fix = advice_for(rule_key, path, message)
             out.append(
                 {
-                    "ruleKey": str(i.get("rule") or ""),
+                    "ruleKey": rule_key,
                     "severity": str(i.get("severity") or "INFO"),
                     "kind": str(i.get("type") or "CODE_SMELL"),
                     "filePath": path,
                     "line": i.get("line"),
-                    "message": str(i.get("message") or ""),
+                    "message": message,
+                    "suggestion": f"【影响】{impact}【修复】{fix}",
                 }
             )
         return out

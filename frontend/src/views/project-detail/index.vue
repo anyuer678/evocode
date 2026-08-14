@@ -563,6 +563,12 @@ const qualityColumns: DataTableColumns<QualityIssueItem> = [
           ? '解释失败'
           : '待解释',
   },
+  {
+    title: '建议',
+    key: 'aiSuggestion',
+    minWidth: 220,
+    render: (r) => (r.aiSuggestion ? h('span', { class: 'adv-text' }, r.aiSuggestion) : '-'),
+  },
 ]
 const fileColumns: DataTableColumns<FileNodeItem> = [
   { title: '路径', key: 'path', render: (r) => r.path },
@@ -1185,5 +1191,12 @@ const fileColumns: DataTableColumns<FileNodeItem> = [
   padding: 60px 0;
   display: flex;
   justify-content: center;
+}
+.adv-text {
+  display: block;
+  font-size: 12.5px;
+  line-height: 1.7;
+  color: #33506e;
+  white-space: normal;
 }
 </style>

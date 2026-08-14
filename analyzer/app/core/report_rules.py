@@ -166,13 +166,19 @@ def build_rules_report(
     if quality:
         bugs = int(quality.get("bugs") or 0)
         vulns = int(quality.get("vulnerabilities") or 0)
+        smells = int(quality.get("codeSmells") or 0)
         if vulns > 0:
             risks.append(
                 {
                     "level": "HIGH",
                     "title": f"存在 {vulns} 个安全漏洞",
-                    "detail": "Sonar 扫描发现安全漏洞，可能带来可利用风险。",
-                    "suggestion": "优先修复 BLOCKER/CRITICAL 级漏洞并复查相关依赖。",
+                    "detail": (
+                        f"Sonar 扫描发现 {vulns} 个漏洞，可能带来可利用风险；修复优先级最高。"  # noqa: E501
+                    ),
+                    "suggestion": (
+                        f"先修复全部 {vulns} 个漏洞（BLOCKER/CRITICAL 优先）→ 复查依赖与输入校验"  # noqa: E501
+                        " → 回归测试；质量分析页可按文件定位每个漏洞。"
+                    ),
                     "references": [],
                 }
             )
@@ -181,8 +187,24 @@ def build_rules_report(
                 {
                     "level": "MEDIUM",
                     "title": f"存在 {bugs} 个 Bug",
-                    "detail": "Sonar 扫描识别到潜在缺陷，建议按严重级优先修复。",
-                    "suggestion": "从 CRITICAL/BLOCKER 级 Bug 开始逐条修复并补充测试。",
+                    "detail": f"Sonar 识别到 {bugs} 个潜在缺陷，可能引发运行时异常或逻辑错误。",  # noqa: E501
+                    "suggestion": (
+                        f"按严重级修复这 {bugs} 个 Bug（先 CRITICAL/BLOCKER）→ 每条补对应测试"  # noqa: E501
+                        " → 全量回归；质量分析页列有每个 Bug 的文件与行号。"
+                    ),
+                    "references": [],
+                }
+            )
+        if smells > 0:
+            risks.append(
+                {
+                    "level": "LOW",
+                    "title": f"存在 {smells} 个代码异味",
+                    "detail": f"Sonar 标记 {smells} 处代码异味，长期积累降低可维护性。",
+                    "suggestion": (
+                        f"从高频规则（如未使用变量/重复代码/复杂度过高）入手批量清理 {smells} 处异味；"  # noqa: E501
+                        "质量分析页可按规则分组定位。"
+                    ),
                     "references": [],
                 }
             )
@@ -192,7 +214,10 @@ def build_rules_report(
                 "level": "HIGH",
                 "title": f"存在 {scan.skippedBigFiles} 个超大文件（>2MB 已跳过）",
                 "detail": "超大文件通常意味着职责过重或包含生成代码，影响可维护性。",
-                "suggestion": "按模块拆分文件，并将生成物移出源码目录。",
+                "suggestion": (
+                    f"拆分 {scan.skippedBigFiles} 个超大文件（按模块/功能拆分），并将生成物"  # noqa: E501
+                    "（dist/build/vendor）移出源码目录后重新扫描。"
+                ),
                 "references": [],
             }
         )
@@ -202,7 +227,10 @@ def build_rules_report(
                 "level": "MEDIUM",
                 "title": "代码规模较大，建议分层分模块治理",
                 "detail": f"共 {scan.locTotal} 行代码，单仓维护成本随规模上升。",
-                "suggestion": "评估模块边界，考虑拆分独立仓库或服务。",
+                "suggestion": (
+                    f"先按模块边界拆分 {scan.locTotal} 行代码中的业务模块，评估哪些可独立成"  # noqa: E501
+                    "服务/库；从高频变更模块开始。"
+                ),
                 "references": [],
             }
         )
