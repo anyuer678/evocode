@@ -305,7 +305,16 @@ function pollAnalysis(analysisId: number) {
 async function loadQuality() {
   qualityLoading.value = true
   try {
-    quality.value = await getQualityIssues(projectId.value, { page: 1, size: 20 })
+    // 审查：逐行标注需要该文件的全部 issues——分页循环拉全（后端单页上限 100）
+    const first = await getQualityIssues(projectId.value, { page: 1, size: 100 })
+    const items = [...first.items]
+    const total = first.total
+    for (let p = 2; items.length < total && p <= 20; p++) {
+      const more = await getQualityIssues(projectId.value, { page: p, size: 100 })
+      items.push(...more.items)
+      if (more.items.length === 0) break
+    }
+    quality.value = { ...first, items }
   } catch {
     quality.value = null
   } finally {
@@ -356,6 +365,52 @@ async function openFile(item: FileNodeItem) {
   } finally {
     contentLoading.value = false
   }
+}
+
+/** 逐行分析：把该文件命中的所有 issues 按行号分组（filePath + line 精确匹配）。 */
+function issuesByLine(path: string): Map<number, QualityIssueItem[]> {
+  const map = new Map<number, QualityIssueItem[]>()
+  for (const it of quality.value?.items ?? []) {
+    if (it.filePath !== path || it.line == null) continue
+    const arr = map.get(it.line) ?? []
+    arr.push(it)
+    map.set(it.line, arr)
+  }
+  return map
+}
+
+/** 某行问题最高 severity 对应的 CSS 类（CRITICAL=error / MAJOR=warning / 其余=info）。 */
+function lineIssueClass(issues: QualityIssueItem[] | undefined): string {
+  if (!issues?.length) return ''
+  const hasHigh = issues.some((i) => i.severity === 'BLOCKER' || i.severity === 'CRITICAL')
+  if (hasHigh) return 'line-issue--error'
+  const hasMajor = issues.some((i) => i.severity === 'MAJOR')
+  if (hasMajor) return 'line-issue--warning'
+  return 'line-issue--info'
+}
+
+/** 逐行渲染：content 拆行 + 行号 + 问题标注。 */
+function renderLines(
+  path: string | undefined,
+  contentText: string,
+): { no: number; text: string; issues: QualityIssueItem[] }[] {
+  if (!path) return []
+  const byLine = issuesByLine(path)
+  return contentText.split('\n').map((text, idx) => ({
+    no: idx + 1,
+    text,
+    issues: byLine.get(idx + 1) ?? [],
+  }))
+}
+
+/** 问题悬停/标注文本：message + aiSuggestion 拼接。 */
+function issueHint(issues: QualityIssueItem[]): string {
+  return issues
+    .map(
+      (i) =>
+        `[${SEVERITY_LABEL[i.severity] ?? i.severity}] ${i.message}${i.aiSuggestion ? `\n建议：${i.aiSuggestion}` : ''}`,
+    )
+    .join('\n\n')
 }
 
 function scoreLevelClass(level: string | undefined | null): string {
@@ -865,7 +920,7 @@ const fileColumns: DataTableColumns<FileNodeItem> = [
       </n-layout-content>
     </n-layout>
 
-    <!-- 内容预览 -->
+    <!-- 内容预览（逐行标注：问题行高亮 + 悬停显示「问题+建议」） -->
     <NModal
       :show="content != null"
       preset="card"
@@ -877,7 +932,26 @@ const fileColumns: DataTableColumns<FileNodeItem> = [
         }
       "
     >
-      <pre class="code-block">{{ content?.content }}</pre>
+      <div class="file-preview">
+        <div v-if="content && quality?.items?.length" class="file-preview-meta">
+          该文件命中
+          <b>{{ quality.items.filter((i) => i.filePath === content?.path).length }}</b>
+          个问题（逐行标注）
+        </div>
+        <div v-if="content" class="code-lines">
+          <div
+            v-for="ln in renderLines(content.path, content.content)"
+            :key="ln.no"
+            class="code-line"
+            :class="lineIssueClass(ln.issues)"
+            :title="ln.issues.length ? issueHint(ln.issues) : ''"
+          >
+            <span class="code-line-no">{{ ln.no }}</span>
+            <span class="code-line-body">{{ ln.text || ' ' }}</span>
+            <span v-if="ln.issues.length" class="code-line-badge">{{ ln.issues.length }}</span>
+          </div>
+        </div>
+      </div>
     </NModal>
   </div>
 
@@ -1175,17 +1249,82 @@ const fileColumns: DataTableColumns<FileNodeItem> = [
   gap: 8px;
   margin-bottom: 12px;
 }
-.code-block {
-  margin: 0;
-  padding: 14px;
-  background: #f4f6f9;
+.file-preview {
+  max-height: 65vh;
+  overflow: auto;
+  border: 1px solid #e2e8f0;
   border-radius: 4px;
+  background: #fbfcfe;
+}
+.file-preview-meta {
+  padding: 6px 10px;
+  font-size: 12px;
+  color: #55667a;
+  border-bottom: 1px solid #eef1f5;
+  background: #f8fafc;
+}
+.code-lines {
   font-family: ui-monospace, Consolas, 'Courier New', monospace;
   font-size: 12.5px;
   line-height: 1.6;
-  overflow: auto;
-  max-height: 60vh;
+}
+.code-line {
+  display: flex;
+  align-items: center;
+  padding: 0 8px;
+  border-left: 3px solid transparent;
+}
+.code-line:hover {
+  background: #f1f5f9;
+}
+.code-line-no {
+  flex-shrink: 0;
+  width: 44px;
+  text-align: right;
+  padding-right: 10px;
+  color: #9aa7b4;
+  user-select: none;
+}
+.code-line-body {
+  flex: 1;
   white-space: pre;
+  overflow-x: visible;
+}
+.code-line-badge {
+  flex-shrink: 0;
+  margin-left: 8px;
+  min-width: 16px;
+  text-align: center;
+  font-size: 10px;
+  font-weight: 700;
+  border-radius: 8px;
+  padding: 0 5px;
+  background: #e2e8f0;
+  color: #475569;
+}
+.line-issue--error {
+  background: #fef2f2;
+  border-left-color: #dc2626;
+}
+.line-issue--error .code-line-badge {
+  background: #dc2626;
+  color: #fff;
+}
+.line-issue--warning {
+  background: #fffbeb;
+  border-left-color: #d97706;
+}
+.line-issue--warning .code-line-badge {
+  background: #d97706;
+  color: #fff;
+}
+.line-issue--info {
+  background: #eff6ff;
+  border-left-color: #2563eb;
+}
+.line-issue--info .code-line-badge {
+  background: #2563eb;
+  color: #fff;
 }
 .detail-loading {
   padding: 60px 0;
