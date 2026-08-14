@@ -281,7 +281,7 @@
         "references": [{ "file": "pom.xml", "line": 3 }] } ],
     "recommendations": [
       { "phase": "第一阶段", "items": ["升级 Spring Boot 3.x", "拆分 UserService"] } ] } } }
-// 404：{ "code": 2001, "message": "该分析不存在或无报告" }
+// 404：{ "code": 2015, "message": "该分析不存在或无报告" }
 ```
 
 #### POST /api/v1/analyses/{id}/report/regenerate（P2 起）
@@ -374,8 +374,10 @@
 #### POST /api/v1/quality-issues/{id}/explain（重新解释）
 
 ```jsonc
-// 202：{ "code": 0, "data": { "id": 501, "aiStatus": "PENDING" } }
-// 说明：首次解释随分析自动触发；此接口用于失败重试或用户主动要求
+// 200：{ "code": 0, "data": { "id": 501, "aiStatus": "DONE" } }
+// 说明：同步调 analyzer /analyze/v1/explain（规则版 + LLM 增强），成功回填 ai_* 并置
+//       aiStatus=DONE；analyzer 不可达时置 FAILED（可重试）。首次解释随分析自动触发；
+//       此接口用于失败重试或用户主动要求。issue 不存在 → 2015。
 ```
 
 ### 3.11 架构（P4）

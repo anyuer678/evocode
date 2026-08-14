@@ -38,7 +38,7 @@ export async function getAnalysisStatus(analysisId: number): Promise<AnalysisSta
   return getData(request.get<ApiResponse<AnalysisStatus>>(`/analyses/${analysisId}`))
 }
 
-/** 报告详情；分析不存在或无报告 → 2001 */
+/** 报告详情；分析不存在或无报告 → 2015 */
 export async function getReport(analysisId: number): Promise<ReportDetail> {
   return getData(request.get<ApiResponse<ReportDetail>>(`/analyses/${analysisId}/report`))
 }
