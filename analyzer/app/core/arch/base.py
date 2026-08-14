@@ -162,6 +162,22 @@ def check_cycles(edges: list[ArchEdge]) -> list[ArchViolation]:
             strongconnect(v)
 
     violations: list[ArchViolation] = []
+    # 自环（A→A）：Tarjan 单元素 SCC 是正常节点，需单独检查自边
+    for e in edges:
+        if e.source == e.target:
+            violations.append(
+                ArchViolation(
+                    violation_type="CYCLE",
+                    description=f"模块存在自依赖：{e.source} → {e.source}",
+                    severity="MAJOR",
+                    suggestion=(
+                        f"消除 {e.source} 对自身的调用/依赖：检查递归调用或重复注册，"
+                        "自依赖通常是逻辑错误或事件循环隐患。"
+                    ),
+                    source=e.source,
+                    target=e.source,
+                )
+            )
     for comp in sccs:
         comp.sort()
         names = " → ".join(comp + [comp[0]])

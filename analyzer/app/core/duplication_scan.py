@@ -52,8 +52,16 @@ def _scan_file(rel: str, text: str) -> list[dict]:
     for _h, occurrences in windows.items():
         if len(occurrences) < 2:
             continue
-        first_line, _first_block = occurrences[0]
-        second_line = occurrences[1][0]
+        # 审查：跳过重叠窗口（起始行差 < _WINDOW 的相邻窗口是同一块的滑动，非重复）
+        cands = sorted(o[0] for o in occurrences)
+        non_overlap = [cands[0]]
+        for c in cands[1:]:
+            if c - non_overlap[-1] >= _WINDOW:
+                non_overlap.append(c)
+        if len(non_overlap) < 2:
+            continue
+        first_line = non_overlap[0]
+        second_line = non_overlap[1]
         # 报告一次（该文件内首个重复位置），避免刷屏
         issues.append({
             "ruleKey": "DUPLICATED-BLOCK",

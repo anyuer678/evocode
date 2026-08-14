@@ -17,6 +17,7 @@ import re
 from pathlib import Path
 
 _NUMBER = re.compile(r"(?<![A-Za-z_$])(\d{3,})(?![A-Za-z_$])")
+_STRING_RE = re.compile(r'["\'][^"\']{0,200}["\']')
 # 声明赋值（const/let/var/类型 名 = 数字）不算魔法
 _DECL = re.compile(
     r"^\s*(?:const|let|var|private|public|protected|static|final|readonly)\s+"
@@ -35,17 +36,20 @@ def _scan_file(rel: str, text: str) -> list[dict]:
     issues: list[dict] = []
     seen_values: set[str] = set()
     for i, line in enumerate(text.splitlines(), 1):
-        # 跳过注释行与字符串行（粗过滤：行内含 // # /* 且数字在注释后）
+        # 跳过整行注释
         stripped = line.strip()
         if stripped.startswith(("//", "#", "*", "/*")):
             continue
+        # 剥离字符串字面量与行内注释，避免 "1.2.300"、url/300、// 300 误报
+        code = _STRING_RE.sub("", line)
+        code = re.sub(r"//.*|#.*", "", code)
         # 跳过声明赋值行（`int maxRetries = 3` 是有意的配置）
-        if _DECL.match(stripped):
+        if _DECL.match(code.strip()):
             continue
         # 跳过裸赋值行（`x = 300` 视为初始化/配置，非魔法比较）
-        if re.match(r"^[A-Za-z_$][\w$]*\s*=\s*\d", stripped):
+        if re.match(r"^[A-Za-z_$][\w$]*\s*=\s*\d", code.strip()):
             continue
-        nums = _NUMBER.findall(line)
+        nums = _NUMBER.findall(code)
         if not nums:
             continue
         for num in nums:

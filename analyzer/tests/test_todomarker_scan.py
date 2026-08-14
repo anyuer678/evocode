@@ -44,3 +44,13 @@ def test_clean_code_no_markers(tmp_path):
         "a.py": "def f(x):\n    return x\n",
     })
     assert todomarker_scan(code) == []
+
+
+def test_inline_todo_detected(tmp_path):
+    # 行尾 TODO（最常见位置）应检出
+    code = _tree(tmp_path, {
+        "a.js": "const x = doIt(); // TODO: handle error\n",
+    })
+    issues = [i for i in todomarker_scan(code) if i["ruleKey"] == "LEFTOVER-TODO"]
+    assert issues
+    assert "handle error" in issues[0]["message"]

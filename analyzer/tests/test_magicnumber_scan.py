@@ -44,3 +44,15 @@ def test_clean_code_no_magic(tmp_path):
         "a.py": "def f(x):\n    return x + 1\n",
     })
     assert magicnumber_scan(code) == []
+
+
+def test_string_and_inline_comment_numbers_not_reported(tmp_path):
+    # 审查：字符串内数字、行内注释数字不应报魔数
+    code = _tree(tmp_path, {
+        "a.js": (
+            'const version = "1.2.300";\n'
+            'const url = "https://x.com/api/300";\n'
+            "const x = doIt(); // timeout 300\n"
+        ),
+    })
+    assert magicnumber_scan(code) == []

@@ -40,10 +40,13 @@ def test_two_cycles_both_detected():
     assert len(violations) == 2
 
 
-def test_self_loop_not_reported_as_cycle():
-    # 自环是另一类问题（递归/自调用），不属于环依赖
+def test_self_loop_reported_as_cycle():
+    # 自环（A→A）是自依赖问题，应报告
     edges = [ArchEdge(source="a", target="a")]
-    assert check_cycles(edges) == []
+    violations = check_cycles(edges)
+    assert len(violations) == 1
+    assert violations[0].violation_type == "CYCLE"
+    assert "自依赖" in violations[0].description
 
 
 def test_dag_with_back_edge_to_entry():

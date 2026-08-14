@@ -216,15 +216,20 @@ public class AnalysisRunner {
             log.warn("质量分析不可用 projectId={}：{}", project.getId(), e.getMessage());
             return null;
         }
-        if (quality == null || quality.metrics() == null
-                || !Boolean.TRUE.equals(quality.metrics().get("available"))) {
-            return null;
+        // 审查 P0：Sonar 不可用时 analyzer 仍返回 8 类规则扫描 issues（available=false + issues），
+        // 必须落库——否则默认环境（无 Sonar）质量分析/逐行标注永远为空
+        boolean sonarAvailable = quality != null && quality.metrics() != null
+                && Boolean.TRUE.equals(quality.metrics().get("available"));
+        if (quality != null && quality.issues() != null && !quality.issues().isEmpty()) {
+            try {
+                // 审查：issues 落库带 analysisId（V002 NOT NULL），失败降级不阻塞报告
+                replaceQualityIssues(project.getId(), analysis.getId(), quality.issues());
+            } catch (Exception e) {
+                log.warn("质量 issues 落库失败，降级跳过 projectId={}：{}", project.getId(), e.getMessage());
+            }
         }
-        try {
-            // 审查：issues 落库带 analysisId（V002 NOT NULL），失败降级不阻塞报告
-            replaceQualityIssues(project.getId(), analysis.getId(), quality.issues());
-        } catch (Exception e) {
-            log.warn("质量 issues 落库失败，降级跳过 projectId={}：{}", project.getId(), e.getMessage());
+        if (!sonarAvailable) {
+            return null;
         }
         return quality.metrics();
     }
@@ -301,6 +306,12 @@ public class AnalysisRunner {
             Object line = raw.get("line");
             issue.setLine(line instanceof Number n ? n.intValue() : null);
             issue.setMessage(String.valueOf(raw.getOrDefault("message", "")));
+            // 审查 P1：扫描器/规则引擎的 suggestion（【影响】…【修复】…）必须落库 ai_suggestion，
+            // 否则前端逐行标注/质量列表的建议恒空
+            Object suggestion = raw.get("suggestion");
+            if (suggestion != null && !String.valueOf(suggestion).isBlank()) {
+                issue.setAiSuggestion(String.valueOf(suggestion));
+            }
             issue.setAiStatus("PENDING");
             issue.setStatus("OPEN");
             qualityIssueMapper.insert(issue);

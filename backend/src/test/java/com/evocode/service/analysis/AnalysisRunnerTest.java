@@ -186,6 +186,31 @@ class AnalysisRunnerTest {
     }
 
     @Test
+    void runWithoutSonarStillStoresRuleScanIssues() {
+        // 审查 P0：Sonar 不可用时 analyzer 返回 8 类规则扫描 issues（available=false + 非空 issues），
+        // 必须落库——否则默认环境质量分析/逐行标注永远为空
+        when(analysisMapper.selectById(10L)).thenReturn(newAnalysis());
+        when(projectMapper.selectById(7L)).thenReturn(newProject());
+        when(analyzerClient.scan(eq(7L), anyString())).thenReturn(newScan());
+        when(analyzerClient.quality(eq(7L), anyString())).thenReturn(
+                new AnalyzerClient.QualityResp(Map.of("available", false), List.of(
+                        Map.of("source", "SECURITY", "severity", "CRITICAL", "kind", "VULNERABILITY",
+                                "ruleKey", "SECRET-HARDCODED", "filePath", "a.py", "line", 2,
+                                "message", "硬编码凭据", "suggestion", "移入环境变量"))));
+        when(analyzerClient.report(any(), any(), any(), any())).thenReturn(newReportResp());
+        AnalysisRunner runner = newRunner();
+
+        runner.run(10L);
+
+        // 审查 P1：issues 落库且 suggestion 写入 ai_suggestion
+        ArgumentCaptor<QualityIssue> captor = ArgumentCaptor.forClass(QualityIssue.class);
+        verify(qualityIssueMapper).insert(captor.capture());
+        QualityIssue saved = captor.getValue();
+        assertEquals("SECURITY", saved.getSource());
+        assertEquals("移入环境变量", saved.getAiSuggestion());
+    }
+
+    @Test
     void runArchitectureFailureDoesNotBlockReport() {
         when(analysisMapper.selectById(10L)).thenReturn(newAnalysis());
         when(projectMapper.selectById(7L)).thenReturn(newProject());

@@ -12,11 +12,9 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-_TODO_RE = re.compile(
-    r"(?i)(?:^|\s)(TODO|FIXME|HACK|XXX)\b\s*:?\s*(.{0,80})"
-)
-# 仅匹配注释行：行首空白后 // # * 或以 /* 开头（块内）
-_COMMENT_PREFIX = re.compile(r"^\s*(//|#|\*|/\*)")
+_TODO_RE = re.compile(r"(?i)(TODO|FIXME|HACK|XXX)\b\s*:?\s*(.{0,80})")
+# 行内注释起点：//、#（不在字符串内则粗判）、/*、*
+_INLINE_COMMENT = re.compile(r"(//|#|/\*|\*)")
 _MAX_PER_FILE = 10
 
 # 标记类型 → 建议
@@ -31,9 +29,12 @@ _MARKER_ADVICE = {
 def _scan_file(rel: str, text: str) -> list[dict]:
     issues: list[dict] = []
     for i, line in enumerate(text.splitlines(), 1):
-        if not _COMMENT_PREFIX.match(line):
+        # 定位行内注释起点（// # /* *）；无注释则跳过
+        cm = _INLINE_COMMENT.search(line)
+        if not cm:
             continue
-        m = _TODO_RE.search(line)
+        comment = line[cm.start() :]
+        m = _TODO_RE.search(comment)
         if not m:
             continue
         marker = m.group(1).upper()

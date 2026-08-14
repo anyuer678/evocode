@@ -71,3 +71,20 @@ def test_java_high_complexity(tmp_path):
     hits = [i for i in issues if i["ruleKey"] == "COMPLEX-FUNCTION"]
     assert hits
     assert "f" in hits[0]["message"]
+
+
+def test_for_loop_not_mistaken_as_function(tmp_path):
+    # 审查：for 循环头不应被当函数（此前 _FUNC_LIKE 误匹配 "for (int i..."）
+    code = _tree(tmp_path, {
+        "A.java": (
+            "class A {\n"
+            "  void f() {\n"
+            "    for (int i = 0; i < 10; i++) {\n"
+            "      System.out.println(i);\n"
+            "    }\n"
+            "  }\n"
+            "}\n"
+        ),
+    })
+    issues = complexity_scan(code)
+    assert not any("for" in i["message"] for i in issues)

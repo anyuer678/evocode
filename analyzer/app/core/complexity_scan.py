@@ -13,7 +13,7 @@ import re
 from pathlib import Path
 
 _BRANCH_RE = re.compile(
-    r"\b(if|elif|else if|for|while|catch|switch|case\s|&&|\|\||\?)\b"
+    r"\b(?:if|elif|else if|for|while|catch|switch)\b|\bcase\s|\b(?:&&|\|\||\?)\b"
 )
 _FUNCTION_START = re.compile(
     # Java/Kotlin/C#/Go/TS：方法签名 {；Python：def/async def；
@@ -21,9 +21,11 @@ _FUNCTION_START = re.compile(
     r"function|class\s+\w+[^{]*\))\s*\w*\s*\([^)]*\)\s*(?:throws[^{]*)?\{)"
 )
 _PY_DEF = re.compile(r"^\s*(?:async\s+)?def\s+\w+\s*\(")
+# 排除控制流头（for/if/while/switch/catch/do），避免把循环体当函数
 _FUNC_LIKE = re.compile(
-    r"^\s*(?:(?:public|private|protected|static|final|async|export)\s+)*"
-    r"(?:function\s+\w+|[\w$<>,\s]+\s+\w+\s*\()\s*[^)]*\)\s*(?:throws[\s\w,]+)?\{"
+    r"^\s*(?!(?:for|if|while|switch|catch|do)\b)(?:(?:public|private|protected|"
+    r"static|final|async|export)\s+)*(?:function\s+\w+|[\w$<>,\s]+\s+\w+\s*\()"
+    r"\s*[^)]*\)\s*(?:throws[\s\w,]+)?\{"
 )
 
 
