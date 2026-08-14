@@ -482,15 +482,23 @@ onMounted(load)
   display: flex;
   align-items: baseline;
   gap: 6px;
-  padding: 6px 14px;
+  padding: 7px 16px;
   background: #fff;
   border: 1px solid #e2e8f0;
-  border-radius: 6px;
+  border-radius: 8px;
+  transition:
+    box-shadow 150ms ease,
+    transform 150ms ease;
+}
+.sum-item:hover {
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.06);
+  transform: translateY(-1px);
 }
 .sum-num {
-  font-size: 18px;
+  font-size: 20px;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
+  color: #1668dc;
 }
 .sum-key {
   font-size: 12px;

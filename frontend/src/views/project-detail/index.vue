@@ -970,27 +970,30 @@ const fileColumns: DataTableColumns<FileNodeItem> = [
 .detail-nav {
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  padding: 8px 6px;
+  gap: 4px;
+  padding: 10px 8px;
 }
 .detail-nav-item {
   display: flex;
   flex-direction: column;
   gap: 1px;
   width: 100%;
-  padding: 8px 12px;
+  padding: 9px 14px;
   border: none;
-  border-left: 2px solid transparent;
-  border-radius: 4px;
+  border-left: 3px solid transparent;
+  border-radius: 6px;
   background: transparent;
   text-align: left;
   cursor: pointer;
+  position: relative;
   transition:
     background 150ms ease,
-    color 150ms ease;
+    color 150ms ease,
+    transform 150ms ease;
 }
 .detail-nav-item:hover {
   background: #f6f9fd;
+  transform: translateX(2px);
 }
 .detail-nav-item.active {
   border-left-color: #1668dc;
@@ -1007,6 +1010,18 @@ const fileColumns: DataTableColumns<FileNodeItem> = [
 }
 .detail-nav-item.active .detail-nav-label {
   color: #1668dc;
+}
+/* 激活项左侧品牌色圆点指示 */
+.detail-nav-item.active::before {
+  content: '';
+  position: absolute;
+  left: 2px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #1668dc;
 }
 .detail-content {
   padding: 0 0 0 16px;
