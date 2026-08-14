@@ -60,7 +60,15 @@ public class DependencyServiceImpl implements DependencyService {
             // risk=null（未命中规则=未知）原样保留，前端显示"未知版本"而非误报 LOW
             row.setRiskLevel(item.risk());
             row.setRiskReason(item.reason());
-            row.setSuggestion(item.reason());
+            // 审查修复：suggestion 应为可操作建议（此前误用 reason——EOL 原因当建议）
+            // EOL → 升级到 latest；有原因无 latest → 提示人工确认；否则留空
+            if (item.isEol() && item.latest() != null) {
+                row.setSuggestion("升级到 " + item.latest() + "（当前版本已停止支持）");
+            } else if (item.reason() != null) {
+                row.setSuggestion("人工确认版本兼容性：" + item.reason());
+            } else {
+                row.setSuggestion(null);
+            }
             row.setFile(item.file());
             row.setIsEol(item.isEol());
             dependencyMapper.insert(row);

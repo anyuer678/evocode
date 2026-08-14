@@ -53,6 +53,26 @@ class DependencyServiceImplTest {
         verify(dependencyMapper, org.mockito.Mockito.times(2)).insert(any(Dependency.class));
     }
 
+    // 审查修复回归：suggestion 应为可操作建议（EOL → 升级 latest），非 EOL 原因原文
+    @Test
+    void replaceSuggestionIsActionableForEol() {
+        DependencyResp resp = new DependencyResp(true, List.of(
+                new DependencyResp.ItemResp("vue", "2.6.14", "NPM", "package.json",
+                        "HIGH", "Vue 2 已停止官方支持", "3.x", true),
+                new DependencyResp.ItemResp("ok-lib", "1.0.0", "NPM", "package.json",
+                        null, null, null, false)));
+        service.replaceForAnalysis(1L, 10L, resp);
+        var captor = org.mockito.ArgumentCaptor.forClass(Dependency.class);
+        verify(dependencyMapper, org.mockito.Mockito.times(2)).insert(captor.capture());
+        var inserted = captor.getAllValues();
+        Dependency eol = inserted.stream()
+                .filter(d -> "vue".equals(d.getName())).findFirst().orElseThrow();
+        assertEquals("升级到 3.x（当前版本已停止支持）", eol.getSuggestion());
+        Dependency ok = inserted.stream()
+                .filter(d -> "ok-lib".equals(d.getName())).findFirst().orElseThrow();
+        assertEquals(null, ok.getSuggestion());
+    }
+
     @Test
     void replaceClearsProjectWhenUnavailable() {
         // available=false（无 Maven/npm 依赖文件）→ 清空项目，不插入

@@ -68,7 +68,11 @@ function buildOption(data: ArchitectureResult, width: number): ECOption {
   const byLayer: ArchitectureNode[][] = [[], [], [], [], [], []]
   for (const n of data.nodes) byLayer[LAYER[n.nodeType] ?? 5].push(n)
 
-  const xGap = 190
+  // 审查修复：动态 xGap——按最大层节点数计算，保证该层不超画布宽度
+  // （此前固定 190，32+ 节点时 x 超出画布挤成一团）
+  const maxInLayer = Math.max(...byLayer.map((g) => g.length), 1)
+  const nodeW = 110 // 节点近似宽度
+  const xGap = Math.max(nodeW, Math.floor((width - 120) / maxInLayer))
   const layerY = [70, 210, 350, 490, 630, 770]
   const graphNodes = data.nodes.map((n) => {
     const layer = LAYER[n.nodeType] ?? 5
