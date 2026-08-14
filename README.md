@@ -36,7 +36,7 @@
 
 | 层 | 技术 |
 |---|---|
-| 前端 | Vue 3 + TypeScript + Vite + ECharts + Pinia + vitest |
+| 前端 | Vue 3 + TypeScript + Vite + ECharts + Naive UI + Pinia + vitest |
 | 后端 | Spring Boot 3.3（Java 17）+ MyBatis-Plus + Lombok |
 | 分析器 | Python 3.11 + FastAPI + tree-sitter（Python/Java/JavaScript/TypeScript/Go）+ pgvector |
 | AI | OpenAI 兼容 LLM API（DeepSeek/OpenAI/Ollama）+ RAG（bge-m3 向量，关键词兜底） |
@@ -72,7 +72,7 @@
 
 辅助目录：`docs/decisions/`（AD 决策记录）、`docs/devlog/`（周记）、`docs/screenshots/`（演示截图）。
 
-## 里程碑进度（当前 v1.2 收官：技术债清零 + A0→A2 架构演进达成）
+## 里程碑进度（当前 v1.3 收官：前端 Naive UI 全量重构 + 技术债清零 + A0→A2 架构演进达成）
 
 ```
 ✅ P0 三端骨架 + 基础设施 + 脚本，三端门禁全绿（mvnw test / ruff+pytest / npm lint+build，init-db 实测通过）
@@ -92,6 +92,7 @@
 ✅ P9e 进度通知/搜索完成（v1.1 收官）：backend GET /projects/{id}/analyses/events SSE（AnalysisProgressPublisher 按 projectId 广播，状态机变更点推送）+ 前端详情页实时进度条/完成 Toast/断线轮询兜底；healthScore 排序白名单；TD-01 analyzer /analyze/v1/explain（规则版 + LLM 增强）；TD-12 README 启动命令收敛
 ✅ 架构演进 A1/A2 达成 + 技术债清零（v1.2）：TD-09 架构扫描语言扩展（JS/TS/Go）+ TD-10 token 估算精确化 + SPI-1 解析器注册表（新增语言 ≤1 天配置级，languages 过滤修复）+ TD-05 Redis 列表读缓存（AD-018，含降级）+ SPI-6 报告拆表（analysis_report 表，healthScore 列化）；三端门禁 backend 155 / analyzer 158 / frontend 全绿；FULL 链路集成冒烟通过（详见 docs/metrics/2026-08-13-v1.2.md）
 ✅ 收官完善（v1.2+）：AD-019 任务中断启动恢复（StartupTaskRecovery）+ 安全冒烟脚本（security-smoke.ps1，T-S-01/05/07/08）+ samples/demo-store 演示项目；frontend lint 清零（0 errors / 0 warnings）
+✅ 前端全面重构 + 审查修复（v1.3）：**Naive UI 全量迁移**（框架/项目列表/新建/Dashboard/详情 9 子视图全部组件化）；analyzer 端口 8081→8091（避本机 polycode-auth 冲突）；修复报告显示（FAILED 项目加载历史/图表隐藏容器崩溃/详情导航切换失效/doctor 首问丢失）等；多轮审查（后端/前端/契约/安全）；vitest 组件测试 23 用例
 ```
 
 ## 快速开始
@@ -223,6 +224,7 @@ v0.1 代码体检 MVP（上传→扫描→AI 报告）→ v0.2 质量(Sonar) →
 | v3.18 | 2026-08 | **架构演进 A1/A2 达成 + 技术债清零（v1.2）**：**TD-09** 架构扫描语言扩展（JS/TS/Go tree-sitter parser，混合语言目录端到端）；**TD-10** token 估算精确化（内置估算器 + chunker token 预算驱动）；**SPI-1** 解析器注册表（BaseParser + ParserRegistry，新增语言 ≤1 天配置级，languages 过滤修复）；**TD-05** Redis 列表读缓存（AD-018：Spring Cache + TTL 60s + CacheErrorHandler 降级）；**SPI-6** 报告拆表（V010 analysis_report 表，healthScore/level/summary 列化 + ReportStorageService 唯一读写入口，修复 P9e healthScore 排序 NULLS LAST 语法 bug）；三端门禁 backend 155 / analyzer 158 / frontend lint+build+vitest 12 全绿；FULL 链路集成冒烟通过（详见 docs/devlog/2026-08-13-*.md 与 docs/metrics/2026-08-13-v1.2.md） |
 | v3.19 | 2026-08 | **SPI-5 压测评估 + AD-019 启动恢复**：并发压测基线（4 项目并发 FULL 全部 SUCCEEDED；backend 崩溃/重启后残留 PENDING/RUNNING 任务无声丢失——无恢复机制）；新增 StartupTaskRecovery（启动扫描残留 → 标记 FAILED「服务重启导致任务中断，请重新发起分析」+ 项目 ANALYZING → READY）；backend 158/158（详见 docs/devlog/2026-08-13-ad019.md） |
 | v3.20 | 2026-08 | **项目全面审查修复（两波）**：安全（FileController 符号链接穿越 toRealPath 拦截、backend 绑定 127.0.0.1、ECharts tooltip XSS 转义、analyzer codeDir 允许根白名单 ANALYZER_ALLOWED_ROOTS、Sonar token 改环境变量）；可靠性（SSE error 去重 + \\r\n\\n\r\n\\r\n\ 切分修复、180s 超时、Parser 线程隔离、分析取消检查、quality issues 补 analysisId、delete 事务 + analysis_report 清理、create TOCTOU 唯一索引 V011、任务恢复落 5003）；质量（错误码语义 2015、LLM 4xx 不重试 + 连接快速失败、status.json 原子写、枚举 fallback、列表请求守卫、失败态）；**Spring Boot 3.3.5 → 3.3.13（Tomcat CVE-2025-24813）**；三端门禁 backend 159 / analyzer 158+ruff / frontend lint+vitest 12+build 全绿 |
+| v3.21 | 2026-08 | **前端 Naive UI 全量重构 + 审查修复（v1.3）**：弃手写 CSS，全部页面组件化（NConfigProvider 主题 / 项目列表 NDataTable / 新建 NForm / Dashboard NStatistic+条形图 / 详情 NLayoutSider 分区导航 / 9 子视图含 ECharts/NDataTable/NModal）；analyzer 端口 8081→8091（避本机 polycode-auth 8081 冲突，全链路配置同步）；修复：报告显示（FAILED 项目加载历史、size=50 覆盖旧 SUCCEEDED、无报告不请求 404）、图表隐藏容器崩溃（pane v-show→v-if）、详情导航切换失效（n-menu 改自定义导航）、doctor 首问丢失（activeId 同步）/重入/卸载 abort、doc 未保存确认；多轮审查（后端 / 前端组件 / 前后端契约 / 5 子视图）；vitest 组件测试 23 用例（happy-dom + @vue/test-utils）；frontend lint + vitest 23 + build 全绿 |
 
 ## License
 
