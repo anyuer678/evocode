@@ -13,7 +13,7 @@ import {
   NSpin,
   NTag,
 } from 'naive-ui'
-import { NLayout, NLayoutContent, NLayoutSider, NMenu } from 'naive-ui'
+import { NLayout, NLayoutContent, NLayoutSider } from 'naive-ui'
 import { NSpace } from 'naive-ui'
 import { useRoute } from 'vue-router'
 import ArchitectureView from './architecture-view.vue'
@@ -420,7 +420,6 @@ onBeforeUnmount(() => {
   closeProgress = null
   if (toastTimer) window.clearTimeout(toastTimer)
 })
-const menuOptions = SECTIONS.map((s) => ({ label: s.label, key: s.key }))
 const STATUS_TAG: Record<ProjectStatus, 'default' | 'info' | 'success' | 'error'> = {
   CREATED: 'default',
   ANALYZING: 'info',
@@ -649,12 +648,19 @@ const fileColumns: DataTableColumns<FileNodeItem> = [
     <!-- 分区工作台 -->
     <n-layout class="detail-workspace" has-sider>
       <n-layout-sider bordered width="200" :native-scrollbar="false">
-        <n-menu
-          :value="activeSection"
-          :options="menuOptions"
-          :root-indent="8"
-          @update:value="(v) => (activeSection = v as SectionKey)"
-        />
+        <nav class="detail-nav">
+          <button
+            v-for="s in SECTIONS"
+            :key="s.key"
+            type="button"
+            class="detail-nav-item"
+            :class="{ active: activeSection === s.key }"
+            @click="activeSection = s.key"
+          >
+            <span class="detail-nav-label">{{ s.label }}</span>
+            <span class="detail-nav-desc">{{ s.desc }}</span>
+          </button>
+        </nav>
       </n-layout-sider>
       <n-layout-content class="detail-content" :native-scrollbar="false">
         <!-- 体检报告 -->
@@ -960,6 +966,47 @@ const fileColumns: DataTableColumns<FileNodeItem> = [
 }
 .detail-workspace {
   background: transparent;
+}
+.detail-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 6px;
+}
+.detail-nav-item {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  width: 100%;
+  padding: 8px 12px;
+  border: none;
+  border-left: 2px solid transparent;
+  border-radius: 4px;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background 150ms ease,
+    color 150ms ease;
+}
+.detail-nav-item:hover {
+  background: #f6f9fd;
+}
+.detail-nav-item.active {
+  border-left-color: #1668dc;
+  background: rgba(22, 104, 220, 0.08);
+}
+.detail-nav-label {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #1b2633;
+}
+.detail-nav-desc {
+  font-size: 11.5px;
+  color: #8798ab;
+}
+.detail-nav-item.active .detail-nav-label {
+  color: #1668dc;
 }
 .detail-content {
   padding: 0 0 0 16px;
