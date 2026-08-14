@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import * as echarts from 'echarts/core'
@@ -11,7 +11,7 @@ import {
 } from 'echarts/components'
 import { CanvasRenderer } from 'echarts/renderers'
 import type { ECharts } from 'echarts/core'
-import { NButton, NCard, NEmpty, NList, NListItem } from 'naive-ui'
+import { NButton, NCard, NEmpty, NList, NListItem, NProgress } from 'naive-ui'
 import { listProjects } from '../../api/project'
 import type { ProjectSummary } from '../../types/api'
 
@@ -40,10 +40,13 @@ const avgHealth = computed(() => {
 })
 const readyCount = computed(() => projects.value.filter((p) => p.status === 'READY').length)
 const totalLoc = computed(() => projects.value.reduce((s, p) => s + (p.locTotal ?? 0), 0))
+// 审查修复：展示全部项目（含未分析）——此前 filter(lastAnalyzedAt) 导致
+// 有项目但无分析时间时列表空、页面大片空白。按 分析时间>创建时间 倒序。
 const recent = computed(() =>
   [...projects.value]
-    .filter((p) => p.lastAnalyzedAt)
-    .sort((a, b) => (b.lastAnalyzedAt ?? '').localeCompare(a.lastAnalyzedAt ?? ''))
+    .sort((a, b) =>
+      (b.lastAnalyzedAt ?? b.createdAt ?? '').localeCompare(a.lastAnalyzedAt ?? a.createdAt ?? ''),
+    )
     .slice(0, 8),
 )
 
@@ -55,6 +58,14 @@ const healthClass = (score: number | null): string => {
   if (score >= 80) return 'dash__health--high'
   if (score >= 60) return 'dash__health--mid'
   return 'dash__health--low'
+}
+
+/** 健康分进度条着色（与 healthClass 档位一致） */
+const healthColor = (score: number | null): string => {
+  if (score == null) return '#c2ccd8'
+  if (score >= 80) return '#0f9d58'
+  if (score >= 60) return '#e8890c'
+  return '#d64545'
 }
 
 const formatTime = (t: string): string => new Date(t).toLocaleDateString()
@@ -261,6 +272,16 @@ onBeforeUnmount(() => {
         <NListItem v-for="p in recent" :key="p.id" class="dash__item" @click="goDetail(p.id)">
           <div class="dash__item-inner">
             <span class="dash__item-name">{{ p.name }}</span>
+            <span class="dash__item-gauge">
+              <NProgress
+                type="line"
+                :percentage="p.healthScore ?? 0"
+                :height="6"
+                :color="healthColor(p.healthScore)"
+                :rail-color="'#e6ebf1'"
+                :show-indicator="false"
+              />
+            </span>
             <span class="dash__health" :class="healthClass(p.healthScore)">
               {{ p.healthScore ?? '—' }}
             </span>
@@ -307,13 +328,29 @@ onBeforeUnmount(() => {
   gap: 12px;
 }
 .dash__stat-card {
+  position: relative;
+  overflow: hidden;
   transition:
     transform 150ms ease,
     box-shadow 150ms ease;
 }
+.dash__stat-card::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: #1668dc;
+  opacity: 0;
+  transition: opacity 150ms ease;
+}
 .dash__stat-card:hover {
   transform: translateY(-2px);
   box-shadow: 0 4px 14px rgba(15, 23, 42, 0.08);
+}
+.dash__stat-card:hover::before {
+  opacity: 1;
 }
 .dash__stat-inner {
   display: flex;
@@ -324,26 +361,26 @@ onBeforeUnmount(() => {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 40px;
-  height: 40px;
-  border-radius: 8px;
-  font-size: 18px;
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  font-size: 20px;
   flex-shrink: 0;
 }
 .icon-blue {
-  background: rgba(22, 104, 220, 0.1);
+  background: rgba(22, 104, 220, 0.14);
   color: #1668dc;
 }
 .icon-green {
-  background: rgba(15, 157, 88, 0.1);
+  background: rgba(15, 157, 88, 0.14);
   color: #0f9d58;
 }
 .icon-amber {
-  background: rgba(232, 137, 12, 0.1);
+  background: rgba(232, 137, 12, 0.14);
   color: #e8890c;
 }
 .icon-slate {
-  background: rgba(85, 102, 122, 0.1);
+  background: rgba(85, 102, 122, 0.14);
   color: #55667a;
 }
 .dash__stat-meta {
@@ -380,12 +417,17 @@ onBeforeUnmount(() => {
   gap: 12px;
 }
 .dash__item-name {
-  flex: 1;
+  width: 180px;
+  flex-shrink: 0;
   font-size: 14px;
   font-weight: 600;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+.dash__item-gauge {
+  width: 140px;
+  flex-shrink: 0;
 }
 .dash__health {
   font-size: 14px;
