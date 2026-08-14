@@ -74,6 +74,59 @@ function goDetail(id: number): void {
   void router.push(`/projects/${id}`)
 }
 
+/** 功能导览：EvoCode 全部分析能力（点击进入项目详情对应分区） */
+const FEATURES = [
+  {
+    key: 'report',
+    icon: '🏥',
+    label: '体检报告',
+    desc: '健康评分 · 诊断 · 风险',
+    color: '#1668dc',
+  },
+  {
+    key: 'quality',
+    icon: '🔬',
+    label: '质量分析',
+    desc: 'Sonar 静态扫描 · Bug/漏洞',
+    color: '#0f9d58',
+  },
+  {
+    key: 'architecture',
+    icon: '🕸',
+    label: '架构分析',
+    desc: '分层结构 · 调用关系',
+    color: '#e8890c',
+  },
+  {
+    key: 'evolution',
+    icon: '📈',
+    label: '演化分析',
+    desc: '提交趋势 · 风险热点',
+    color: '#d64545',
+  },
+  {
+    key: 'dependency',
+    icon: '🧩',
+    label: '依赖分析',
+    desc: '依赖清单 · EOL 风险',
+    color: '#7c5cd6',
+  },
+  { key: 'doctor', icon: '💬', label: 'AI 医生', desc: '项目问答 · 引用溯源', color: '#0e7490' },
+  { key: 'debt', icon: '🧾', label: '技术债', desc: '债务登记 · 状态跟踪', color: '#b45309' },
+  { key: 'doc', icon: '📄', label: '项目文档', desc: 'README / 架构 / API', color: '#1668dc' },
+  { key: 'files', icon: '🗂', label: '文件地图', desc: '代码浏览 · 内容预览', color: '#55667a' },
+]
+
+/** 进入项目详情对应功能分区（有项目时） */
+function goFeature(key: string): void {
+  const pid = projects.value[0]?.id
+  if (!pid) {
+    void router.push('/projects/create')
+    return
+  }
+  void router.push({ path: `/projects/${pid}`, query: { section: key } })
+}
+
 function renderCharts(): void {
   if (!healthEl.value || !langEl.value || !statusEl.value) return
   charts.forEach((c) => c.dispose())
@@ -254,6 +307,33 @@ onBeforeUnmount(() => {
       </NCard>
     </div>
 
+    <!-- 功能导览：全部分析能力入口 -->
+    <div class="dash__features">
+      <div class="dash__features-head">
+        <h3 class="dash__sub">能力导览</h3>
+        <span class="dash__features-hint">点击进入项目对应分析分区</span>
+      </div>
+      <div class="dash__feature-grid">
+        <button
+          v-for="f in FEATURES"
+          :key="f.key"
+          type="button"
+          class="dash__feature"
+          @click="goFeature(f.key)"
+        >
+          <span
+            class="dash__feature-icon"
+            :style="{ background: f.color + '1a', color: f.color }"
+            >{{ f.icon }}</span
+          >
+          <span class="dash__feature-text">
+            <span class="dash__feature-label">{{ f.label }}</span>
+            <span class="dash__feature-desc">{{ f.desc }}</span>
+          </span>
+        </button>
+      </div>
+    </div>
+
     <div v-if="projects.length" class="dash__charts">
       <NCard size="small" class="dash__chart-card" title="健康分分布">
         <div ref="healthEl" class="dash__chart" />
@@ -410,6 +490,70 @@ onBeforeUnmount(() => {
   margin: 8px 0 0;
   font-size: 15px;
   font-weight: 600;
+}
+.dash__features {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.dash__features-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+.dash__features-hint {
+  font-size: 12px;
+  color: #8798ab;
+}
+.dash__feature-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 10px;
+}
+.dash__feature {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #fff;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    box-shadow 150ms ease,
+    transform 150ms ease,
+    border-color 150ms ease;
+}
+.dash__feature:hover {
+  box-shadow: 0 3px 10px rgba(15, 23, 42, 0.08);
+  transform: translateY(-2px);
+  border-color: #cbd6e2;
+}
+.dash__feature-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  font-size: 18px;
+  flex-shrink: 0;
+}
+.dash__feature-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.dash__feature-label {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #1b2633;
+}
+.dash__feature-desc {
+  font-size: 11.5px;
+  color: #8798ab;
 }
 .dash__item-inner {
   display: flex;

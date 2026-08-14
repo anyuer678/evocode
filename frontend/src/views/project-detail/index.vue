@@ -391,7 +391,18 @@ async function loadAll() {
   }
 }
 
-onMounted(loadAll)
+// 审查修复：支持 URL query.section 直达功能分区（Dashboard 能力导览入口）
+function applySectionParam(): void {
+  const s = route.query.section
+  if (s && SECTIONS.some((x) => x.key === s)) {
+    activeSection.value = s as SectionKey
+  }
+}
+
+onMounted(() => {
+  applySectionParam()
+  void loadAll()
+})
 
 // 审查修复：路由参数变化（同组件复用跳转其他项目）时重置状态并重载
 watch(
