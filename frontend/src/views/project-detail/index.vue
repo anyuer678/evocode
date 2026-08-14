@@ -205,14 +205,21 @@ function pollIfRunning() {
 
 async function loadHistory() {
   try {
-    const data = await listAnalyses(projectId.value)
+    // 审查修复：加大 size 以覆盖历史 SUCCEEDED 分析（最近 N 条可能全 FAILED 时
+    // 默认 size=10 会漏掉有报告的旧分析，导致报告卡 404 空白）
+    const data = await listAnalyses(projectId.value, 1, 50)
     analyses.value = data.items
     // 默认选中最近一条有报告的分析（否则最新一条）
     const withReport = data.items.find((a) => a.healthScore != null && a.status === 'SUCCEEDED')
     const target = withReport ?? data.items[0]
     if (target) {
       selectedId.value = target.id
-      await loadReport(target.id)
+      if (withReport) {
+        await loadReport(target.id)
+      } else {
+        // 审查修复：无 SUCCEEDED 报告时置空（避免请求 FAILED 分析的报告 404）
+        report.value = null
+      }
     } else {
       report.value = null
     }
@@ -370,9 +377,10 @@ function fmtTime(iso: string | null): string {
 async function loadAll() {
   await loadDetail()
   const st = detail.value?.status
+  // 审查修复：FAILED 状态也加载分析历史/报告（项目可能之前有 SUCCEEDED 分析）
+  await loadHistory()
   if (st === 'READY') {
     loadFiles()
-    await loadHistory()
     await loadQuality()
   } else if (st === 'ANALYZING') {
     // P9e：仅 FULL/REGENERATE 分析中订阅 SSE（CREATED 快扫无事件流，避免空挂）

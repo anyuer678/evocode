@@ -21,9 +21,15 @@ export async function createAnalysis(projectId: number, type = 'FULL'): Promise<
 }
 
 /** 分析历史（分页，按 id 倒序） */
-export async function listAnalyses(projectId: number): Promise<PageResult<AnalysisHistoryItem>> {
+export async function listAnalyses(
+  projectId: number,
+  page = 1,
+  size = 10,
+): Promise<PageResult<AnalysisHistoryItem>> {
   return getData(
-    request.get<ApiResponse<PageResult<AnalysisHistoryItem>>>(`/projects/${projectId}/analyses`),
+    request.get<ApiResponse<PageResult<AnalysisHistoryItem>>>(`/projects/${projectId}/analyses`, {
+      params: { page, size },
+    }),
   )
 }
 
