@@ -1,268 +1,114 @@
 package com.evocode.service.project;
 
+import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.evocode.common.BusinessException;
-import com.evocode.config.EvocodeProperties;
+import com.evocode.common.ErrorCode;
+import com.evocode.dto.project.ProjectDetailResp;
 import com.evocode.dto.project.ProjectResp;
+import com.evocode.dto.project.ProjectSummaryResp;
 import com.evocode.dto.project.ProjectUpdateReq;
-import com.evocode.mapper.AnalysisMapper;
-import com.evocode.mapper.AnalysisReportMapper;
-import com.evocode.mapper.ArchViolationMapper;
-import com.evocode.mapper.ArchitectureEdgeMapper;
-import com.evocode.mapper.ArchitectureNodeMapper;
-import com.evocode.mapper.ChatMessageMapper;
-import com.evocode.mapper.ChatSessionMapper;
-import com.evocode.mapper.CommitStatMapper;
-import com.evocode.mapper.FileChangeStatMapper;
-import com.evocode.mapper.FileNodeMapper;
-import com.evocode.mapper.GeneratedDocMapper;
-import com.evocode.mapper.HotspotMapper;
-import com.evocode.mapper.KnowledgeChunkMapper;
-import com.evocode.mapper.ProjectMapper;
-import com.evocode.mapper.QualityIssueMapper;
-import com.evocode.mapper.TechDebtMapper;
-import com.evocode.entity.Project;
-import com.evocode.service.analysis.QuickScanService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
 import org.mockito.Mockito;
 import org.springframework.mock.web.MockMultipartFile;
 
-import java.io.ByteArrayOutputStream;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipOutputStream;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.doAnswer;
-import static org.mockito.Mockito.never;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
- * ProjectService 核心流：zip 创建（含磁盘落位）、Git 创建、删除级联清理。
+ * ProjectServiceImpl 门面委托测试：Controller 只面对 ProjectService 接口，
+ * 门面按领域转发至 ProjectLifecycleService / ProjectQueryService / ProjectDeleteService，
+ * 并保留缓存与事务注解位置。领域逻辑断言见各子服务测试类
+ * （ProjectLifecycleServiceTest / ProjectQueryServiceTest / ProjectDeleteServiceTest）。
  */
 class ProjectServiceImplTest {
 
-    @TempDir
-    Path work;
-
-    private ProjectMapper projectMapper;
-    private AnalysisMapper analysisMapper;
-    private FileNodeMapper fileNodeMapper;
-    private UploadService uploadService;
-    private GitCloneService gitCloneService;
-    private QuickScanService quickScanService;
-    private QualityIssueMapper qualityIssueMapper;
-    private ArchitectureNodeMapper architectureNodeMapper;
-    private ArchitectureEdgeMapper architectureEdgeMapper;
-    private ArchViolationMapper archViolationMapper;
-    private CommitStatMapper commitStatMapper;
-    private FileChangeStatMapper fileChangeStatMapper;
-    private HotspotMapper hotspotMapper;
-    private ChatSessionMapper chatSessionMapper;
-    private ChatMessageMapper chatMessageMapper;
-    private KnowledgeChunkMapper knowledgeChunkMapper;
-    private TechDebtMapper techDebtMapper;
-    private GeneratedDocMapper generatedDocMapper;
-    private AnalysisReportMapper analysisReportMapper;
-    private EvocodeProperties props;
+    private ProjectLifecycleService lifecycleService;
+    private ProjectQueryService queryService;
+    private ProjectDeleteService deleteService;
     private ProjectServiceImpl service;
 
     @BeforeEach
     void setUp() {
-        projectMapper = Mockito.mock(ProjectMapper.class);
-        analysisMapper = Mockito.mock(AnalysisMapper.class);
-        fileNodeMapper = Mockito.mock(FileNodeMapper.class);
-        uploadService = Mockito.mock(UploadService.class);
-        gitCloneService = Mockito.mock(GitCloneService.class);
-        quickScanService = Mockito.mock(QuickScanService.class);
-        props = new EvocodeProperties();
-        props.setDataDir(work.resolve("data").toString());
-        qualityIssueMapper = Mockito.mock(QualityIssueMapper.class);
-        architectureNodeMapper = Mockito.mock(ArchitectureNodeMapper.class);
-        architectureEdgeMapper = Mockito.mock(ArchitectureEdgeMapper.class);
-        archViolationMapper = Mockito.mock(ArchViolationMapper.class);
-        commitStatMapper = Mockito.mock(CommitStatMapper.class);
-        fileChangeStatMapper = Mockito.mock(FileChangeStatMapper.class);
-        hotspotMapper = Mockito.mock(HotspotMapper.class);
-        chatSessionMapper = Mockito.mock(ChatSessionMapper.class);
-        chatMessageMapper = Mockito.mock(ChatMessageMapper.class);
-        knowledgeChunkMapper = Mockito.mock(KnowledgeChunkMapper.class);
-        techDebtMapper = Mockito.mock(TechDebtMapper.class);
-        generatedDocMapper = Mockito.mock(GeneratedDocMapper.class);
-        analysisReportMapper = Mockito.mock(AnalysisReportMapper.class);
-        service = new ProjectServiceImpl(projectMapper, analysisMapper, fileNodeMapper,
-                qualityIssueMapper, architectureNodeMapper, architectureEdgeMapper,
-                archViolationMapper, commitStatMapper, fileChangeStatMapper, hotspotMapper,
-                chatSessionMapper, chatMessageMapper, knowledgeChunkMapper, techDebtMapper,
-                generatedDocMapper, analysisReportMapper, uploadService, gitCloneService,
-                quickScanService, props);
-        doAnswer(inv -> {
-            Project p = inv.getArgument(0);
-            p.setId(1L);
-            return 1;
-        }).when(projectMapper).insert(any(Project.class));
+        lifecycleService = Mockito.mock(ProjectLifecycleService.class);
+        queryService = Mockito.mock(ProjectQueryService.class);
+        deleteService = Mockito.mock(ProjectDeleteService.class);
+        service = new ProjectServiceImpl(lifecycleService, queryService, deleteService);
     }
 
     @Test
-    void createFromZipStoresCodeAndTriggersQuickScan() throws Exception {
-        Path tempRoot = Files.createTempDirectory("upload-test");
-        Path root = tempRoot.resolve("chatez");
-        Files.createDirectories(root.resolve("src"));
-        Files.writeString(root.resolve("src").resolve("App.java"), "class App {}");
-        when(uploadService.extractZip(any(), any())).thenReturn(root);
+    void createFromZip_delegatesToLifecycle() {
+        ProjectResp resp = ProjectResp.builder().build();
+        MockMultipartFile file = new MockMultipartFile("f", new byte[0]);
+        when(lifecycleService.createFromZip("Chatez", "demo", file)).thenReturn(resp);
 
-        ProjectResp resp = service.createFromZip("Chatez", "demo", new MockMultipartFile("f", new byte[0]));
-
-        assertEquals("ZIP", resp.getSourceType());
-        assertEquals(Path.of(props.getDataDir(), "projects", "1").toString(),
-                resp.getStoragePath());
-        Path stored = work.resolve("data/projects/1/src/App.java");
-        assertTrue(Files.exists(stored), "代码应原子移入 data/projects/{id}");
-        verify(quickScanService).quickScan(any(Project.class));
+        assertSame(resp, service.createFromZip("Chatez", "demo", file));
+        verify(lifecycleService).createFromZip("Chatez", "demo", file);
     }
 
     @Test
-    void createFromGitSetsSourceAndRepoUrl() throws Exception {
-        Path tempRoot = Files.createTempDirectory("clone-test");
-        Path repo = tempRoot.resolve("repo");
-        Files.createDirectories(repo);
-        Files.writeString(repo.resolve("README.md"), "# r");
-        doAnswer(inv -> {
-            Files.createDirectories(inv.getArgument(2));
-            Files.writeString(Path.of(inv.getArgument(2).toString()).resolve("README.md"), "# r");
-            return null;
-        }).when(gitCloneService).clone(any(), Mockito.anyInt(), any());
+    void createFromZip_propagatesBusinessException() {
+        MockMultipartFile file = new MockMultipartFile("f", new byte[0]);
+        when(lifecycleService.createFromZip(any(), any(), any()))
+                .thenThrow(new BusinessException(ErrorCode.FILE_ILLEGAL, "boom"));
 
-        ProjectResp resp = service.createFromGit("Chatez", null, "https://github.com/owner/chatez", 1);
-
-        assertEquals("GIT", resp.getSourceType());
-        assertTrue(Files.exists(work.resolve("data/projects/1/README.md")));
-        verify(quickScanService).quickScan(any(Project.class));
+        assertThrows(BusinessException.class, () -> service.createFromZip("x", null, file));
     }
 
     @Test
-    void detailNotFoundThrows2001() {
-        when(projectMapper.selectById(99L)).thenReturn(null);
-        BusinessException e = assertThrows(BusinessException.class, () -> service.detail(99L));
-        assertEquals(2001, e.getCode());
+    void createFromGit_delegatesToLifecycle() {
+        ProjectResp resp = ProjectResp.builder().build();
+        when(lifecycleService.createFromGit("Chatez", null, "https://github.com/o/r", 1)).thenReturn(resp);
+
+        assertSame(resp, service.createFromGit("Chatez", null, "https://github.com/o/r", 1));
+        verify(lifecycleService).createFromGit("Chatez", null, "https://github.com/o/r", 1);
     }
 
     @Test
-    void deleteRemovesDbRowsAndDiskDir() throws Exception {
-        Path dir = work.resolve("data/projects/7");
-        Files.createDirectories(dir);
-        Files.writeString(dir.resolve("a.txt"), "x");
-        Project project = new Project();
-        project.setId(7L);
-        project.setStoragePath(dir.toString());
-        when(projectMapper.selectById(7L)).thenReturn(project);
+    void list_delegatesToQueryWithAllParams() {
+        @SuppressWarnings("unchecked")
+        IPage<ProjectSummaryResp> page = Mockito.mock(IPage.class);
+        when(queryService.list(1, 10, "kw", "Java", "ACTIVE", "name", "asc")).thenReturn(page);
 
+        assertSame(page, service.list(1, 10, "kw", "Java", "ACTIVE", "name", "asc"));
+        verify(queryService).list(1, 10, "kw", "Java", "ACTIVE", "name", "asc");
+    }
+
+    @Test
+    void detail_delegatesToQuery() {
+        ProjectDetailResp detail = ProjectDetailResp.builder().build();
+        when(queryService.detail(7L)).thenReturn(detail);
+
+        assertSame(detail, service.detail(7L));
+        verify(queryService).detail(7L);
+    }
+
+    @Test
+    void update_delegatesToQuery() {
+        ProjectUpdateReq req = new ProjectUpdateReq("new-name", "desc");
+        ProjectResp resp = ProjectResp.builder().build();
+        when(queryService.update(7L, req)).thenReturn(resp);
+
+        assertSame(resp, service.update(7L, req));
+        verify(queryService).update(7L, req);
+    }
+
+    @Test
+    void delete_delegatesToDeleteService() {
         service.delete(7L);
-
-        verify(projectMapper).deleteById(7L);
-        // 审查修订：P6/P7 新表级联（chat_message 先于 chat_session；knowledge_chunk 物理删）
-        verify(chatMessageMapper).delete(any());
-        verify(chatSessionMapper).delete(any());
-        verify(knowledgeChunkMapper).deleteByProjectId(7L);
-        verify(techDebtMapper).delete(any());
-        verify(generatedDocMapper).delete(any());
-        assertFalse(Files.exists(dir), "删除后磁盘目录应移除");
+        verify(deleteService).delete(7L);
     }
 
     @Test
-    void invalidSortRejected() {
-        when(projectMapper.selectSummaryPage(any(), any(), any(), any(), any(), any()))
-                .thenReturn(null);
-        assertThrows(BusinessException.class,
-                () -> service.list(1, 10, null, null, null, "malicious;drop", "asc"));
-    }
+    void delete_propagatesBusinessException() {
+        doThrow(new BusinessException(ErrorCode.PROJECT_NOT_FOUND, null))
+                .when(deleteService).delete(anyLong());
 
-    // 审查修复回归：契约 §6「时间类默认 desc」——sort 缺省等价 createdAt，应传 desc
-    @Test
-    void defaultSortIsDescForTimeColumns() {
-        when(projectMapper.selectSummaryPage(any(), any(), any(), any(), any(), any()))
-                .thenReturn(null);
-        // sort=null（默认 createdAt）→ desc
-        service.list(1, 10, null, null, null, null, null);
-        org.mockito.Mockito.verify(projectMapper).selectSummaryPage(any(), any(), any(), any(),
-                org.mockito.ArgumentMatchers.eq("p.created_at"),
-                org.mockito.ArgumentMatchers.eq("desc"));
-    }
-
-    // ---- P9b：PATCH 更新 ----
-
-    @Test
-    void update_renameAndDescription_ok() {
-        Project p = new Project();
-        p.setId(7L);
-        p.setName("old");
-        p.setDescription(null);
-        when(projectMapper.selectById(7L)).thenReturn(p);
-        doAnswer(inv -> {
-            Project merged = new Project();
-            merged.setId(7L);
-            merged.setName("new-name");
-            merged.setDescription("desc");
-            when(projectMapper.selectById(7L)).thenReturn(merged);
-            return 1;
-        }).when(projectMapper).update(any(), any());
-
-        ProjectResp resp = service.update(7L, new ProjectUpdateReq("new-name", "desc"));
-        assertEquals("new-name", resp.getName());
-        assertEquals("desc", resp.getDescription());
-        verify(projectMapper).update(any(), any());
-    }
-
-    @Test
-    void update_emptyReq_throws1001() {
-        Project p = new Project();
-        p.setId(7L);
-        when(projectMapper.selectById(7L)).thenReturn(p);
-        assertThrows(BusinessException.class,
-                () -> service.update(7L, new ProjectUpdateReq(null, "  ")));
-    }
-
-    @Test
-    void update_blankName_throws1002() {
-        assertThrows(BusinessException.class,
-                () -> service.update(7L, new ProjectUpdateReq("  ", null)));
-    }
-
-    @Test
-    void update_nameTooLong_throws1002() {
-        assertThrows(BusinessException.class,
-                () -> service.update(7L, new ProjectUpdateReq("x".repeat(101), null)));
-    }
-
-    @Test
-    void update_projectNotFound_throws2001() {
-        when(projectMapper.selectById(99L)).thenReturn(null);
-        assertThrows(BusinessException.class,
-                () -> service.update(99L, new ProjectUpdateReq("new", null)));
-    }
-
-    // ---- P9e：排序白名单 ----
-
-    @Test
-    void list_healthScoreSortMapsNullsLast() {
-        // SPI-6：healthScore → health_score 列 + DESC NULLS LAST（PG 语法要求 NULLS 在 ASC/DESC 之后）
-        service.list(1, 10, null, null, null, "healthScore", "desc");
-        verify(projectMapper).selectSummaryPage(any(), any(), any(), any(),
-                org.mockito.ArgumentMatchers.eq("health_score"),
-                org.mockito.ArgumentMatchers.eq("desc NULLS LAST"));
-    }
-
-    @Test
-    void list_unknownSortThrows1002() {
-        BusinessException e = assertThrows(BusinessException.class,
-                () -> service.list(1, 10, null, null, null, "evil; DROP", "desc"));
-        assertEquals(1002, e.getCode());
+        assertThrows(BusinessException.class, () -> service.delete(99L));
     }
 }
