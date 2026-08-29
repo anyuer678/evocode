@@ -1,6 +1,8 @@
 """集中配置（pydantic-settings，读 .env / 环境变量）。"""
 
+import tempfile
 from functools import lru_cache
+from pathlib import Path
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -38,9 +40,16 @@ class Settings(BaseSettings):
     # 留空 = RAG 向量不可用（关键词兜底）
     pg_dsn: str = Field(default="", validation_alias="ANALYZER_PG_DSN")
 
-    # 审查 H2：codeDir 允许根白名单（逗号分隔绝对路径）。默认空 = 不启用（向后兼容）；
-    # 配置后各分析端点强制校验 codeDir 位于允许根内，防任意路径扫描/读取
-    allowed_roots: str = Field(default="", validation_alias="ANALYZER_ALLOWED_ROOTS")
+    # 审查 H2：codeDir 允许根白名单（逗号分隔绝对路径）。
+    # 安全默认启用：进程 cwd + 用户主目录 + 系统临时目录（覆盖本机项目与
+    # 上传/GitHub 克隆场景），拦截系统目录、其他盘符与越权路径。
+    # 用 ANALYZER_ALLOWED_ROOTS 覆盖；显式设为空字符串可关闭（不推荐）。
+    allowed_roots: str = Field(
+        default_factory=lambda: ",".join(
+            [str(Path.cwd()), str(Path.home()), str(Path(tempfile.gettempdir()).resolve())]
+        ),
+        validation_alias="ANALYZER_ALLOWED_ROOTS",
+    )
 
     # Sonar（P3；留空/不可达 → 质量维度降级 N/A）
     sonar_host_url: str = "http://127.0.0.1:9000"

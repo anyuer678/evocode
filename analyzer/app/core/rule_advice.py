@@ -44,7 +44,7 @@ _RULE_ADVICE: dict[str, tuple[str, str]] = {
     ),
     "java:S112": (
         "抛出过于通用的异常（Exception/Throwable）会掩盖真实错误类型，难以针对性处理。",
-        "抛出过于通用的异常会掩盖真实错误类型，难以针对性处理。",  # noqa: E501
+        "改为抛出具体的业务异常类型，或在捕获后补充上下文重新抛出，便于定位与处理。",  # noqa: E501
     ),
     "java:S1166": (
         "捕获异常后未记录（空 catch 或仅 printStackTrace）会丢失故障现场。",
