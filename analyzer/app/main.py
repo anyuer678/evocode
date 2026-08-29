@@ -71,9 +71,10 @@ logger = logging.getLogger("evocode.analyzer")
 
 
 def _assert_allowed_root(code_dir: Path) -> None:
-    """审查 H2：配置 ANALYZER_ALLOWED_ROOTS 后，强制 codeDir 位于允许根内。
+    """审查 H2：强制 codeDir 位于允许根内（安全默认启用）。
 
-    防任意路径扫描/读取；默认空 = 不启用（向后兼容），配置为逗号分隔绝对路径列表。
+    默认允许：进程 cwd + 用户主目录 + 系统临时目录；可用
+    ANALYZER_ALLOWED_ROOTS 覆盖（逗号分隔绝对路径），设为空字符串关闭。
     """
     roots = settings.allowed_roots
     if not roots:
