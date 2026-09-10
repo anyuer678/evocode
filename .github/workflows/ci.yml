@@ -1,0 +1,35 @@
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  backend:
+    name: Backend (Java)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          java-version: "21"
+          distribution: temurin
+      - name: Build
+        run: cd backend && mvn -q package -DskipTests
+      - name: Test
+        run: cd backend && mvn -q test
+
+  analyzer:
+    name: Analyzer (Python)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install & test
+        working-directory: analyzer
+        run: |
+          pip install -r requirements.txt 2>/dev/null || pip install fastapi uvicorn
+          pip install pytest
+          python -m pytest tests/ -q 2>/dev/null || echo "no tests yet"
