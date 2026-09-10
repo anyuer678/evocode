@@ -27,9 +27,11 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Install & test
+      - name: Install dependencies
         working-directory: analyzer
         run: |
           pip install -r requirements.txt 2>/dev/null || pip install fastapi uvicorn
           pip install pytest
-          python -m pytest tests/ -q 2>/dev/null || echo "no tests yet"
+      - name: Test
+        working-directory: analyzer
+        run: python -m pytest tests/ -q --tb=short
