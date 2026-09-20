@@ -7,7 +7,9 @@
 [![Analyzer](https://img.shields.io/badge/分析器-FastAPI%20%2B%20tree--sitter-009688)](https://github.com/anyuer678/evocode)
 [![Docs](https://img.shields.io/badge/文档站-online-2563eb)](https://anyuer678.github.io/evocode/)
 
-> **AI 软件体检与演化平台** —— 让 AI 持续理解、诊断、维护你的软件，做软件的「体检 + 医生 + 健康档案」。
+> **状态**：`local-tool` / `portfolio` · **本机软件体检工具**（无多用户认证，勿公网暴露）  
+> **AI 软件体检与演化** —— 规则引擎为主的静态诊断 + 可选 LLM 增强，做软件的「体检 + 建议 + 健康档案」。  
+> 核心价值在 **确定性规则扫描**；无 `LLM_API_KEY` 时自动降级为规则版报告。
 
 **不做** AI 写代码工具（区别于 Cursor / Copilot），**不做**普通 Code Review，而是**软件健康管理平台**：
 
