@@ -137,3 +137,13 @@ LLM_BASE_URL=http://127.0.0.1:11434/v1   # Ollama / DeepSeek 等 OpenAI 兼容�
 本项目按 **GPL-3.0** 协议提供。完整协议文本见 [LICENSE](LICENSE)。
 
 详细版本历史见 [CHANGELOG.md](CHANGELOG.md)。
+
+
+---
+
+## 全栈 compose 与绑定护栏
+
+- 基础设施全集：[`docker-compose.full.yml`](docker-compose.full.yml)（端口仅 `127.0.0.1`）
+- 说明：[`docs/DEPLOY_FULL.md`](docs/DEPLOY_FULL.md)
+- 校验：`python scripts/check_bind_guard.py`（非本机 host 默认拒绝）
+- Analyzer 安全启动：`python analyzer/run.py`（默认 `127.0.0.1:8091`；`EVOCODE_ALLOW_PUBLIC_BIND=1` 才允许其它 host）
