@@ -1,0 +1,44 @@
+# EvoCode compose.full — 基础设施全集（端口仅 127.0.0.1）
+# 应用进程默认仍由宿主启动（见 docs/DEPLOY_FULL.md）。
+# 用法: docker compose -f docker-compose.full.yml --env-file .env up -d
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: evocode-postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-evocode}
+      POSTGRES_USER: ${POSTGRES_USER:-evocode}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-evocode_dev}
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-evocode} -d ${POSTGRES_DB:-evocode}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: evocode-redis
+    ports:
+      - "127.0.0.1:6380:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  sonarqube:
+    image: sonarqube:lts-community
+    container_name: evocode-sonar
+    profiles: ["full"]
+    ports:
+      - "127.0.0.1:9000:9000"
+    environment:
+      SONAR_ES_BOOTSTRAP_CHECKS_DISABLE: "true"
+
+volumes:
+  pgdata: {}
