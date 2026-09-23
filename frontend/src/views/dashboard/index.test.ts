@@ -9,6 +9,7 @@ import type { ProjectSummary } from '../../types/api'
  * - 统计卡渲染（项目数/平均健康分/已分析/总代码行）
  * - 图表在无项目时不渲染（引导区）
  * - 空态展示
+ * - 接口失败时给出说明，而不是静默渲染一排 0
  */
 
 vi.mock('../../api/project', () => ({
@@ -18,6 +19,19 @@ vi.mock('../../api/project', () => ({
 vi.mock('vue-router', () => ({
   useRouter: () => ({ push: vi.fn() }),
 }))
+
+// 演示模式开关：真值仍取真实模块（文案不写死，避免与 demo/index.ts 漂移），
+// 只把 isDemoMode 换成可切换的 getter。
+const demoFlag = vi.hoisted(() => ({ demo: false }))
+vi.mock('../../demo', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../demo')>()
+  return {
+    ...actual,
+    get isDemoMode() {
+      return demoFlag.demo
+    },
+  }
+})
 
 // mock ECharts（happy-dom 无 canvas）
 vi.mock('echarts/core', () => ({
@@ -36,7 +50,11 @@ vi.mock('echarts/renderers', () => ({ CanvasRenderer: {} }))
 const shallowStubs = {
   NCard: { template: '<div><slot /><slot name="header" /></div>' },
   NButton: { template: '<button @click="$emit(\'click\')"><slot /></button>' },
-  NEmpty: { template: '<div class="n-empty"><slot /><slot name="extra" /></div>' },
+  // description 是 prop，stub 里要显式声明并渲染出来，否则断言读不到
+  NEmpty: {
+    props: ['description'],
+    template: '<div class="n-empty">{{ description }}<slot name="extra" /></div>',
+  },
   NList: { template: '<ul><slot /></ul>' },
   NListItem: { template: '<li><slot /></li>' },
 }
@@ -59,9 +77,12 @@ function makeProject(over: Partial<ProjectSummary> = {}): ProjectSummary {
   }
 }
 
+const FAIL = new Error('Request failed with status code 404')
+
 describe('Dashboard', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    demoFlag.demo = false
   })
 
   it('渲染统计卡（项目数/平均健康分/总行数）', async () => {
@@ -105,5 +126,33 @@ describe('Dashboard', () => {
     await flushPromises()
     // 图表 ref 容器应存在（echarts.init 被 mock）
     expect(wrapper.findAll('.dash__chart').length).toBeGreaterThan(0)
+  })
+
+  it('接口失败时不再静默渲染全 0：给出失败说明并保留技术细节', async () => {
+    vi.mocked(projectApi.listProjects).mockRejectedValue(FAIL)
+    const wrapper = mount(Dashboard, { global: { stubs: shallowStubs } })
+    await flushPromises()
+    const notice = wrapper.find('.dash__notice')
+    expect(notice.exists()).toBe(true)
+    expect(notice.text()).toContain('数据加载失败')
+    expect(notice.text()).toContain('status code 404')
+    // 空态不再谎报「暂无项目」
+    expect(wrapper.find('.n-empty').text()).toContain('未能加载项目列表')
+    expect(wrapper.find('.n-empty').text()).not.toContain('暂无项目')
+  })
+
+  it('演示构建（VITE_DEMO=1）把「本页没有后端」讲清楚', async () => {
+    demoFlag.demo = true
+    vi.mocked(projectApi.listProjects).mockRejectedValue(FAIL)
+    const wrapper = mount(Dashboard, { global: { stubs: shallowStubs } })
+    await flushPromises()
+    const notice = wrapper.find('.dash__notice')
+    expect(notice.exists()).toBe(true)
+    expect(notice.text()).toContain('未连接后端')
+    expect(notice.text()).toContain('docker compose up') // 如何拿到完整版
+    // 演示模式下仍保留技术细节行
+    expect(notice.find('.dash__notice-detail').exists()).toBe(true)
+    // 不再是「数据加载失败」这种会被误读为产品故障的措辞
+    expect(notice.text()).not.toContain('数据加载失败')
   })
 })
