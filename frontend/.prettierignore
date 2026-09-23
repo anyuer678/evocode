@@ -2,3 +2,7 @@
 dist/
 node_modules/
 .vite/
+coverage/
+
+# 生成物：不应参与格式化检查（格式化会制造无意义的巨型 diff）
+package-lock.json
