@@ -10,6 +10,7 @@ import type { ProjectSummary } from '../../types/api'
  * - 摘要统计条（项目数/平均健康分/就绪/失败/总代码行）
  * - 表格渲染项目行
  * - 无数据时显示引导空态
+ * - 接口失败时不得谎报「还没有项目」
  */
 
 vi.mock('../../api/project', () => ({
@@ -21,6 +22,18 @@ vi.mock('../../api/project', () => ({
 vi.mock('vue-router', () => ({
   useRouter: () => ({ push: vi.fn() }),
 }))
+
+// 演示模式开关：文案仍取真实模块，只把 isDemoMode 换成可切换的 getter。
+const demoFlag = vi.hoisted(() => ({ demo: false }))
+vi.mock('../../demo', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../demo')>()
+  return {
+    ...actual,
+    get isDemoMode() {
+      return demoFlag.demo
+    },
+  }
+})
 
 // Naive UI 组件用浅渲染 stub，避免依赖完整 provider
 const shallowStubs = {
@@ -63,9 +76,12 @@ function makeProject(over: Partial<ProjectSummary> = {}): ProjectSummary {
   }
 }
 
+const FAIL = new Error('Request failed with status code 404')
+
 describe('ProjectList', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    demoFlag.demo = false
   })
 
   it('渲染项目行与健康分', async () => {
@@ -124,5 +140,29 @@ describe('ProjectList', () => {
     expect(wrapper.text()).toContain('65')
     // 失败计数 1
     expect(wrapper.text()).toContain('1')
+  })
+
+  it('接口失败时不谎报「还没有项目」，而是给出失败说明', async () => {
+    vi.mocked(projectApi.listProjects).mockRejectedValue(FAIL)
+    const wrapper = mountWithProviders(ProjectList)
+    await flushPromises()
+    const card = wrapper.find('.empty-state')
+    expect(card.exists()).toBe(true)
+    expect(card.text()).toContain('项目列表加载失败')
+    expect(card.text()).toContain('status code 404')
+    // 关键：失败 ≠ 没有项目，不能把用户往「去建一个项目」的错误结论上引
+    expect(wrapper.text()).not.toContain('还没有项目')
+  })
+
+  it('演示构建（VITE_DEMO=1）失败时说明「本页没有后端」', async () => {
+    demoFlag.demo = true
+    vi.mocked(projectApi.listProjects).mockRejectedValue(FAIL)
+    const wrapper = mountWithProviders(ProjectList)
+    await flushPromises()
+    const card = wrapper.find('.empty-state')
+    expect(card.exists()).toBe(true)
+    expect(card.text()).toContain('未连接后端')
+    expect(card.text()).toContain('docker compose up')
+    expect(wrapper.text()).not.toContain('还没有项目')
   })
 })

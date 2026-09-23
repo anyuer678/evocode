@@ -15,6 +15,7 @@ import {
   useDialog,
 } from 'naive-ui'
 import { listProjects, deleteProject, exportReport } from '../../api/project'
+import { DEMO_DESC, DEMO_TITLE, describeLoadFailure, isDemoMode } from '../../demo'
 import type { ProjectStatus, ProjectSummary } from '../../types/api'
 
 const router = useRouter()
@@ -24,6 +25,8 @@ const dialog = useDialog()
 const loading = ref(false)
 const items = ref<ProjectSummary[]>([])
 const total = ref(0)
+/** 加载失败原因；演示环境没有后端时也走这里，避免误显示成「还没有项目」 */
+const loadError = ref<string | null>(null)
 
 // 数据密集风：列表摘要统计（当前页 items 聚合）
 const summary = computed(() => {
@@ -121,8 +124,13 @@ async function load() {
     if (seq !== loadSeq) return
     items.value = data.items
     total.value = data.total
+    loadError.value = null
   } catch (e) {
-    if (seq === loadSeq) message.error(e instanceof Error ? e.message : String(e))
+    if (seq === loadSeq) {
+      const reason = describeLoadFailure(e)
+      loadError.value = reason
+      message.error(reason)
+    }
   } finally {
     if (seq === loadSeq) loading.value = false
   }
@@ -435,7 +443,14 @@ onMounted(load)
       @update:sorter="onSortChange"
     />
 
-    <NCard v-if="!loading && total === 0" size="small" class="empty-state">
+    <NCard v-if="loadError" size="small" class="empty-state">
+      <div class="list-onboarding">
+        <div class="list-onboard-title">{{ isDemoMode ? DEMO_TITLE : '项目列表加载失败' }}</div>
+        <p class="list-onboard-desc">{{ isDemoMode ? DEMO_DESC : loadError }}</p>
+      </div>
+    </NCard>
+
+    <NCard v-else-if="!loading && total === 0" size="small" class="empty-state">
       <div class="list-onboarding">
         <div class="list-onboard-title">还没有项目</div>
         <p class="list-onboard-desc">

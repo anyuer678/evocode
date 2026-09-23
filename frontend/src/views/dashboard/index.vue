@@ -13,6 +13,7 @@ import { CanvasRenderer } from 'echarts/renderers'
 import type { ECharts } from 'echarts/core'
 import { NButton, NCard, NEmpty, NList, NListItem, NProgress } from 'naive-ui'
 import { listProjects } from '../../api/project'
+import { DEMO_DESC, DEMO_TITLE, describeLoadFailure, isDemoMode } from '../../demo'
 import type { ProjectSummary } from '../../types/api'
 
 echarts.use([
@@ -27,6 +28,8 @@ echarts.use([
 
 const router = useRouter()
 const projects = ref<ProjectSummary[]>([])
+/** 加载失败原因；演示环境没有后端时也走这里，不再把失败静默渲染成一片 0 */
+const loadError = ref<string | null>(null)
 const healthEl = ref<HTMLElement | null>(null)
 const langEl = ref<HTMLElement | null>(null)
 const statusEl = ref<HTMLElement | null>(null)
@@ -242,6 +245,7 @@ onMounted(async () => {
     projects.value = page.items
   } catch (err) {
     console.error('加载项目列表失败', err)
+    loadError.value = describeLoadFailure(err)
   }
   await Promise.resolve()
   renderCharts()
@@ -266,6 +270,12 @@ onBeforeUnmount(() => {
       <NButton size="small" type="primary" @click="router.push('/projects/create')"
         >＋ 新建项目</NButton
       >
+    </div>
+
+    <div v-if="loadError" class="dash__notice">
+      <div class="dash__notice-title">{{ isDemoMode ? DEMO_TITLE : '数据加载失败' }}</div>
+      <p class="dash__notice-desc">{{ isDemoMode ? DEMO_DESC : loadError }}</p>
+      <p v-if="isDemoMode" class="dash__notice-detail">{{ loadError }}</p>
     </div>
 
     <div class="dash__stats">
@@ -375,7 +385,7 @@ onBeforeUnmount(() => {
       </NList>
     </NCard>
     <NCard v-else size="small" :bordered="false">
-      <NEmpty description="暂无项目" />
+      <NEmpty :description="loadError ? '未能加载项目列表（原因见上方说明）' : '暂无项目'" />
     </NCard>
   </div>
 </template>
@@ -401,6 +411,29 @@ onBeforeUnmount(() => {
   margin: 4px 0 0;
   font-size: 13px;
   color: #8798ab;
+}
+.dash__notice {
+  border: 1px solid #f0d9a8;
+  background: #fdf6e7;
+  border-radius: 10px;
+  padding: 12px 14px;
+}
+.dash__notice-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #7a5a12;
+}
+.dash__notice-desc {
+  margin: 6px 0 0;
+  font-size: 13px;
+  line-height: 1.7;
+  color: #6b5a33;
+}
+.dash__notice-detail {
+  margin: 6px 0 0;
+  font-size: 12px;
+  color: #9a8763;
+  word-break: break-all;
 }
 .dash__stats {
   display: grid;

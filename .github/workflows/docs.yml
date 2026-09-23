@@ -38,6 +38,10 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
       - name: Build frontend
         working-directory: frontend
+        # Pages 上只有前端、没有后端：产物需明确标注为「静态演示」，
+        # 而不是把注定 404 的 /api/v1 请求静默渲染成一片 0
+        env:
+          VITE_DEMO: '1'
         run: |
           npm install --no-audit --no-fund
           npm run build
