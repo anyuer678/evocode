@@ -32,7 +32,33 @@ jobs:
         working-directory: analyzer
         run: |
           pip install -r requirements.txt 2>/dev/null || pip install fastapi uvicorn
-          pip install pytest
+          # requirements-dev.txt 固定了 pytest 版本（含安全修复），优先使用；
+          # 单个 pin 不可用时退回 unpinned 安装，避免 CI 整体挂掉
+          pip install -r requirements-dev.txt 2>/dev/null || pip install pytest
       - name: Test
         working-directory: analyzer
         run: python -m pytest tests/ -q --tb=short
+
+  frontend:
+    name: Frontend (Vue/TS)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install (npm ci — lockfile must stay in sync)
+        run: npm ci
+      - name: Lint
+        run: npm run lint
+      - name: Test
+        run: npm run test
+      - name: Build
+        run: npm run build
+      - name: Dependency audit (fail on high/critical)
+        run: npm audit --audit-level=high
