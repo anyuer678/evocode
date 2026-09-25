@@ -1,4 +1,5 @@
 # EvoCode
+[English](README.en.md) | 简体中文
 
 [![Version](https://img.shields.io/badge/版本-v1.4-blue)](https://github.com/anyuer678/evocode)
 [![License](https://img.shields.io/badge/License-GPL--3.0-orange)](LICENSE)
