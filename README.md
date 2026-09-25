@@ -1,7 +1,7 @@
 # EvoCode
 [English](README.en.md) | 简体中文
 
-[![Version](https://img.shields.io/badge/版本-v1.4-blue)](https://github.com/anyuer678/evocode)
+[![Version](https://img.shields.io/badge/版本-v3.22-blue)](https://github.com/anyuer678/evocode)
 [![License](https://img.shields.io/badge/License-GPL--3.0-orange)](LICENSE)
 [![Frontend](https://img.shields.io/badge/前端-Vue3%20%2B%20Naive%20UI-42b883)](https://anyuer678.github.io/evocode/frontend/)
 [![Backend](https://img.shields.io/badge/后端-Spring%20Boot%203-6db33f)](https://github.com/anyuer678/evocode)

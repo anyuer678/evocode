@@ -2,7 +2,7 @@
 
 [简体中文](README.md) | English
 
-[![Version](https://img.shields.io/badge/Version-v1.4-blue)](https://github.com/anyuer678/evocode)
+[![Version](https://img.shields.io/badge/Version-v3.22-blue)](https://github.com/anyuer678/evocode)
 [![License](https://img.shields.io/badge/License-GPL--3.0-orange)](LICENSE)
 [![Frontend](https://img.shields.io/badge/Frontend-Vue3%20%2B%20Naive%20UI-42b883)](https://anyuer678.github.io/evocode/frontend/)
 [![Backend](https://img.shields.io/badge/Backend-Spring%20Boot%203-6db33f)](https://github.com/anyuer678/evocode)
