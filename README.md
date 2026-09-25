@@ -13,6 +13,9 @@
 
 **不做** AI 写代码工具（区别于 Cursor / Copilot），**不做**普通 Code Review，而是**软件健康管理平台**：
 
+<p align="center"><img src="preview.png" alt="EvoCode 文档站首页预览" width="800"></p>
+
+
 ```
 人：  体检  →  诊断  →  治疗建议  →  健康档案
       ↓        ↓          ↓          ↓
