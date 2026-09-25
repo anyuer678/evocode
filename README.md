@@ -6,6 +6,7 @@
 [![Backend](https://img.shields.io/badge/后端-Spring%20Boot%203-6db33f)](https://github.com/anyuer678/evocode)
 [![Analyzer](https://img.shields.io/badge/分析器-FastAPI%20%2B%20tree--sitter-009688)](https://github.com/anyuer678/evocode)
 [![Docs](https://img.shields.io/badge/文档站-online-2563eb)](https://anyuer678.github.io/evocode/)
+[![CI](https://github.com/anyuer678/evocode/actions/workflows/ci.yml/badge.svg)](https://github.com/anyuer678/evocode/actions/workflows/ci.yml)
 
 > **状态**：`local-tool` / `portfolio` · **本机软件体检工具**（无多用户认证，勿公网暴露）  
 > **AI 软件体检与演化** —— 规则引擎为主的静态诊断 + 可选 LLM 增强，做软件的「体检 + 建议 + 健康档案」。  
