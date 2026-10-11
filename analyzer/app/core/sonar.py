@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 import shutil
 import subprocess
 import time
@@ -102,6 +103,9 @@ class SonarClient:
         return {"Authorization": f"Bearer {self._token}"}
 
     def _run_scanner(self, project_key: str, code_dir: str) -> None:
+        # 纵深防御：key 只允许安全字符，防以 -D 前缀伪造 sonar 属性（上层 projectId 已是 int）
+        if not re.fullmatch(r"[A-Za-z0-9._-]+", project_key):
+            raise ValueError(f"非法 project_key: {project_key!r}")
         args = [
             self._scanner,
             f"-Dsonar.host.url={self._host}",

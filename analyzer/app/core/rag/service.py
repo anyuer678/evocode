@@ -195,7 +195,7 @@ class RagService:
             logger.warning("chat 流式失败 %s：%s", code, exc)
             yield {
                 "event": "error",
-                "data": {"code": code, "message": f"回答生成失败：{exc}"},
+                "data": {"code": code, "message": "回答生成失败，请稍后重试（详情见服务端日志）"},
             }
             return
 
