@@ -4,6 +4,16 @@ updates:
     directory: "/frontend/"
     schedule:
       interval: "weekly"
+    ignore:
+      # vite 8 须 @vitejs/plugin-vue 6 lockstep（yuer.dev S86 先例）。
+      - dependency-name: "vite"
+        update-types:
+          - "version-update:semver-major"
+    ignore:
+      # TS7 与 typescript-eslint 8 peer 冲突（<6.1.0）。
+      - dependency-name: "typescript"
+        update-types:
+          - "version-update:semver-major"
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
