@@ -34,7 +34,7 @@
     "typescript-eslint": "^8.18.2",
     "vite": "^6.4.3",
     "vitest": "^4.1.11",
-    "vue-tsc": "^2.1.10",
+    "vue-tsc": "^3.3.12",
     "globals": "^16.4.0",
     "postcss-selector-parser": "^7.1.4"
   },
