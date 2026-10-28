@@ -74,7 +74,7 @@ cd frontend && npm install && npm run dev
 **配置（可选）**：复制 `.env.example` 为 `.env`，按需配置：
 
 ```env
-# AI 医生 / 文档生成（不配则降级：报告走规则版、AI 医生返回 LLM_NO_KEY、文档无法生成）
+# AI 医生 / 文档生成（不配则降级：报告与文档均走规则版 source=RULES，AI 医生返回 LLM_NO_KEY）
 LLM_API_KEY=sk-xxx
 LLM_BASE_URL=http://127.0.0.1:11434/v1   # Ollama / DeepSeek 等 OpenAI 兼容端点
 ```
