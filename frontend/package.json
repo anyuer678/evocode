@@ -36,7 +36,7 @@
     "vitest": "^5.0.5",
     "vue-tsc": "^3.3.13",
     "globals": "^17.13.0",
-    "postcss-selector-parser": "^7.1.4"
+    "postcss-selector-parser": "^7.1.7"
   },
   "overrides": {
     "glob": "^10.5.0",
